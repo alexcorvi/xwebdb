@@ -3,12 +3,10 @@ import { Datastore, EnsureIndexOptions } from "./datastore";
 import { Index } from "./indexes";
 import * as model from "./model";
 import { BaseModel } from "../types";
-import diffingLib from "diff-sorted-array";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
+import { Sync } from "./sync";
 
-type logType = "w" | "d";
-type log = { d: string; t: logType };
 type persistenceLine = {
 	type: "index" | "doc" | "corrupt";
 	status: "add" | "remove";
@@ -66,13 +64,11 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 	ref: string = "";
 
 	data: IDB;
-	logs: IDB;
 
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
 	syncInProgress = false;
-	rdata?: remoteStore;
-	rlogs?: remoteStore;
+	sync?: Sync;
 
 	corruptAlertThreshold: number = 0.1;
 	afterSerialization = (s: string) => s;
@@ -90,27 +86,34 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 		this.ref = this.db.ref;
 
 		this.data = new IDB(this.ref + "_" + "d");
-		this.logs = new IDB(this.ref + "_" + "l");
 
 		this.RSA = options.syncToRemote;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
-			this.rdata = this.RSA(this.ref + "_" + "d");
-			this.rlogs = this.RSA(this.ref + "_" + "l");
-			if (this.syncInterval) {
-				setInterval(async () => {
-					if (!this.syncInProgress) {
-						this.syncInProgress = true;
-						try {
-							await this._sync();
-						} catch (e) {
-							console.log(new Error(e as any));
-						}
-						this.syncInProgress = false;
-					}
-				}, this.syncInterval);
-			}
+			const rdata = this.RSA(this.ref + "_" + "d");
+			const rlogs = this.RSA(this.ref + "_" + "l");
+			this.sync = new Sync(
+				this,
+				new IDB(this.ref + "_" + "l"),
+				rdata,
+				rlogs
+			);
 		}
+
+		if (this.RSA && this.syncInterval) {
+			setInterval(async () => {
+				if (!this.syncInProgress) {
+					this.syncInProgress = true;
+					try {
+						await this.sync!._sync();
+					} catch (e) {
+						console.log(new Error(e as any));
+					}
+					this.syncInProgress = false;
+				}
+			}, this.syncInterval);
+		}
+
 		this.corruptAlertThreshold =
 			options.corruptAlertThreshold !== undefined
 				? options.corruptAlertThreshold
@@ -178,7 +181,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 				data: false,
 			};
 		}
-		if (treatedLine._id) {
+		if (treatedLine._id && !(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)) {
 			if (treatedLine.$$deleted === true) {
 				return {
 					type: "doc",
@@ -286,167 +289,6 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 		return true;
 	}
 
-	// ========== TODO: test the functions below
-	async addToLog(d: string, t: logType, timestamp?: string) {
-		timestamp = timestamp || Date.now().toString(36); // create a timestamp if not provided by a remote change
-
-		await this.logs.set(timestamp, JSON.stringify({ d, t }));
-		await this.logs.set(
-			"$H",
-			u.xxh(JSON.stringify((await this.logs.keys()).sort())).toString()
-		);
-	}
-
-	compareLog(
-		localKeys: string[],
-		remoteKeys: string[]
-	): { shouldSend: string[]; shouldHave: string[] } {
-		let shouldHave: string[] = [];
-		let shouldSend: string[] = [];
-
-		const diff = diffingLib.justDiff(
-			localKeys.sort(),
-			remoteKeys.sort(),
-			diffingLib.asc
-		);
-		shouldHave = diff.added;
-		shouldSend = diff.deleted;
-
-		return {
-			shouldHave,
-			shouldSend,
-		};
-	}
-
-	sync() {
-		return new Promise<{ sent: number; received: number }>((resolve) => {
-			let interval = setInterval(async () => {
-				if (!this.syncInProgress) {
-					clearInterval(interval);
-					this.syncInProgress = true;
-					let syncResult = { sent: 0, received: 0 };
-					try {
-						syncResult = await this._sync();
-					} catch (e) {
-						console.log(Error(e as any));
-					}
-					this.syncInProgress = false;
-					resolve(syncResult);
-				}
-			}, 1);
-		});
-	}
-
-	private async _sync() {
-		const rHash = await this.rlogs!.getItem("$H");
-		const lHash = (await this.logs.get("$H")) || "0";
-		if (lHash === rHash || (lHash === "0" && rHash.indexOf("10009") > -1)) {
-			return { sent: 0, received: 0 };
-		}
-		const remoteKeys = (await this.rlogs!.keys()).filter((x) => x !== "$H");
-		const localKeys = (await this.logs.keys()).filter((x) => x !== "$H");
-		const diff = this.compareLog(localKeys as string[], remoteKeys);
-		if (diff.shouldHave.length === 0 && diff.shouldSend.length === 0) {
-			// no diff, just not the same hash
-			await this.rlogs!.setItem(
-				"$H",
-				u.xxh(JSON.stringify(remoteKeys.sort())).toString()
-			);
-
-			await this.logs.set(
-				"$H",
-				u.xxh(JSON.stringify(localKeys.sort())).toString()
-			);
-			return { sent: 0, received: 0 };
-		}
-
-		const shouldHaves: {
-			timestamp: string;
-			value: log;
-		}[] = (await this.rlogs!.getItems(diff.shouldHave)).map((x) => ({
-			timestamp: x.key,
-			value: JSON.parse(x.value),
-		}));
-		for (let index = 0; index < shouldHaves.length; index++) {
-			const e = shouldHaves[index];
-			if (e.value.t === "d") {
-				await this.deleteData(e.value.d, e.timestamp);
-			} else {
-				if (
-					shouldHaves.find(
-						(x) => x.value.t === "d" && x.value.d === e.value.d
-					)
-				) {
-					// if it has been deleted, add log only
-					// TODO: samething with indexes
-					await this.addToLog(e.value.d, "w", e.timestamp);
-				} else {
-					// otherwise write whole data (and log)
-					await this.writeData(
-						e.value.d,
-						await this.rdata!.getItem(e.value.d),
-						e.timestamp
-					);
-				}
-			}
-		}
-
-		const shouldSend: {
-			timestamp: string;
-			value: log;
-		}[] = await Promise.all(
-			diff.shouldSend.map(async (x) => ({
-				timestamp: x,
-				value: JSON.parse((await this.logs.get(x)) || ""),
-			}))
-		);
-
-		const deletions = shouldSend.filter((x) => x.value.t === "d");
-		const writes = shouldSend.filter(
-			(x) =>
-				x.value.t === "w" &&
-				!deletions.find((y) => y.value.d === x.value.d)
-			// shouldn't be deleted on the shouldSend
-			// TODO: samething with indexes
-		);
-		// deletions
-		await this.rdata!.removeItems(deletions.map((x) => x.value.d));
-		// writes
-		await this.rdata!.setItems(
-			await Promise.all(
-				writes.map(async (x) => ({
-					key: x.value.d,
-					value: (await this.data.get(x.value.d)) || "",
-				}))
-			)
-		);
-		// write logs too
-		await this.rlogs!.setItems(
-			shouldSend.map((x) => ({
-				key: x.timestamp,
-				value: JSON.stringify(x.value),
-			}))
-		);
-
-		// and hash
-		if (shouldSend.length) {
-			let allRemoteKeys = remoteKeys.concat(
-				shouldSend.map((x) => x.timestamp)
-			);
-			await this.rlogs!.setItem(
-				"$H",
-				u.xxh(JSON.stringify(allRemoteKeys.sort())).toString()
-			);
-		}
-		return {
-			sent: diff.shouldSend.length,
-			received: diff.shouldHave.length,
-		};
-	}
-
-	// create a new file for remote API?
-	// ========== TODO: test the functions above
-
 	async readData(event: PersistenceEvent) {
 		const all = await this.data.values();
 		for (let i = 0; i < all.length; i++) {
@@ -458,11 +300,15 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 
 	async deleteData(_id: string, timestamp?: string) {
 		await this.data.del(_id);
-		await this.addToLog(_id, "d", timestamp);
+		if (this.sync) {
+			await this.sync.addToLog(_id, "d", timestamp);
+		}
 	}
 	async writeData(_id: string, data: string, timestamp?: string) {
 		await this.data.set(_id, data);
-		await this.addToLog(_id, "w", timestamp);
+		if (this.sync) {
+			await this.sync.addToLog(_id, "w", timestamp);
+		}
 	}
 	async clearData() {
 		// must go through the above functions so it can get logged
