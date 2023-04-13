@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Synchornization Demo</title>
+		<style>
+			table {
+				border-collapse: collapse;
+				width: 100%;
+				margin: 0 auto;
+				font-family: Arial, sans-serif;
+				text-align: center;
+			}
+
+			/* table header style */
+			thead {
+				background-color: #f2f2f2;
+				text-transform: uppercase;
+			}
+
+			/* table header cells style */
+			th {
+				padding: 12px;
+				font-weight: bold;
+				color: #333333;
+				border: 1px solid #cccccc;
+			}
+
+			/* table rows style */
+			tr:nth-child(even) {
+				background-color: #f9f9f9;
+			}
+
+			tr:hover {
+				background-color: #f5f5f5;
+			}
+
+			/* table cell style */
+			td {
+				padding: 12px;
+				border: 1px solid #cccccc;
+			}
+
+			.db {
+				width: 30%;
+				padding: 10px;
+				border-left: 3px solid #a1a1a1;
+				float: left;
+				margin-left: 0.2%;
+				height: 80vh;
+			}
+
+			td, p, button, h1,h2,h3 {
+				font-size: 11px;
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+			<div class="db">
+				<h3>Database 1</h3>
+				<hr />
+				<p>Can be considered as Browser A in machine A</p>
+				<table>
+					<thead>
+						<tr>
+							<td>ID</td>
+							<td>Name</td>
+							<td>Age</td>
+							<td>Actions</td>
+						</tr>
+					</thead>
+					<tbody id="data-a">
+					</tbody>
+					<tfoot>
+						<tr>
+							<th>
+								<button onclick="addDocA()">Add record</button>
+							</th>
+							<th>
+								<button onclick="databaseA.sync()">Sync</button>
+							</th>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+			<div class="db">
+				<h3>Synchornization Middleware</h3>
+				<hr />
+				<p>Such as Cloudflare KV</p>
+				<table>
+					<thead>
+						<tr>
+							<td>ID</td>
+							<td>Serialized</td>
+						</tr>
+					</thead>
+					<tbody id="data-m">
+					</tbody>
+				</table>
+			</div>
+			<div class="db">
+				<h3>Database 3</h3>
+				<hr />
+				<p>Can be considered as Browser B in machine B</p>
+				<table>
+					<thead>
+						<tr>
+							<td>ID</td>
+							<td>Name</td>
+							<td>Age</td>
+							<td>Actions</td>
+						</tr>
+					</thead>
+					<tbody id="data-b">
+					</tbody>
+					<tfoot>
+						<tr>
+							<th>
+								<button onclick="addDocB()">Add record</button>
+							</th>
+							<th>
+								<button onclick="databaseB.sync()">Sync</button>
+							</th>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+		</div>
+		<script src="../dist/unify.js"></script>
+		<script>
+			const names = [
+				"Alex",
+				"David",
+				"Bill",
+				"William",
+				"Ron",
+				"Sam",
+				"Jim",
+				"Tim",
+				"Charles",
+				"Will",
+				"Bob",
+			];
+			const ages = [32, 43, 12, 41, 23, 12, 41, 49, 18, 17, 15];
+
+			// create database A
+			const databaseA = new unify.Database({
+				ref: "db_1",
+				syncToRemote: unify.adapters.memoryAdapter(),
+				syncInterval: 9999999999999,
+			});
+			// create database B
+			const databaseB = new unify.Database({
+				ref: "db_2",
+				syncToRemote: unify.adapters.memoryAdapter(),
+				syncInterval: 9999999999999,
+			});
+
+			function addDocA() {
+				databaseA.create({
+					_id: Math.random().toString(36).substring(2,7),
+					name: names[Math.floor(Math.random() * names.length)],
+					age: ages[Math.floor(Math.random() * ages.length)],
+				});
+				console.log("Added document to A");
+			}
+			function addDocB() {
+			 	databaseB.create({
+					_id: Math.random().toString(36).substring(2,7),
+			 		name: names[Math.floor(Math.random() * names.length)],
+			 		age: ages[Math.floor(Math.random() * ages.length)],
+			 	});
+			 	console.log("Added document to B");
+			}
+			function RemoveDocA(_id) {
+				databaseA.remove({ filter: { _id: _id } });
+			}
+			function RemoveDocB(_id) {
+				databaseB.remove({ filter: { _id: _id } });
+			}
+
+			// fetch data
+			async function fetchDB(database, htmlelementID, removeFnName) {
+				await database.reload();
+				const data = await database.find({});
+				let html = ``;
+				for (let index = 0; index < data.length; index++) {
+					const e = data[index];
+					html = html + `<tr><td>${e._id}</td><td>${e.name}</td><td>${e.age}</td><td><button onclick="${removeFnName}('${e._id}')">Delete</button></td></tr>`;
+				}
+                document.getElementById(htmlelementID).innerHTML = html;
+			}
+            
+            setInterval(()=>{
+                fetchDB(databaseA, "data-a", "RemoveDocA");
+                fetchDB(databaseB, "data-b", "RemoveDocB");
+				const rData = unify.adapters.memoryStores.db_d;
+				
+				const rDataIDs = Object.keys(rData);
+
+				let html = ``;
+				for (let index = 0; index < rDataIDs.length; index++) {
+					const id = rDataIDs[index];
+					html = html + `<tr><td>${id}</td><td>${rData[id]}</td></tr>`;
+				}
+				document.getElementById('data-m').innerHTML = html;
+				
+            }, 100)
+
+		</script>
+	</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Test Suite</title>
+<link rel="stylesheet" href="../node_modules/mocha/mocha.css">
+<body>
+  <div id="mocha"></div>
+  <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+  
+  <script src="../node_modules/mocha/mocha.js"></script>
+  <script src="../node_modules/chai/chai.js"></script>
+  
+  <script>mocha.setup('bdd')</script>
+
+
+  <script type="module">
+    chai.should();
+    import {loadModule} from 'https://klesun.github.io/ts-browser/src/ts-browser.js';
+    // loading tests
+    await loadModule("./core/customutils.test.ts");
+    await loadModule("./core/avl.test.ts");
+    await loadModule("./core/bst.test.ts");
+    await loadModule("./core/cursor.test.ts");
+    await loadModule("./core/indexes.test.ts");
+    await loadModule("./core/model.test.ts");
+    await loadModule("./core/persistence.test.ts");
+    await loadModule("./core/db.test.ts");
+    await loadModule("./integration/actions.test.ts");
+    await loadModule("./integration/operators.test.ts");
+    mocha.run();
+  </script>
+</body>
