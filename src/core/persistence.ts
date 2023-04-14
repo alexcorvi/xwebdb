@@ -321,7 +321,8 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 }
 
 /**
- * Smaller logs:
+ * TODO: write tests for new functions
+ * TODO: truncation for Smaller logs:
  * #. if a document has been deleted, remove the creation log
  * #. if a document has been updated multiple times, keep the last update only
  */
