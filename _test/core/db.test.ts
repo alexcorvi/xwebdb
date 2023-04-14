@@ -6,9 +6,7 @@
 import unify from "../../dist/unify.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 
-const customUtils = unify._internal.customUtils;
 const _: any = underscore;
-const idb: any = (window as any).localforage;
 const { Datastore, modelling: model } = unify._internal;
 
 const assert = chai.assert;
