@@ -1,5 +1,4 @@
 import { Datastore, EnsureIndexOptions, Persistence } from "./core";
-import { kvAdapter } from "./core/adapters";
 import { remoteStore } from "./core/adapters/type";
 import {
 	NFP,
