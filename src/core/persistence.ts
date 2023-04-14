@@ -327,16 +327,3 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		await this.sync?.log.clear();
 	}
 }
-
-/**
- * TODO: write tests for new functions
- * TODO: truncation for Smaller logs:
- * #. if a document has been deleted, remove the creation log
- * #. if a document has been updated multiple times, keep the last update only
- */
-
-// TODO: do idb operations in bulk for perf improvements
-// TODO: devalidate same key rule after 20 minutes ? Math.floor(new Date() / (1000 * 60 * 20))
-// TODO: Optional to encrypt data
-// TODO: test new functions
-// TODO: setup benchmark
