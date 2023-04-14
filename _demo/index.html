@@ -129,7 +129,7 @@
 				</table>
 			</div>
 		</div>
-		<script src="../dist/unify.js"></script>
+		<script src="../dist/unifydb.js"></script>
 		<script>
 			const names = [
 				"Alex",
@@ -147,15 +147,15 @@
 			const ages = [32, 43, 12, 41, 23, 12, 41, 49, 18, 17, 15];
 
 			// create database A
-			const databaseA = new unify.Database({
+			const databaseA = new unifydb.Database({
 				ref: "db_1",
-				syncToRemote: unify.adapters.memoryAdapter(),
+				syncToRemote: unifydb.adapters.memoryAdapter(),
 				syncInterval: 9999999999999,
 			});
 			// create database B
-			const databaseB = new unify.Database({
+			const databaseB = new unifydb.Database({
 				ref: "db_2",
-				syncToRemote: unify.adapters.memoryAdapter(),
+				syncToRemote: unifydb.adapters.memoryAdapter(),
 				syncInterval: 9999999999999,
 			});
 
@@ -197,7 +197,7 @@
             setInterval(()=>{
                 fetchDB(databaseA, "data-a", "RemoveDocA");
                 fetchDB(databaseB, "data-b", "RemoveDocB");
-				const rData = unify.adapters.memoryStores.db_d;
+				const rData = unifydb.adapters.memoryStores.db_d;
 				
 				const rDataIDs = Object.keys(rData);
 

@@ -1,8 +1,8 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
-import unify from "../../dist/unify.js";
+import unifydb from "../../dist/unifydb.js";
 
-const AvlTree = unify._internal.avl.AvlTree;
+const AvlTree = unifydb._internal.avl.AvlTree;
 const assert = chai.assert;
 
 export class TestAvlTree<K, V> extends AvlTree<K, V> {

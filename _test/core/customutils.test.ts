@@ -1,9 +1,9 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
-import unify from "../../dist/unify.js"
+import unifydb from "../../dist/unifydb.js"
 
 
-const customUtils = unify._internal.customUtils
+const customUtils = unifydb._internal.customUtils
 describe("customUtils", () => {
 	describe("uid", () => {
 		// Very small probability of conflict

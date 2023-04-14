@@ -2,11 +2,11 @@
 /// <reference path="../../dist/index.d.ts" />
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
-import unify from "../../dist/unify.js";
+import unifydb from "../../dist/unifydb.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 const _:any = underscore;
 
-const { Datastore, Cursor } = unify._internal;
+const { Datastore, Cursor } = unifydb._internal;
 
 const assert = chai.assert;
 

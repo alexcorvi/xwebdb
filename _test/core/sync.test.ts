@@ -1,8 +1,8 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
-import unify from "../../dist/unify.js";
+import unifydb from "../../dist/unifydb.js";
 
-const { Database, BaseModel } = unify;
+const { Database, BaseModel } = unifydb;
 const assert = chai.assert;
 const expect = chai.expect;
 
@@ -14,19 +14,19 @@ class Kid extends BaseModel<Kid> {
 describe("Database Syncing", () => {
 	let d1 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_1",
-		syncToRemote: unify.adapters.memoryAdapter("", ""),
+		syncToRemote: unifydb.adapters.memoryAdapter("", ""),
 		syncInterval: 9999999999999,
 		reloadBeforeOperations: true,
 	});
 	let d2 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_2",
-		syncToRemote: unify.adapters.memoryAdapter("", ""),
+		syncToRemote: unifydb.adapters.memoryAdapter("", ""),
 		syncInterval: 9999999999999,
 		reloadBeforeOperations: true,
 	});
 	beforeEach(async () => {
-		Object.keys(unify.adapters.memoryStores).forEach((dbName) => {
-			unify.adapters.memoryStores[dbName] = {};
+		Object.keys(unifydb.adapters.memoryStores).forEach((dbName) => {
+			unifydb.adapters.memoryStores[dbName] = {};
 		});
 		await d1._datastore.persistence.deleteEverything();
 		await d2._datastore.persistence.deleteEverything();
@@ -310,7 +310,7 @@ describe("Database Syncing", () => {
 
             let d3 = new Database<{ _id: string; name: string; age: number }>({
                 ref: "db_3",
-                syncToRemote: unify.adapters.memoryAdapter("", ""),
+                syncToRemote: unifydb.adapters.memoryAdapter("", ""),
                 syncInterval: 9999999999999,
                 reloadBeforeOperations: true,
             });

@@ -1,8 +1,8 @@
 {
-	"name": "unify",
-	"version": "0.1.5",
-	"description": "Strongly-typed, NoSQL, fast, light-weight, embedded, Mongo-like database with built-in ODM.",
-	"main": "./dist/unify.js",
+	"name": "unifydb",
+	"version": "0.0.0",
+	"description": "Strongly-typed, NoSQL, fast, light-weight, synching, Mongo-like database with built-in ODM.",
+	"main": "./dist/unifydb.js",
 	"types": "./dist/index.d.ts",
 	"directories": {
 		"test": "test"
@@ -20,10 +20,10 @@
 		"ts",
 		"database"
 	],
-	"homepage": "https://alex-corvi.gitbook.io/unify/",
+	"homepage": "https://alex-corvi.gitbook.io/unifydb/",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/alexcorvi/unify.git"
+		"url": "git+https://github.com/alexcorvi/unifydb.git"
 	},
 	"author": "Alex Corvi",
 	"license": "MIT",

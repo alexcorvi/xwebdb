@@ -3,15 +3,15 @@
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 /// <reference path="../../node_modules/localforage/typings/localforage.d.ts" />
 
-import unify from "../../dist/unify.js";
+import unifydb from "../../dist/unifydb.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 
-const customUtils = unify._internal.customUtils;
+const customUtils = unifydb._internal.customUtils;
 const _: any = underscore;
 const idb: any = (window as any).localforage;
-const { Datastore, modelling: model } = unify._internal;
-const BaseModel = unify.BaseModel;
-const Database = unify.Database;
+const { Datastore, modelling: model } = unifydb._internal;
+const BaseModel = unifydb.BaseModel;
+const Database = unifydb.Database;
 const assert = chai.assert;
 const expect = chai.expect;
 

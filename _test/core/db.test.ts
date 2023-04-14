@@ -3,11 +3,11 @@
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 /// <reference path="../../node_modules/localforage/typings/localforage.d.ts" />
 
-import unify from "../../dist/unify.js";
+import unifydb from "../../dist/unifydb.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 
 const _: any = underscore;
-const { Datastore, modelling: model } = unify._internal;
+const { Datastore, modelling: model } = unifydb._internal;
 
 const assert = chai.assert;
 const expect = chai.expect;

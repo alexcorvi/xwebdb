@@ -10,7 +10,7 @@ import {Index} from "./core"
 import * as modelling from "./core/model"
 import {kvAdapter, memoryAdapter} from "./core/adapters";
 
-const unify = {
+const unifydb = {
     Database,
     BaseModel,
     adapters: {
@@ -28,4 +28,4 @@ const unify = {
     }
 };
 
-export default unify;
+export default unifydb;
