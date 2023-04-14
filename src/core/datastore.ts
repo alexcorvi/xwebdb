@@ -34,7 +34,7 @@ interface UpdateOptions {
 }
 
 export class Datastore<
-	G extends Partial<types.BaseModel> & { [key: string]: any }
+	G extends Partial<types.BaseModel<G>> & { [key: string]: any }
 > {
 	ref: string = "db";
 	timestampData = false;
@@ -57,7 +57,7 @@ export class Datastore<
 	};
 
 	constructor(options: DataStoreOptions<G>) {
-		this.model = options.model || (BaseModel as any);
+		this.model = options.model || BaseModel as any;
 		if (options.ref) {
 			this.ref = options.ref;
 		}
