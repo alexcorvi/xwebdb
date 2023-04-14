@@ -1,8 +1,8 @@
+import { AvlTree, Node } from './core/avl2/avl2';
 import { memoryStores } from './core/adapters/memory';
 import { Database, DatabaseConfigurations } from "./database";
 import { BaseModel } from "./types/base-schema";
 import { Persistence, PersistenceEvent } from "./core";
-import {AVLTree, BST, Node, defaultCheckValueEquality, defaultCompareKeysFunction, isDef} from "./core/avl";
 import { Cursor } from "./core";
 import * as customUtils from "./core/customUtils";
 import { Datastore } from "./core";
@@ -19,14 +19,7 @@ const unify = {
     Persistence,
     PersistenceEvent,
     _internal: {
-        avl: {
-            AVLTree,
-            BST,
-            Node,
-            defaultCompareKeysFunction,
-            defaultCheckValueEquality,
-            isDef
-        },
+        avl: {AvlTree, Node},
         Cursor,
         customUtils,
         Datastore,

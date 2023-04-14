@@ -4,6 +4,6 @@ export { Datastore, DataStoreOptions, EnsureIndexOptions } from "./datastore";
 export { Cursor } from "./cursor";
 export { Index } from "./indexes";
 export { Persistence, PersistenceEvent } from "./persistence";
-export { AVLTree, Node, BST, defaultCheckValueEquality, defaultCompareKeysFunction, isDef} from "./avl";
+export { AvlTree } from "./avl2/avl2";
 export { customUtils };
 export { model };

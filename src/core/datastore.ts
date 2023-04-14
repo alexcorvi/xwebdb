@@ -326,14 +326,21 @@ export class Datastore<
 	 *
 	 * Returned candidates will be scanned to find and remove all expired documents
 	 */
-	async getCandidates(query: any, dontExpireStaleDocs?: boolean) {
-		const candidates = this._leastCandidates(query);
+	async getCandidates(
+		query: any,
+		dontExpireStaleDocs?: boolean
+	): Promise<G[]> {
+		let candidates = this._leastCandidates(query);
 		if (dontExpireStaleDocs) {
-			return candidates;
+			if (Array.isArray(candidates)) return candidates;
+			else if (candidates === null) return [];
+			else return [candidates];
 		}
 		const expiredDocsIds: string[] = [];
 		const validDocs: G[] = [];
 		const ttlIndexesFieldNames = Object.keys(this.ttlIndexes);
+		if (!candidates) return [];
+		if(!Array.isArray(candidates)) candidates = [candidates]; 
 		candidates.forEach((candidate) => {
 			let valid = true;
 			ttlIndexesFieldNames.forEach((field) => {

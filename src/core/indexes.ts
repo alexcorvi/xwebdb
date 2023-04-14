@@ -1,4 +1,4 @@
-import { AVLTree } from "./avl";
+import { AvlTree } from "./avl2/avl2";
 import * as model from "./model";
 import { BaseModel } from "../types";
 
@@ -58,7 +58,7 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 		checkValueEquality,
 	};
 
-	tree: AVLTree<Key, Doc>;
+	tree: AvlTree<Key, Doc>;
 
 	constructor({
 		fieldName,
@@ -74,17 +74,16 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 		}
 		if (unique) {
 			this.unique = unique;
-			this.treeOptions.unique = unique;
 		}
 		if (sparse) {
 			this.sparse = sparse;
 		}
 
-		this.tree = new AVLTree(this.treeOptions);
+		this.tree = new AvlTree(model.compareThings, this.unique);
 	}
 
 	reset() {
-		this.tree = new AVLTree(this.treeOptions);
+		this.tree = new AvlTree(model.compareThings, this.unique);
 	}
 
 	/**
@@ -98,7 +97,7 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 			return;
 		}
 
-		let key = (model.getDotValue(doc, this.fieldName) as unknown) as Key;
+		let key = model.getDotValue(doc, this.fieldName) as Key;
 
 		// We don't index documents that don't contain the field if the index is sparse
 		if (key === undefined && this.sparse) {
@@ -173,7 +172,7 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 			return;
 		}
 
-		let key = (model.getDotValue(doc, this.fieldName) as unknown) as Key;
+		let key = model.getDotValue(doc, this.fieldName) as Key;
 
 		if (key === undefined && this.sparse) {
 			return;
@@ -182,9 +181,7 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 		if (!Array.isArray(key)) {
 			this.tree.delete(key, doc);
 		} else {
-			uniqueProjectedKeys(key).forEach((_key) =>
-				this.tree.delete(_key, doc)
-			);
+			uniqueProjectedKeys(key).forEach((_key) => this.tree.delete(_key, doc));
 		}
 	}
 
@@ -264,32 +261,28 @@ export class Index<Key, Doc extends Partial<BaseModel>> {
 	/**
 	 * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
 	 */
-	getMatching(key: Key) {
-		if (!Array.isArray(key)) {
-			return this.tree.search(key);
+	getMatching(input: Key | Key[]): Doc[] {
+		if (!Array.isArray(input)) {
+			return this.tree.get(input);
 		} else {
 			let res: Doc[] = [];
-			let resHT: { [key: string]: Doc } = {};
-			key.forEach((v) => {
-				this.getMatching(v).forEach((doc: Doc) => {
-					if (doc._id) {
-						resHT[doc._id] = doc;
+			input.forEach((item) => {
+				this.tree.get(item).forEach(singleRes=>{
+					if (!singleRes || !singleRes._id) {
+						return;
 					}
+					res.push(singleRes);
 				});
+				
 			});
-			Object.keys(resHT).forEach(function (_id) {
-				res.push(resHT[_id]);
-			});
-			return res;
+			return res.filter((x, i) => res.indexOf(x) === i);
 		}
 	}
 
 	getAll() {
 		let data: Doc[] = [];
 		this.tree.executeOnEveryNode(function (node) {
-			for (let i = 0; i < node.data.length; i++) {
-				data.push(node.data[i]);
-			}
+			data = data.concat(node.value);
 		});
 		return data;
 	}
