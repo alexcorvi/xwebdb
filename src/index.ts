@@ -1,4 +1,4 @@
-import { AvlTree, Node } from './core/avl2/avl2';
+import { AvlTree, Node } from './core/avl';
 import { memoryStores } from './core/adapters/memory';
 import { Database, DatabaseConfigurations } from "./database";
 import { BaseModel } from "./types/base-schema";

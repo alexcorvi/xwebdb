@@ -1,4 +1,4 @@
-import { AvlTree } from "./avl2/avl2";
+import { AvlTree } from "./avl";
 import * as model from "./model";
 import { BaseModel } from "../types";
 
