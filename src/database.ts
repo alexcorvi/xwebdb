@@ -221,6 +221,7 @@ export class Database<S extends BaseModel<S>> {
 		if(!this._datastore.persistence.sync) {
 			throw new Error("Can not perform sync operation unless provided with remote DB adapter")
 		}
+		await this.reloadFirst();
 		return await this._datastore.persistence.sync.sync();
 	}
 
