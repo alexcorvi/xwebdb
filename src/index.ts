@@ -1,6 +1,6 @@
 import { AvlTree, Node } from './core/avl';
 import { memoryStores } from './core/adapters/memory';
-import { Database, DatabaseConfigurations } from "./database";
+import { Database } from "./database";
 import { BaseModel } from "./types/base-schema";
 import { Persistence, PersistenceEvent } from "./core";
 import { Cursor } from "./core";
