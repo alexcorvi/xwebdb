@@ -16,8 +16,8 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
 	model?: (new () => S) & {
 		new: (json: S) => S;
 	};
-	afterSerialization?(line: string): string;
-	beforeDeserialization?(line: string): string;
+	encode?(line: string): string;
+	decode?(line: string): string;
 	corruptAlertThreshold?: number;
 	timestampData?: boolean;
 	reloadBeforeOperations?: boolean;
@@ -46,8 +46,8 @@ export class Database<S extends BaseModel<S>> {
 		this._datastore = new Datastore({
 			ref: this.ref,
 			model: this.model,
-			afterSerialization: options.afterSerialization,
-			beforeDeserialization: options.beforeDeserialization,
+			encode: options.encode,
+			decode: options.decode,
 			corruptAlertThreshold: options.corruptAlertThreshold,
 			timestampData: options.timestampData,
 			syncToRemote: options.syncToRemote,

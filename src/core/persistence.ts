@@ -46,8 +46,8 @@ export class PersistenceEvent {
 
 interface PersistenceOptions<G extends Partial<BaseModel>> {
 	db: Datastore<G>;
-	afterSerialization?: (raw: string) => string;
-	beforeDeserialization?: (encrypted: string) => string;
+	encode?: (raw: string) => string;
+	decode?: (encrypted: string) => string;
 	corruptAlertThreshold?: number;
 	model?: (new () => G) & {
 		new: (json: G) => G;
@@ -71,8 +71,8 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 	sync?: Sync;
 
 	corruptAlertThreshold: number = 0.1;
-	afterSerialization = (s: string) => s;
-	beforeDeserialization = (s: string) => s;
+	encode = (s: string) => s;
+	decode = (s: string) => s;
 	private _model:
 		| ((new () => G) & {
 				new: (json: G) => G;
@@ -119,30 +119,30 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 				? options.corruptAlertThreshold
 				: 0.1;
 
-		// After serialization and before deserialization hooks with some basic sanity checks
-		if (options.afterSerialization && !options.beforeDeserialization) {
+		// encode and decode hooks with some basic sanity checks
+		if (options.encode && !options.decode) {
 			throw new Error(
-				"Serialization hook defined but deserialization hook undefined, cautiously refusing to start Datastore to prevent dataloss"
+				"encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
 			);
 		}
-		if (!options.afterSerialization && options.beforeDeserialization) {
+		if (!options.encode && options.decode) {
 			throw new Error(
-				"Serialization hook undefined but deserialization hook defined, cautiously refusing to start Datastore to prevent dataloss"
+				"decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
 			);
 		}
-		this.afterSerialization =
-			options.afterSerialization || this.afterSerialization;
-		this.beforeDeserialization =
-			options.beforeDeserialization || this.beforeDeserialization;
+		this.encode =
+			options.encode || this.encode;
+		this.decode =
+			options.decode || this.decode;
 
 		let randomString = u.randomString(113);
 		if (
-			this.beforeDeserialization(
-				this.afterSerialization(randomString)
+			this.decode(
+				this.encode(randomString)
 			) !== randomString
 		) {
 			throw new Error(
-				"beforeDeserialization is not the reverse of afterSerialization, cautiously refusing to start data store to prevent dataloss"
+				"encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
 			);
 		}
 	}
@@ -152,7 +152,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 			const doc = newIndexes[i];
 			await this.writeData(
 				doc.$$indexCreated.fieldName,
-				this.afterSerialization(model.serialize(doc))
+				this.encode(model.serialize(doc))
 			);
 		}
 	}
@@ -162,7 +162,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 			const doc = newDocs[i];
 			await this.writeData(
 				doc._id || "",
-				this.afterSerialization(model.serialize(doc))
+				this.encode(model.serialize(doc))
 			);
 		}
 	}
@@ -170,7 +170,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 	treatSingleLine(line: string): persistenceLine {
 		let treatedLine: any;
 		try {
-			treatedLine = model.deserialize(this.beforeDeserialization(line));
+			treatedLine = model.deserialize(this.decode(line));
 			if (this._model) {
 				treatedLine = this._model.new(treatedLine);
 			}
@@ -279,7 +279,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 			throw new Error(
 				`More than ${Math.floor(
 					100 * this.corruptAlertThreshold
-				)}% of the data file is corrupt, the wrong beforeDeserialization hook may be used. Cautiously refusing to start Datastore to prevent dataloss`
+				)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`
 			);
 		} else if (err) {
 			throw err;

@@ -362,7 +362,7 @@ describe("Persistence", () => {
 			(() => {
 				new Datastore({
 					ref: testDb,
-					afterSerialization: as,
+					encode: as,
 				});
 			}).should.throw();
 
@@ -372,7 +372,7 @@ describe("Persistence", () => {
 			(() => {
 				new Datastore({
 					ref: testDb,
-					beforeDeserialization: bd,
+					decode: bd,
 				});
 			}).should.throw();
 
@@ -386,8 +386,8 @@ describe("Persistence", () => {
 			(() => {
 				new Datastore({
 					ref: testDb,
-					afterSerialization: as,
-					beforeDeserialization(s) {
+					encode: as,
+					decode(s) {
 						return s;
 					},
 				});
@@ -402,8 +402,8 @@ describe("Persistence", () => {
         it("A serialization hook can be used to transform data before writing new state to disk: test subject A", async ()=>{
             const d = new Datastore({
                 ref: testDb,
-                afterSerialization: as,
-                beforeDeserialization: bd,
+                encode: as,
+                decode: bd,
             });
             await d.loadDatabase();
             await d.insert({ _id:"id1", hello: "world" });
@@ -422,8 +422,8 @@ describe("Persistence", () => {
         it("A serialization hook can be used to transform data before writing new state to disk: test subject B", async ()=>{
             const d = new Datastore({
                 ref: testDb,
-                afterSerialization: as,
-                beforeDeserialization: bd,
+                encode: as,
+                decode: bd,
             });
             await d.loadDatabase();
             await d.insert({ _id:"id1", p: "Mars" });
@@ -453,8 +453,8 @@ describe("Persistence", () => {
         it("A serialization hook can be used to transform data before writing new state to disk: testing indexes", async ()=>{
             const d = new Datastore({
                 ref: testDb,
-                afterSerialization: as,
-                beforeDeserialization: bd,
+                encode: as,
+                decode: bd,
             });
             await d.loadDatabase();
             await d.ensureIndex({ fieldName: "idefix" });
@@ -485,8 +485,8 @@ describe("Persistence", () => {
 		it("Deserialization hook is correctly used when loading data", async () => {
 			const d = new Datastore({
 				ref: testDb,
-				afterSerialization: as,
-				beforeDeserialization: bd,
+				encode: as,
+				decode: bd,
 			});
 			await d.loadDatabase();
 
@@ -507,8 +507,8 @@ describe("Persistence", () => {
 				// Everything is deserialized correctly, including deletes and indexes
 				const d = new Datastore({
 					ref: testDb,
-					afterSerialization: as,
-					beforeDeserialization: bd,
+					encode: as,
+					decode: bd,
 				});
 				await d.loadDatabase();
 				const docs = await d.find({});

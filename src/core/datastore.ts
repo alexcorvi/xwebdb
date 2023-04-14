@@ -17,8 +17,8 @@ export interface EnsureIndexOptions {
 
 export interface DataStoreOptions<G> {
 	ref: string;
-	afterSerialization?(line: string): string;
-	beforeDeserialization?(line: string): string;
+	encode?(line: string): string;
+	decode?(line: string): string;
 	corruptAlertThreshold?: number;
 	timestampData?: boolean;
 	syncToRemote?: (name: string) => remoteStore;
@@ -66,11 +66,11 @@ export class Datastore<
 		this.persistence = new Persistence({
 			db: this,
 			model: options.model,
-			afterSerialization: options.afterSerialization,
-			beforeDeserialization: options.beforeDeserialization,
+			encode: options.encode,
+			decode: options.decode,
 			corruptAlertThreshold: options.corruptAlertThreshold || 0,
 			syncToRemote: options.syncToRemote,
-			syncInterval: options.syncInterval
+			syncInterval: options.syncInterval,
 		});
 
 		if (options.timestampData) {
