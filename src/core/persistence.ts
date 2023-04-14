@@ -318,6 +318,14 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 			await this.deleteData(element);
 		}
 	}
+	/**
+	 * Deletes all data and logs
+	 * deletions will not be syncable
+	*/
+	async deleteEverything() {
+		await this.data.clear();
+		await this.sync?.log.clear();
+	}
 }
 
 /**
