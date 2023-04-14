@@ -37,19 +37,7 @@ export function randomString(len: number = 8) {
 		.join("")
 		.split("0.")
 		.join("")
-		.substr(0, len);
-}
-
-/**
- * Return an array with the numbers from 0 to n-1, in a random order
- */
-export function getRandomArray(n: number) {
-	let res: number[] = [];
-	for (let index = 0; index < n; index++) {
-		res.push(index);
-	}
-	res.sort(() => Math.random());
-	return res;
+		.substring(0, len);
 }
 
 
