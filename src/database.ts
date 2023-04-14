@@ -27,11 +27,11 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
 
 export class Database<S extends BaseModel<S>> {
 	private ref: string;
-	private _datastore: Datastore<S>;
 	private reloadBeforeOperations: boolean = false;
 	private model: (new () => S) & {
 		new: (json: S) => S;
 	};
+	public _datastore: Datastore<S>;
 	public loaded: Promise<boolean>;
 
 	constructor(options: DatabaseConfigurations<S>) {
