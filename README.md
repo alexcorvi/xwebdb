@@ -43,6 +43,10 @@
 	- [ ] devalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
 - [ ] Setup Sync demo
 	- [ ] updating docs
+- [ ] Split optional functionalities into modules (for the browser)
+	- [ ] Adapters (each)
+	- [ ] Synching
+	- [ ] Reactive
 - [ ] Reactive
 - [ ] Improve `Class Database` API
 - [ ] Examples
