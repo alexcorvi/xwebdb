@@ -9,7 +9,6 @@ yarn-debug.log*
 yarn-error.log*
 
 stats.json
-testdb
-workspace
-temp/*
-*.db
+
+#temporary
+dist
