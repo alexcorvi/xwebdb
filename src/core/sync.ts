@@ -73,7 +73,7 @@ export class Sync {
     async _sync() {
         const rHash = await this.rlogs!.getItem("$H");
         const lHash = (await this.log.get("$H")) || "0";
-        if (lHash === rHash || (lHash === "0" && rHash.indexOf("10009") > -1)) {
+        if (lHash === rHash || (lHash === "0" && (rHash || '').indexOf("10009") > -1)) {
             return { sent: 0, received: 0 };
         }
         const remoteKeys = (await this.rlogs!.keys()).filter((x) => x !== "$H");
