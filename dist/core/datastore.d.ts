@@ -12,8 +12,8 @@ export interface EnsureIndexOptions {
 }
 export interface DataStoreOptions<G> {
     ref: string;
-    afterSerialization?(line: string): string;
-    beforeDeserialization?(line: string): string;
+    encode?(line: string): string;
+    decode?(line: string): string;
     corruptAlertThreshold?: number;
     timestampData?: boolean;
     syncToRemote?: (name: string) => remoteStore;

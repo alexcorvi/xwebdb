@@ -1,5 +1,176 @@
 import { UseStore } from "idb-keyval";
 import Q from "p-queue";
+/**
+ * @license
+ * Copyright Daniel Imms <http://www.growingwiththeweb.com>
+ * Released under MIT license. See LICENSE in the project root for details.
+ */
+type CompareFunction<K> = (a: K, b: K) => number;
+declare class Node<K, V> {
+    left: Node<K, V> | null;
+    right: Node<K, V> | null;
+    height: number | null;
+    value: V[];
+    key: K;
+    /**
+     * Creates a new AVL Tree node.
+     * @param key The key of the new node.
+     * @param value The value of the new node.
+     */
+    constructor(key: K, value: V);
+    /**
+     * Performs a right rotate on this node.
+     * @return The root of the sub-tree; the node where this node used to be.
+     * @throws If Node.left is null.
+     */
+    rotateRight(): Node<K, V>;
+    /**
+     * Performs a left rotate on this node.
+     * @return The root of the sub-tree; the node where this node used to be.
+     * @throws If Node.right is null.
+     */
+    rotateLeft(): Node<K, V>;
+    /**
+     * Convenience function to get the height of the left child of the node,
+     * returning -1 if the node is null.
+     * @return The height of the left child, or -1 if it doesn't exist.
+     */
+    get leftHeight(): number;
+    /**
+     * Convenience function to get the height of the right child of the node,
+     * returning -1 if the node is null.
+     * @return The height of the right child, or -1 if it doesn't exist.
+     */
+    get rightHeight(): number;
+    executeOnEveryNode(fn: (node: Node<K, V>) => void): void;
+    /**
+     * Get all data for a key between bounds
+     * Return it in key order
+     */
+    betweenBounds(query: any, lbm: Node<K, V>["getLowerBoundMatcher"], ubm: Node<K, V>["getLowerBoundMatcher"]): V[];
+    /**
+     * Return a function that tells whether a given key matches a lower bound
+     */
+    getLowerBoundMatcher(query: any): (key: K) => boolean;
+    /**
+     * Return a function that tells whether a given key matches an upper bound
+     */
+    getUpperBoundMatcher(query: any): (key: K) => boolean;
+    private compareKeys;
+    numberOfKeys(): number;
+} /**
+ * Represents how balanced a node's left and right children are.
+ */
+/**
+ * Represents how balanced a node's left and right children are.
+ */
+/**
+ * Represents how balanced a node's left and right children are.
+ */
+/**
+ * Represents how balanced a node's left and right children are.
+ */
+declare class AvlTree<K, V> {
+    protected _root: Node<K, V> | null;
+    private _size;
+    private _compare;
+    unique: boolean;
+    /**
+     * Creates a new AVL Tree.
+     * @param _compare An optional custom compare function.
+     */
+    constructor(compare?: CompareFunction<K>, unique?: boolean);
+    /**
+     * Compares two keys with each other.
+     * @param a The first key to compare.
+     * @param b The second key to compare.
+     * @return -1, 0 or 1 if a < b, a == b or a > b respectively.
+     */
+    private _defaultCompare;
+    /**
+     * Inserts a new node with a specific key into the tree.
+     * @param key The key being inserted.
+     * @param value The value being inserted.
+     */
+    insert(key: K, value: V): void;
+    /**
+     * Inserts a new node with a specific key into the tree.
+     * @param key The key being inserted.
+     * @param root The root of the tree to insert in.
+     * @return The new tree root.
+     */
+    private _insert;
+    /**
+     * Deletes a node with a specific key from the tree.
+     * @param key The key being deleted.
+     */
+    delete(key: K, doc: V): void;
+    /**
+     * Deletes a node with a specific key from the tree.
+     * @param key The key being deleted.
+     * @param root The root of the tree to delete from.
+     * @return The new tree root.
+     */
+    private _delete;
+    /**
+     * Gets the value of a node within the tree with a specific key.
+     * @param key The key being searched for.
+     * @return The value of the node (which may be undefined), or null if it
+     * doesn't exist.
+     */
+    get(key: K): V[];
+    /**
+     * Gets the value of a node within the tree with a specific key.
+     * @param key The key being searched for.
+     * @param root The root of the tree to search in.
+     * @return The value of the node or null if it doesn't exist.
+     */
+    private _get;
+    /**
+     * Gets whether a node with a specific key is within the tree.
+     * @param key The key being searched for.
+     * @return Whether a node with the key exists.
+     */
+    contains(key: K): boolean;
+    /**
+     * @return The minimum key in the tree or null if there are no nodes.
+     */
+    findMinimum(): K | null;
+    /**
+     * Gets the maximum key in the tree or null if there are no nodes.
+     */
+    findMaximum(): K | null;
+    get numberOfKeys(): number;
+    /**
+     * Gets the size of the tree.
+     */
+    get size(): number;
+    /**
+     * Gets whether the tree is empty.
+     */
+    get isEmpty(): boolean;
+    /**
+     * Gets the minimum value node, rooted in a particular node.
+     * @param root The node to search.
+     * @return The node with the minimum key in the tree.
+     */
+    private _minValueNode;
+    /**
+     * Gets the maximum value node, rooted in a particular node.
+     * @param root The node to search.
+     * @return The node with the maximum key in the tree.
+     */
+    private _maxValueNode;
+    /**
+     * Gets the balance state of a node, indicating whether the left or right
+     * sub-trees are unbalanced.
+     * @param node The node to get the difference from.
+     * @return The BalanceState of the node.
+     */
+    private _getBalanceState;
+    executeOnEveryNode(fn: (bst: Node<K, V>) => void): void;
+    betweenBounds(query: any, lbm?: (query: any) => (key: K) => boolean, ubm?: (query: any) => (key: K) => boolean): V[];
+}
 declare namespace customUtils {
     function uid(): string;
     function randomString(len: number): string;
@@ -79,7 +250,7 @@ declare namespace model {
      * compareNSB works for numbers, strings and booleans
      */
     type NSB = number | string | boolean;
-    function compareNSB<T extends NSB>(a: T, b: T): 0 | 1 | -1;
+    function compareNSB<T extends NSB>(a: T, b: T): 1 | -1 | 0;
     function compareThings<V>(a: V, b: V, _compareStrings?: typeof compareNSB): 0 | 1 | -1; // ==============================================================
     // Updating documents
     // ==============================================================
@@ -482,292 +653,6 @@ declare class Cursor<G extends {
     private _exec;
     exec(): Promise<G[]>;
 }
-declare namespace utils {
-    /*
-    * Default compareKeys function will work for numbers, strings and dates
-    */
-    function defaultCompareKeysFunction<NSD>(a: NSD, b: NSD): number;
-    /**
-     * Check whether two values are equal (used in non-unique deletion)
-     */
-    function defaultCheckValueEquality<T>(a: T, b: T): boolean;
-    function isDef(v: any): boolean;
-}
-interface initializationOptions<K, V> {
-    key?: K;
-    value?: V;
-    unique?: boolean;
-    compareKeys?: typeof utils.defaultCompareKeysFunction;
-    checkValueEquality?: typeof utils.defaultCheckValueEquality;
-}
-interface AVLOptions<K, V> extends initializationOptions<K, V> {
-    left?: Node<K, V>;
-    right?: Node<K, V>;
-    parent?: Node<K, V>;
-}
-interface BSTOptions<K, V> extends initializationOptions<K, V> {
-    left?: BST<K, V>;
-    right?: BST<K, V>;
-    parent?: BST<K, V>;
-}
-declare namespace utils {
-    /*
-    * Default compareKeys function will work for numbers, strings and dates
-    */
-    function defaultCompareKeysFunction<NSD>(a: NSD, b: NSD): number;
-    /**
-     * Check whether two values are equal (used in non-unique deletion)
-     */
-    function defaultCheckValueEquality<T>(a: T, b: T): boolean;
-    function isDef(v: any): boolean;
-}
-/**
- * Simple binary search tree
- */
-declare class BST<K, V> {
-    left: BST<K, V> | undefined;
-    right: BST<K, V> | undefined;
-    parent: BST<K, V> | undefined;
-    key: K | undefined;
-    data: V[];
-    unique: boolean;
-    compareKeys: typeof utils.defaultCompareKeysFunction;
-    checkValueEquality: typeof utils.defaultCheckValueEquality;
-    constructor(init?: BSTOptions<K, V>);
-    /**
-     * Get the descendant with max key
-     */
-    getMaxKeyDescendant(): BST<K, V>;
-    /**
-     * Get the maximum key
-     */
-    getMaxKey(): K | undefined;
-    /**
-     * Get the descendant with min key
-     */
-    getMinKeyDescendant(): BST<K, V>;
-    /**
-     * Get the minimum key
-     */
-    getMinKey(): K | undefined;
-    /**
-     * Check that all nodes (incl. leaves) fullfil condition given by fn
-     * test is a function passed every (key, data) and which throws if the condition is not met
-     */
-    forEach(test: (key: K | undefined, value: V[]) => any): void;
-    /**
-     * Check that the core BST properties on node ordering are verified
-     * Throw if they aren't
-     */
-    checkNodeOrdering(): void;
-    /**
-     * Check that all pointers are coherent in this tree
-     */
-    checkInternalPointers(): void;
-    /**
-     * Check that a tree is a BST as defined here (node ordering and pointer references)
-     */
-    checkIsBST(): void;
-    /**
-     * Get number of keys inserted
-     */
-    getNumberOfKeys(): number;
-    // ============================================
-    // Methods used to actually work on the tree
-    // ============================================
-    /**
-     * Create a BST similar (i.e. same options except for key and value) to the current one
-     * Use the same constructor (i.e. BinarySearchTree, AVLTree etc)
-     */
-    createSimilar(this: any, options?: BSTOptions<K, V>): any;
-    /**
-     * Create the left child of this BST and return it
-     */
-    createLeftChild(options: BSTOptions<K, V>): any;
-    /**
-     * Create the right child of this BST and return it
-     */
-    createRightChild(options: BSTOptions<K, V>): any;
-    /**
-     * Insert a new element
-     */
-    insert(key: K, value?: V): void;
-    /**
-     * Search for all data corresponding to a key
-     */
-    search(key: K): V[];
-    /**
-     * Search for data coming right after a specific key
-     */
-    searchAfter(key: K): V[];
-    /**
-     * Search for data coming right before a specific key
-     */
-    searchBefore(key: K): V[];
-    /**
-     * Search for all data corresponding to a specific key, if that key
-     * does not exist, find the nearest key less than the specified key and its
-     * associated data. Returns undefined if no such key&data can be found.
-     **/
-    searchNearestLte(key: K): V[] | undefined;
-    private _searchNearestLte;
-    /**
-     * Search for all data corresponding to a specific key, if that key
-     * does not exist, find the nearest key greater than the specified key and its
-     * associated data. Returns undefined if no such key&data can be found.
-     **/
-    searchNearestGte(key: K): V[] | undefined;
-    private _searchNearestGte;
-    /**
-     * Search for all data corresponding to a specific key, if that key
-     * does not exist, find the nearest key and associated data.
-     */
-    searchNearest(key: K): V[] | undefined;
-    private _searchNearest;
-    /**
-     * Return a function that tells whether a given key matches a lower bound
-     */
-    getLowerBoundMatcher(query: any): (key: K) => boolean;
-    /**
-     * Return a function that tells whether a given key matches an upper bound
-     */
-    getUpperBoundMatcher(query: any): (key: K) => boolean;
-    /**
-     * Get all data for a key between bounds
-     * Return it in key order
-     */
-    betweenBounds(query: any, lbm: BST<K, V>["getLowerBoundMatcher"], ubm: BST<K, V>["getLowerBoundMatcher"]): V[];
-    /**
-     * Delete the current node if it is a leaf
-     * Return true if it was deleted
-     */
-    deleteIfLeaf(): boolean;
-    /**
-     * Delete the current node if it has only one child
-     * Return true if it was deleted
-     */
-    deleteIfOnlyOneChild(): boolean;
-    /**
-     * Delete a key or just a value
-     */
-    delete(key: K, value?: V): void;
-    /**
-     * Execute a function on every node of the tree, in key order
-     */
-    executeOnEveryNode(fn: (bst: BST<K, V>) => void): void;
-    /**
-     * Pretty print a tree
-     */
-    prettyPrint(printData: boolean, spacing?: string): void;
-}
-declare namespace utils {
-    /*
-    * Default compareKeys function will work for numbers, strings and dates
-    */
-    function defaultCompareKeysFunction<NSD>(a: NSD, b: NSD): number;
-    /**
-     * Check whether two values are equal (used in non-unique deletion)
-     */
-    function defaultCheckValueEquality<T>(a: T, b: T): boolean;
-    function isDef(v: any): boolean;
-}
-/**
- * Self-balancing binary search tree using the AVL implementation
- */
-declare class AVLTree<K, V> {
-    tree: Node<K, V>;
-    constructor(options?: AVLOptions<K, V>);
-    checkIsAVLT(): void;
-    // Insert in the internal tree, update the pointer to the root if needed
-    insert(key: K, value: V): void;
-    // Delete a value
-    delete(key: K, value?: V): void;
-    getNumberOfKeys(): number;
-    getMinKey(): K | undefined;
-    getMaxKey(): K | undefined;
-    search(key: K): V[];
-    searchAfter(k: K): V[];
-    searchBefore(k: K): V[];
-    searchNearest(k: K): V[] | undefined;
-    searchNearestLte(k: K): V[] | undefined;
-    searchNearestGte(k: K): V[] | undefined;
-    betweenBounds(query: any, lbm?: (query: any) => (key: K) => boolean, ubm?: (query: any) => (key: K) => boolean): V[];
-    prettyPrint(printData: boolean, spacing?: string): void;
-    executeOnEveryNode(fn: (bst: BST<K, V>) => void): void;
-} /**
- * Node
- */
-/**
- * Node
- */
-declare class Node<K, V> extends BST<K, V> {
-    left: Node<K, V> | undefined;
-    right: Node<K, V> | undefined;
-    parent: Node<K, V> | undefined;
-    key: K | undefined;
-    data: V[];
-    unique: boolean;
-    compareKeys: typeof utils.defaultCompareKeysFunction;
-    checkValueEquality: typeof utils.defaultCheckValueEquality;
-    height: number | undefined;
-    constructor(init?: AVLOptions<K, V>);
-    /**
-     * Check the recorded height is correct for every node
-     * Throws if one height doesn't match
-     */
-    checkHeightCorrect(): void;
-    /**
-     * Return the balance factor
-     */
-    balanceFactor(): number;
-    /**
-     * Check that the balance factors are all between -1 and 1
-     */
-    checkBalanceFactors(): void;
-    /**
-     * When checking if the BST conditions are met, also check that the heights are correct
-     * and the tree is balanced
-     */
-    checkIsAVLT(): void;
-    /**
-     * Perform a right rotation of the tree if possible
-     * and return the root of the resulting tree
-     * The resulting tree's nodes' heights are also updated
-     */
-    rightRotation(): Node<K, V>;
-    /**
-     * Perform a left rotation of the tree if possible
-     * and return the root of the resulting tree
-     * The resulting tree's nodes' heights are also updated
-     */
-    leftRotation(): Node<K, V>;
-    /**
-     * Modify the tree if its right subtree is too small compared to the left
-     * Return the new root if any
-     */
-    rightTooSmall(): Node<K, V>;
-    /**
-     * Modify the tree if its left subtree is too small compared to the right
-     * Return the new root if any
-     */
-    leftTooSmall(): Node<K, V>;
-    /**
-     * Rebalance the tree along the given path. The path is given reversed (as he was calculated
-     * in the insert and delete functions).
-     * Returns the new root of the tree
-     * Of course, the first element of the path must be the root of the tree
-     */
-    rebalanceAlongPath(path: Node<K, V>[]): Node<K, V>;
-    /**
-     * Insert a key, value pair in the tree while maintaining the AVL tree height constraint
-     * Return a pointer to the root node, which may have changed
-     */
-    insert(key: K, value: V): Node<K, V>;
-    /**
-     * Delete a key or just a value and return the new root of the tree
-     */
-    delete(key: K, value?: V): Node<K, V>;
-}
 declare namespace model {
     interface keyedObject {
         [key: string]: Value;
@@ -817,7 +702,7 @@ declare namespace model {
      * compareNSB works for numbers, strings and booleans
      */
     type NSB = number | string | boolean;
-    function compareNSB<T extends NSB>(a: T, b: T): 0 | 1 | -1;
+    function compareNSB<T extends NSB>(a: T, b: T): 1 | -1 | 0;
     function compareThings<V>(a: V, b: V, _compareStrings?: typeof compareNSB): 0 | 1 | -1; // ==============================================================
     // Updating documents
     // ==============================================================
@@ -876,7 +761,7 @@ declare class Index<Key, Doc extends Partial<BaseModel>> {
         compareKeys: typeof model.compareThings;
         checkValueEquality: typeof checkValueEquality;
     };
-    tree: AVLTree<Key, Doc>;
+    tree: AvlTree<Key, Doc>;
     constructor({ fieldName, unique, sparse }: {
         fieldName: string;
         unique?: boolean;
@@ -921,7 +806,7 @@ declare class Index<Key, Doc extends Partial<BaseModel>> {
     /**
      * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
      */
-    getMatching(key: Key): Doc[];
+    getMatching(input: Key | Key[]): Doc[];
     getAll(): Doc[];
     getBetweenBounds(query: any): Doc[];
 }
@@ -958,6 +843,26 @@ declare class IDB {
     length(): Promise<number>;
 }
 type logType = "w" | "d";
+declare class Sync {
+    private p;
+    rdata: remoteStore;
+    rlogs: remoteStore;
+    log: IDB;
+    constructor(persistence: Persistence, log: IDB, rdata: remoteStore, rlogs: remoteStore);
+    addToLog(d: string, t: logType, timestamp?: string): Promise<void>;
+    compareLog(localKeys: string[], remoteKeys: string[]): {
+        shouldSend: string[];
+        shouldHave: string[];
+    };
+    sync(): Promise<{
+        sent: number;
+        received: number;
+    }>;
+    _sync(): Promise<{
+        sent: number;
+        received: number;
+    }>;
+}
 type persistenceLine = {
     type: "index" | "doc" | "corrupt";
     status: "add" | "remove";
@@ -976,8 +881,8 @@ declare class PersistenceEvent {
 }
 interface PersistenceOptions<G extends Partial<BaseModel>> {
     db: Datastore<G>;
-    afterSerialization?: (raw: string) => string;
-    beforeDeserialization?: (encrypted: string) => string;
+    encode?: (raw: string) => string;
+    decode?: (encrypted: string) => string;
     corruptAlertThreshold?: number;
     model?: (new () => G) & {
         new: (json: G) => G;
@@ -991,15 +896,13 @@ declare class Persistence<G extends Partial<BaseModel> = any> {
     db: Datastore<G>;
     ref: string;
     data: IDB;
-    logs: IDB;
     RSA?: (name: string) => remoteStore;
     syncInterval: number;
     syncInProgress: boolean;
-    rdata?: remoteStore;
-    rlogs?: remoteStore;
+    sync?: Sync;
     corruptAlertThreshold: number;
-    afterSerialization: (s: string) => string;
-    beforeDeserialization: (s: string) => string;
+    encode: (s: string) => string;
+    decode: (s: string) => string;
     private _model;
     protected _memoryIndexes: string[];
     protected _memoryData: string[];
@@ -1015,19 +918,6 @@ declare class Persistence<G extends Partial<BaseModel> = any> {
      * 2) Insert all data
      */
     loadDatabase(): Promise<boolean>;
-    // ========== TODO: test the functions below
-    addToLog(d: string, t: logType, timestamp?: string): Promise<void>;
-    compareLog(localKeys: string[], remoteKeys: string[]): {
-        shouldSend: string[];
-        shouldHave: string[];
-    };
-    sync(): Promise<{
-        sent: number;
-        received: number;
-    }>;
-    private _sync;
-    // create a new file for remote API?
-    // ========== TODO: test the functions above
     readData(event: PersistenceEvent): Promise<void>;
     deleteData(_id: string, timestamp?: string): Promise<void>;
     writeData(_id: string, data: string, timestamp?: string): Promise<void>;
@@ -1081,8 +971,8 @@ interface EnsureIndexOptions {
 }
 interface DataStoreOptions<G> {
     ref: string;
-    afterSerialization?(line: string): string;
-    beforeDeserialization?(line: string): string;
+    encode?(line: string): string;
+    decode?(line: string): string;
     corruptAlertThreshold?: number;
     timestampData?: boolean;
     syncToRemote?: (name: string) => remoteStore;
@@ -1231,8 +1121,8 @@ interface DatabaseConfigurations<S extends BaseModel<S>> {
     model?: (new () => S) & {
         new: (json: S) => S;
     };
-    afterSerialization?(line: string): string;
-    beforeDeserialization?(line: string): string;
+    encode?(line: string): string;
+    decode?(line: string): string;
     corruptAlertThreshold?: number;
     timestampData?: boolean;
     reloadBeforeOperations?: boolean;
@@ -1455,7 +1345,7 @@ declare namespace modelling {
      * compareNSB works for numbers, strings and booleans
      */
     type NSB = number | string | boolean;
-    function compareNSB<T extends NSB>(a: T, b: T): 0 | 1 | -1;
+    function compareNSB<T extends NSB>(a: T, b: T): 1 | -1 | 0;
     function compareThings<V>(a: V, b: V, _compareStrings?: typeof compareNSB): 0 | 1 | -1; // ==============================================================
     // Updating documents
     // ==============================================================
@@ -1504,12 +1394,8 @@ declare const unify: {
     PersistenceEvent: typeof PersistenceEvent;
     _internal: {
         avl: {
-            AVLTree: typeof AVLTree;
-            BST: typeof BST;
+            AvlTree: typeof AvlTree;
             Node: typeof Node;
-            defaultCompareKeysFunction: typeof defaultCompareKeysFunction;
-            defaultCheckValueEquality: typeof defaultCheckValueEquality;
-            isDef: typeof isDef;
         };
         Cursor: typeof Cursor;
         customUtils: typeof customUtils;

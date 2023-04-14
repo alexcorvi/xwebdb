@@ -6,8 +6,8 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
     model?: (new () => S) & {
         new: (json: S) => S;
     };
-    afterSerialization?(line: string): string;
-    beforeDeserialization?(line: string): string;
+    encode?(line: string): string;
+    decode?(line: string): string;
     corruptAlertThreshold?: number;
     timestampData?: boolean;
     reloadBeforeOperations?: boolean;

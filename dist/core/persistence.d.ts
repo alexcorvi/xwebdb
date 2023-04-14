@@ -2,7 +2,7 @@ import { Datastore, EnsureIndexOptions } from "./datastore";
 import { BaseModel } from "../types";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
-declare type logType = "w" | "d";
+import { Sync } from "./sync";
 declare type persistenceLine = {
     type: "index" | "doc" | "corrupt";
     status: "add" | "remove";
@@ -21,8 +21,8 @@ export declare class PersistenceEvent {
 }
 interface PersistenceOptions<G extends Partial<BaseModel>> {
     db: Datastore<G>;
-    afterSerialization?: (raw: string) => string;
-    beforeDeserialization?: (encrypted: string) => string;
+    encode?: (raw: string) => string;
+    decode?: (encrypted: string) => string;
     corruptAlertThreshold?: number;
     model?: (new () => G) & {
         new: (json: G) => G;
@@ -37,15 +37,13 @@ export declare class Persistence<G extends Partial<BaseModel> = any> {
     db: Datastore<G>;
     ref: string;
     data: IDB;
-    logs: IDB;
     RSA?: (name: string) => remoteStore;
     syncInterval: number;
     syncInProgress: boolean;
-    rdata?: remoteStore;
-    rlogs?: remoteStore;
+    sync?: Sync;
     corruptAlertThreshold: number;
-    afterSerialization: (s: string) => string;
-    beforeDeserialization: (s: string) => string;
+    encode: (s: string) => string;
+    decode: (s: string) => string;
     private _model;
     protected _memoryIndexes: string[];
     protected _memoryData: string[];
@@ -61,16 +59,6 @@ export declare class Persistence<G extends Partial<BaseModel> = any> {
      * 2) Insert all data
      */
     loadDatabase(): Promise<boolean>;
-    addToLog(d: string, t: logType, timestamp?: string): Promise<void>;
-    compareLog(localKeys: string[], remoteKeys: string[]): {
-        shouldSend: string[];
-        shouldHave: string[];
-    };
-    sync(): Promise<{
-        sent: number;
-        received: number;
-    }>;
-    private _sync;
     readData(event: PersistenceEvent): Promise<void>;
     deleteData(_id: string, timestamp?: string): Promise<void>;
     writeData(_id: string, data: string, timestamp?: string): Promise<void>;

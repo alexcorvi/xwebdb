@@ -1,4 +1,4 @@
-import { AVLTree } from "./avl";
+import { AvlTree } from "./avl2/avl2";
 import * as model from "./model";
 import { BaseModel } from "../types";
 interface Pair<Doc> {
@@ -18,7 +18,7 @@ export declare class Index<Key, Doc extends Partial<BaseModel>> {
         compareKeys: typeof model.compareThings;
         checkValueEquality: typeof checkValueEquality;
     };
-    tree: AVLTree<Key, Doc>;
+    tree: AvlTree<Key, Doc>;
     constructor({ fieldName, unique, sparse, }: {
         fieldName: string;
         unique?: boolean;
@@ -63,7 +63,7 @@ export declare class Index<Key, Doc extends Partial<BaseModel>> {
     /**
      * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
      */
-    getMatching(key: Key): Doc[];
+    getMatching(input: Key | Key[]): Doc[];
     getAll(): Doc[];
     getBetweenBounds(query: any): Doc[];
 }
