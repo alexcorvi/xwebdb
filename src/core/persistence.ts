@@ -91,12 +91,9 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
 			const rdata = this.RSA(this.ref + "_" + "d");
-			const rlogs = this.RSA(this.ref + "_" + "l");
 			this.sync = new Sync(
 				this,
-				new IDB(this.ref + "_" + "l"),
 				rdata,
-				rlogs
 			);
 		}
 
@@ -296,20 +293,34 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		event.emit("end", "");
 	}
 
-	async deleteData(_id: string, timestamp?: string) {
-		await this.data.del(_id);
-		if (this.sync) {
-			await this.sync.addToLog(_id, "d", timestamp);
-		}
-	}
-	async writeData(_id: string, data: string, timestamp?: string) {
-		await this.data.set(_id, data);
-		if (this.sync) {
-			await this.sync.addToLog(_id, "w", timestamp);
-		}
-	}
+	async deleteData (_id: string) {
+		const keys = (await this.data.keys()) as string[];
+		const oldIDRev =
+			keys.find((key) => key.toString().startsWith(_id)) || "";
+		const newRev =
+			Math.random().toString(36).substring(2, 4) + Date.now();
+		await this.data.del(oldIDRev);
+		const newIDRev = _id + "_" + newRev;
+		await this.data.set(newIDRev, "$deleted");
+		keys.splice(keys.indexOf(oldIDRev), 1);
+		keys.push(newIDRev);
+		if (this.sync) await this.sync.setLocalHash(keys);
+	};
+	async writeData (_id: string, data: string) {
+		const keys = (await this.data.keys()) as string[];
+		const oldIDRev =
+			keys.find((key) => key.toString().startsWith(_id)) || "";
+		const newRev =
+			Math.random().toString(36).substring(2, 4) + Date.now();
+		await this.data.del(oldIDRev);
+		const newIDRev = _id + "_" + newRev;
+		await this.data.set(newIDRev, data);
+		keys.splice(keys.indexOf(oldIDRev), 1);
+		keys.push(newIDRev);
+		if (this.sync) await this.sync.setLocalHash(keys);
+	};
+
 	async clearData() {
-		// must go through the above functions so it can get logged
 		const list = await this.data.keys();
 		for (let index = 0; index < list.length; index++) {
 			const element = list[index] as string;
@@ -317,11 +328,10 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		}
 	}
 	/**
-	 * Deletes all data and logs
+	 * Deletes all data
 	 * deletions will not be syncable
 	 */
 	async deleteEverything() {
 		await this.data.clear();
-		await this.sync?.log.clear();
 	}
 }

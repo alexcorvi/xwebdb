@@ -1,63 +1,21 @@
 import { Persistence } from "./persistence";
-import diffingLib from "diff-sorted-array";
 import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
-export type logType = "w" | "d";
-type log = { d: string; t: logType };
-type syncEntry = { timestamp: string; value: log };
 type diff = { key: string; value: string };
-export type conflict = {
-	local: syncEntry[];
-	remote: syncEntry[];
-};
 
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
 
 export class Sync {
 	private p: Persistence;
 	rdata: remoteStore;
-	rlogs: remoteStore;
-	log: IDB;
 
 	constructor(
 		persistence: Persistence,
-		log: IDB,
 		rdata: remoteStore,
-		rlogs: remoteStore
 	) {
 		this.p = persistence;
 		this.rdata = rdata;
-		this.rlogs = rlogs;
-		this.log = log;
-
-		// modifying persistence functions
-		persistence.deleteData = async (_id: string) => {
-			const keys = (await this.p.data.keys()) as string[];
-			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(_id)) || "";
-			const newRev =
-				Math.random().toString(36).substring(2, 4) + Date.now();
-			await this.p.data.del(oldIDRev);
-			const newIDRev = _id + "_" + newRev;
-			await this.p.data.set(newIDRev, "$deleted");
-			keys.splice(keys.indexOf(oldIDRev), 1);
-			keys.push(newIDRev);
-			await this.setLocalHash(keys);
-		};
-		persistence.writeData = async (_id: string, data: string) => {
-			const keys = (await this.p.data.keys()) as string[];
-			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(_id)) || "";
-			const newRev =
-				Math.random().toString(36).substring(2, 4) + Date.now();
-			await this.p.data.del(oldIDRev);
-			const newIDRev = _id + "_" + newRev;
-			await this.p.data.set(newIDRev, data);
-			keys.splice(keys.indexOf(oldIDRev), 1);
-			keys.push(newIDRev);
-			await this.setLocalHash(keys);
-		};
 	}
 
 	async setLocalHash(keys?: string[]) {
@@ -70,11 +28,6 @@ export class Sync {
 		if (!keys) keys = (await this.rdata.keys()) as string[];
 		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
 		this.rdata.setItem("$H", hash);
-	}
-
-	// TODO: DELETE this method
-	async addToLog(d: string, t: logType, timestamp?: string) {
-		alert("should not be called");
 	}
 
 	sync() {
