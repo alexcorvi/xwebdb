@@ -451,8 +451,6 @@ describe("Database Syncing", () => {
 				filter: { $or: [{ name: "may" }, { name: "jim" }] },
 			});
 
-			console.log(onD1, onD2, onD3);
-
 			onD1.length.should.eq(2);
 			onD2.length.should.eq(2);
 			onD3.length.should.eq(2);
