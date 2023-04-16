@@ -35,9 +35,10 @@
 	- [x] Memory adapter (for demo & tests)
 	- [ ] Write tests
 		- [ ] Sync Integration
+		- [ ] Check sync function step (diff) on all tests
 		- [ ] Sync Unit
 		- [ ] KV Adapter
-	- [ ] Work with conflicts
+	- [X] Work with conflicts
 	- [ ] transaction log truncation (deleted? updated again?)
 	- [ ] idb operations in bulk for perf improvements
 	- [ ] devalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
