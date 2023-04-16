@@ -57,7 +57,7 @@ class Employee extends BaseModel<Employee> {
 	}
 }
 
-class Simple extends BaseModel {
+class Simple extends BaseModel<Simple> {
 	a: number = 1;
 }
 
