@@ -130,17 +130,11 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 				"decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
 			);
 		}
-		this.encode =
-			options.encode || this.encode;
-		this.decode =
-			options.decode || this.decode;
+		this.encode = options.encode || this.encode;
+		this.decode = options.decode || this.decode;
 
 		let randomString = u.randomString(113);
-		if (
-			this.decode(
-				this.encode(randomString)
-			) !== randomString
-		) {
+		if (this.decode(this.encode(randomString)) !== randomString) {
 			throw new Error(
 				"encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
 			);
