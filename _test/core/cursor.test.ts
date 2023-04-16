@@ -27,7 +27,7 @@ describe("Cursor", () => {
 	});
 
     afterEach(async ()=>{
-		await d.persistence.clearData();
+		await d.persistence.deleteEverything();
     });
 
 

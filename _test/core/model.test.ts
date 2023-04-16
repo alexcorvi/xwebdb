@@ -10,7 +10,7 @@ const { Datastore, modelling : model } = unifydb._internal;
 
 const assert = chai.assert;
 
-class Simple extends BaseModel {}
+class Simple extends BaseModel<Simple> {}
 
 describe("Model", () => {
 	describe("Serialization, deserialization", () => {
@@ -165,8 +165,8 @@ describe("Model", () => {
 			let docs = await db2.find({});
 			docs.length.should.equal(1);
 			(docs[0] as any).hello.should.equal(badString);
-            await db1.persistence.clearData();
-			await db2.persistence.clearData();
+            await db1.persistence.deleteEverything();
+			await db2.persistence.deleteEverything();
 		});
 
 		it("Can accept objects whose keys are numbers", () => {

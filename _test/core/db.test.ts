@@ -38,7 +38,7 @@ describe("Database", function () {
 		d.getAllData().length.should.equal(0);
 	});
 	afterEach(async () => {
-		await d.persistence.clearData();
+		await d.persistence.deleteEverything();
 	});
 
 	describe("Insert", () => {
@@ -1739,9 +1739,9 @@ describe("Database", function () {
 
 				for (let index = 0; index < rawData.length; index++) {
 					const element = rawData[index];
-					await d.persistence.data.set(
-						model.deserialize(element)._id,
-						element
+					await d.persistence.writeData(
+						[{_id: model.deserialize(element)._id,
+						data: element}]
 					);
 				}
 				d.getAllData().length.should.equal(0);

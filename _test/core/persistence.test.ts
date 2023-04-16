@@ -32,7 +32,7 @@ describe("Persistence", () => {
 	});
     afterEach(async function () {
 		this.timeout(6000 * 1000);
-		await d.persistence.clearData();
+		await d.persistence.deleteEverything();
     });
 
 
@@ -254,7 +254,7 @@ describe("Persistence", () => {
 		data.length.should.equal(2);
 		doc1!.a.should.equal(1);
 		doc2!.a.should.equal(2);
-		await d.persistence.clearData();
+		await d.persistence.deleteEverything();
 		await d.loadDatabase();
 		d.getAllData().length.should.equal(0);
 	});
@@ -272,7 +272,7 @@ describe("Persistence", () => {
 			doc2!.a.should.equal(2);
 		}
 		{
-			await d.persistence.clearData();
+			await d.persistence.deleteEverything();
             await d.persistence.writeData('aaa', model.serialize({"a":3,"_id":"aaa"}));
 			await d.loadDatabase();
 			const data = d.getAllData();
