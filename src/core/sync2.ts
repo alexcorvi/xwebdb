@@ -67,7 +67,7 @@ export class Sync {
 		const rev = key.split("_")[1];
 		const thisTime = Number(rev.substring(2));
 		const conflictingIndex = thatDiffs.findIndex((x) =>
-			x.key.startsWith(_id)
+			x.key.startsWith(_id+"_")
 		);
 		if (conflictingIndex > -1) {
 			const conflicting = thatDiffs[conflictingIndex];
@@ -158,7 +158,7 @@ export class Sync {
 			const diff = remoteDiffs[index];
 			const oldIDRev =
 				localKeys.find((key) =>
-					key.toString().startsWith(diff.key.split("_")[0])
+					key.toString().startsWith(diff.key.split("_")[0] + "_")
 				) || "";
 			if (oldIDRev) await this.p.data.del(oldIDRev);
 			await this.p.data.set(diff.key, diff.value);
@@ -173,7 +173,7 @@ export class Sync {
 			const diff = localDiffs[index];
 			const oldIDRev =
 				remoteKeys.find((key) =>
-					key.toString().startsWith(diff.key.split("_")[0])
+					key.toString().startsWith(diff.key.split("_")[0]+"_")
 				) || "";
 			if (oldIDRev) downRemoveKeys.push(oldIDRev);
 			downSetKeys.push({ key: diff.key, value: diff.value });

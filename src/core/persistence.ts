@@ -296,7 +296,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		for (let index = 0; index < _ids.length; index++) {
 			const _id = _ids[index];
 			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(_id)) || "";
+				keys.find((key) => key.toString().startsWith(_id+"_")) || "";
 			const newRev =
 				Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
@@ -317,7 +317,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		for (let index = 0; index < input.length; index++) {
 			const element = input[index];
 			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(element._id)) ||
+				keys.find((key) => key.toString().startsWith(element._id+"_")) ||
 				"";
 			const newRev =
 				Math.random().toString(36).substring(2, 4) + Date.now();
