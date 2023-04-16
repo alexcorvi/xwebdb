@@ -5,7 +5,7 @@ import * as model from "./model";
 import { BaseModel } from "../types";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
-import { Sync } from "./sync";
+import { Sync } from "./sync2";
 
 type persistenceLine = {
 	type: "index" | "doc" | "corrupt";
@@ -175,7 +175,10 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 				data: false,
 			};
 		}
-		if (treatedLine._id && !(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)) {
+		if (
+			treatedLine._id &&
+			!(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)
+		) {
 			if (treatedLine.$$deleted === true) {
 				return {
 					type: "doc",
@@ -287,7 +290,8 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		const all = await this.data.values();
 		for (let i = 0; i < all.length; i++) {
 			const line = all[i];
-			event.emit("readLine", line);
+			if (isNaN(Number(line)) && line !== "$deleted")
+				event.emit("readLine", line);
 		}
 		event.emit("end", "");
 	}
