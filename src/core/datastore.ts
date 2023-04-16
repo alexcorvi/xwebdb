@@ -149,7 +149,7 @@ export class Datastore<
 	 */
 	async removeIndex(fieldName: string): Promise<{ affectedIndex: string }> {
 		delete this.indexes[fieldName];
-		await this.persistence.deleteData(fieldName);
+		await this.persistence.deleteData([fieldName]);
 		return {
 			affectedIndex: fieldName,
 		};
@@ -623,10 +623,7 @@ export class Datastore<
 				this.removeFromIndexes(d);
 			}
 		});
-		for (let index = 0; index < removedDocs.length; index++) {
-			const element = removedDocs[index];
-			await this.persistence.deleteData(element._id || "");
-		}
+		await this.persistence.deleteData(removedDocs.map(x=>x._id || ""));
 		return {
 			number: numRemoved,
 			docs: removedFullDoc,

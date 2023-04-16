@@ -91,10 +91,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
 			const rdata = this.RSA(this.ref + "_" + "d");
-			this.sync = new Sync(
-				this,
-				rdata,
-			);
+			this.sync = new Sync(this, rdata);
 		}
 
 		if (this.RSA && this.syncInterval) {
@@ -139,23 +136,21 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 	}
 
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
-		for (let i = 0; i < newIndexes.length; i++) {
-			const doc = newIndexes[i];
-			await this.writeData(
-				doc.$$indexCreated.fieldName,
-				this.encode(model.serialize(doc))
-			);
-		}
+		await this.writeData(
+			newIndexes.map((x) => ({
+				_id: x.$$indexCreated.fieldName,
+				data: this.encode(model.serialize(x)),
+			}))
+		);
 	}
 
 	async writeNewData(newDocs: G[]) {
-		for (let i = 0; i < newDocs.length; i++) {
-			const doc = newDocs[i];
-			await this.writeData(
-				doc._id || "",
-				this.encode(model.serialize(doc))
-			);
-		}
+		await this.writeData(
+			newDocs.map((x) => ({
+				_id: x._id || "",
+				data: this.encode(model.serialize(x)),
+			}))
+		);
 	}
 
 	treatSingleLine(line: string): persistenceLine {
@@ -293,39 +288,53 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		event.emit("end", "");
 	}
 
-	async deleteData (_id: string) {
+	async deleteData(_ids: string[]) {
 		const keys = (await this.data.keys()) as string[];
-		const oldIDRev =
-			keys.find((key) => key.toString().startsWith(_id)) || "";
-		const newRev =
-			Math.random().toString(36).substring(2, 4) + Date.now();
-		await this.data.del(oldIDRev);
-		const newIDRev = _id + "_" + newRev;
-		await this.data.set(newIDRev, "$deleted");
-		keys.splice(keys.indexOf(oldIDRev), 1);
-		keys.push(newIDRev);
+		const oldIDRevs: string[] = [];
+		const newIDRevs: string[] = [];
+
+		for (let index = 0; index < _ids.length; index++) {
+			const _id = _ids[index];
+			const oldIDRev =
+				keys.find((key) => key.toString().startsWith(_id)) || "";
+			const newRev =
+				Math.random().toString(36).substring(2, 4) + Date.now();
+			const newIDRev = _id + "_" + newRev;
+			oldIDRevs.push(oldIDRev);
+			newIDRevs.push(newIDRev);
+			keys.splice(keys.indexOf(oldIDRev), 1);
+			keys.push(newIDRev);
+		}
+		await this.data.dels(oldIDRevs);
+		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
 		if (this.sync) await this.sync.setLocalHash(keys);
-	};
-	async writeData (_id: string, data: string) {
+	}
+	async writeData(input: { _id: string; data: string }[]) {
 		const keys = (await this.data.keys()) as string[];
-		const oldIDRev =
-			keys.find((key) => key.toString().startsWith(_id)) || "";
-		const newRev =
-			Math.random().toString(36).substring(2, 4) + Date.now();
-		await this.data.del(oldIDRev);
-		const newIDRev = _id + "_" + newRev;
-		await this.data.set(newIDRev, data);
-		keys.splice(keys.indexOf(oldIDRev), 1);
-		keys.push(newIDRev);
+		const oldIDRevs: string[] = [];
+		const newIDRevsData: [string, string][] = [];
+
+		for (let index = 0; index < input.length; index++) {
+			const element = input[index];
+			const oldIDRev =
+				keys.find((key) => key.toString().startsWith(element._id)) ||
+				"";
+			const newRev =
+				Math.random().toString(36).substring(2, 4) + Date.now();
+			const newIDRev = element._id + "_" + newRev;
+			oldIDRevs.push(oldIDRev);
+			newIDRevsData.push([newIDRev, element.data]);
+			keys.splice(keys.indexOf(oldIDRev), 1);
+			keys.push(newIDRev);
+		}
+		await this.data.dels(oldIDRevs);
+		await this.data.sets(newIDRevsData);
 		if (this.sync) await this.sync.setLocalHash(keys);
-	};
+	}
 
 	async clearData() {
 		const list = await this.data.keys();
-		for (let index = 0; index < list.length; index++) {
-			const element = list[index] as string;
-			await this.deleteData(element);
-		}
+		this.deleteData(list as string[]);
 	}
 	/**
 	 * Deletes all data
