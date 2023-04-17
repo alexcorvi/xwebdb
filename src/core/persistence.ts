@@ -137,19 +137,16 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
 		await this.writeData(
-			newIndexes.map((x) => ({
-				_id: x.$$indexCreated.fieldName,
-				data: this.encode(model.serialize(x)),
-			}))
+			newIndexes.map((x) => [
+				x.$$indexCreated.fieldName,
+				this.encode(model.serialize(x)),
+			])
 		);
 	}
 
 	async writeNewData(newDocs: G[]) {
 		await this.writeData(
-			newDocs.map((x) => ({
-				_id: x._id || "",
-				data: this.encode(model.serialize(x)),
-			}))
+			newDocs.map((x) => [x._id || "", this.encode(model.serialize(x))])
 		);
 	}
 
@@ -289,6 +286,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 	}
 
 	async deleteData(_ids: string[]) {
+		if (!this.RSA) return this.data.dels(_ids);
 		const keys = (await this.data.keys()) as string[];
 		const oldIDRevs: string[] = [];
 		const newIDRevs: string[] = [];
@@ -296,7 +294,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		for (let index = 0; index < _ids.length; index++) {
 			const _id = _ids[index];
 			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(_id+"_")) || "";
+				keys.find((key) => key.toString().startsWith(_id + "_")) || "";
 			const newRev =
 				Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
@@ -309,7 +307,8 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
 		if (this.sync) await this.sync.setLocalHash(keys);
 	}
-	async writeData(input: { _id: string; data: string }[]) {
+	async writeData(input: [string, string][]) {
+		if (!this.RSA) return this.data.sets(input);
 		const keys = (await this.data.keys()) as string[];
 		const oldIDRevs: string[] = [];
 		const newIDRevsData: [string, string][] = [];
@@ -317,13 +316,14 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		for (let index = 0; index < input.length; index++) {
 			const element = input[index];
 			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(element._id+"_")) ||
-				"";
+				keys.find((key) =>
+					key.toString().startsWith(element[0] + "_")
+				) || "";
 			const newRev =
 				Math.random().toString(36).substring(2, 4) + Date.now();
-			const newIDRev = element._id + "_" + newRev;
+			const newIDRev = element[0] + "_" + newRev;
 			oldIDRevs.push(oldIDRev);
-			newIDRevsData.push([newIDRev, element.data]);
+			newIDRevsData.push([newIDRev, element[1]]);
 			keys.splice(keys.indexOf(oldIDRev), 1);
 			keys.push(newIDRev);
 		}
