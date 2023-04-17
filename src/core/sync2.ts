@@ -153,33 +153,35 @@ export class Sync {
 		}
 
 		// downloading
-		// TODO: do it in bulk
+		const downRemove: string[] = [];
+		const downSet: [string,string][] = [];
 		for (let index = 0; index < remoteDiffs.length; index++) {
 			const diff = remoteDiffs[index];
 			const oldIDRev =
 				localKeys.find((key) =>
 					key.toString().startsWith(diff.key.split("_")[0] + "_")
 				) || "";
-			if (oldIDRev) await this.p.data.del(oldIDRev);
-			await this.p.data.set(diff.key, diff.value);
+			if (oldIDRev) downRemove.push(oldIDRev);
+			downSet.push([diff.key, diff.value])
 		}
+		await this.p.data.dels(downRemove)
+		await this.p.data.sets(downSet)
 		await this.setLocalHash();
 
 		// uploading
-		// TODO: do it in bulk
-		const downRemoveKeys: string[] = [];
-		const downSetKeys: { key: string; value: string }[] = [];
+		const upRemove: string[] = [];
+		const upSet: { key: string; value: string }[] = [];
 		for (let index = 0; index < localDiffs.length; index++) {
 			const diff = localDiffs[index];
 			const oldIDRev =
 				remoteKeys.find((key) =>
 					key.toString().startsWith(diff.key.split("_")[0]+"_")
 				) || "";
-			if (oldIDRev) downRemoveKeys.push(oldIDRev);
-			downSetKeys.push({ key: diff.key, value: diff.value });
+			if (oldIDRev) upRemove.push(oldIDRev);
+			upSet.push({ key: diff.key, value: diff.value });
 		}
-		await this.rdata.removeItems(downRemoveKeys);
-		await this.rdata.setItems(downSetKeys);
+		await this.rdata.removeItems(upRemove);
+		await this.rdata.setItems(upSet);
 		await this.setRemoteHash();
 		await this.p.loadDatabase();
 		return {
