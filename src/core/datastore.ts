@@ -95,8 +95,9 @@ export class Datastore<
 	/**
 	 * Reset all currently defined indexes
 	 */
-	resetIndexes() {
+	resetIndexes(alsoDelete: boolean = false) {
 		Object.keys(this.indexes).forEach((i) => {
+			if(alsoDelete && i !== "_id") return delete this.indexes[i];
 			this.indexes[i].reset();
 		});
 	}

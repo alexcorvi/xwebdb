@@ -215,7 +215,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 	 */
 	async loadDatabase() {
 		this.db.q.pause();
-		this.db.resetIndexes();
+		this.db.resetIndexes(true);
 		let corrupt = 0;
 		let processed = 0;
 		let err: any;
