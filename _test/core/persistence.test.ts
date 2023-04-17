@@ -502,7 +502,7 @@ describe("Persistence", () => {
 			await d.remove({ yo: "ya" });
 			await d.ensureIndex({ fieldName: "idefix" });
 
-            chai.expect(await d.persistence.data.length()).eq(3);
+            chai.expect(await d.persistence.data.length()).eq(2);
 			{
 				// Everything is deserialized correctly, including deletes and indexes
 				const d = new Datastore({

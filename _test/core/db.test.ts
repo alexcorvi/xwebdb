@@ -1740,8 +1740,8 @@ describe("Database", function () {
 				for (let index = 0; index < rawData.length; index++) {
 					const element = rawData[index];
 					await d.persistence.writeData(
-						[{_id: model.deserialize(element)._id,
-						data: element}]
+						[[model.deserialize(element)._id,
+						element]]
 					);
 				}
 				d.getAllData().length.should.equal(0);
