@@ -40,16 +40,16 @@ describe("Persistence", () => {
 		const now = new Date();
 
 
-        await d.persistence.writeData('1',model.serialize({
+        await d.persistence.data.set('1',model.serialize({
 			_id: "1",
 			a: 2,
 			ages: [1, 5, 12],
 		}));
-        await d.persistence.writeData('2',model.serialize({
+        await d.persistence.data.set('2',model.serialize({
 			_id: "2",
 			hello: "world",
 		}));
-        await d.persistence.writeData('3',model.serialize({ _id: "3", nested: { today: now } }));
+        await d.persistence.data.set('3',model.serialize({ _id: "3", nested: { today: now } }));
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 
@@ -83,9 +83,9 @@ describe("Persistence", () => {
 			nested: { today: now },
 		};
 		d.persistence.corruptAlertThreshold = 0.34;
-        await d.persistence.writeData("1", model.serialize(obj1));
-        await d.persistence.writeData("#", 'garbage');
-        await d.persistence.writeData("2", model.serialize(obj2));
+        await d.persistence.data.set("1", model.serialize(obj1));
+        await d.persistence.data.set("#", 'garbage');
+        await d.persistence.data.set("2", model.serialize(obj2));
         await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
@@ -97,21 +97,21 @@ describe("Persistence", () => {
 	it("Well formatted lines that have no _id are not included in the data", async () => {
 		const now = new Date();
 
-        await d.persistence.writeData("1", model.serialize({
+        await d.persistence.data.set("1", model.serialize({
 			_id: "1",
 			a: 2,
 			ages: [1, 5, 12],
 		}));
-        await d.persistence.writeData("1", model.serialize({
+        await d.persistence.data.set("1", model.serialize({
 			_id: "1",
 			a: 2,
 			ages: [1, 5, 12],
 		}));
-        await d.persistence.writeData("2", model.serialize({
+        await d.persistence.data.set("2", model.serialize({
 			_id: "2",
 			hello: "world",
 		}));
-        await d.persistence.writeData("#", model.serialize({ nested: { today: now } }))
+        await d.persistence.data.set("#", model.serialize({ nested: { today: now } }))
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
@@ -138,7 +138,7 @@ describe("Persistence", () => {
 		})}\n${model.serialize({ _id: "3", today: now })}`;
 
 		await Promise.all(rawData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
         
 		await d.loadDatabase();
@@ -164,7 +164,7 @@ describe("Persistence", () => {
 		})}\n${model.serialize({ _id: "3", today: now })}`;
 
 		await Promise.all(rawData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
 
 		await d.loadDatabase();
@@ -191,10 +191,10 @@ describe("Persistence", () => {
 			$$indexCreated: { fieldName: "test", unique: true, sparse: true },
 		})}`;
 		await Promise.all(rawData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
 		await Promise.all(rawIndexes.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
@@ -273,7 +273,7 @@ describe("Persistence", () => {
 		}
 		{
 			await d.persistence.deleteEverything();
-            await d.persistence.writeData('aaa', model.serialize({"a":3,"_id":"aaa"}));
+            await d.persistence.data.set('aaa', model.serialize({"a":3,"_id":"aaa"}));
 			await d.loadDatabase();
 			const data = d.getAllData();
 			const doc1 = _.find(data, ({ a }) => a === 1);
@@ -294,7 +294,7 @@ describe("Persistence", () => {
 
 	it("When treating raw data, refuse to proceed if too much data is corrupt, to avoid data loss", async () => {
         await Promise.all(fakeData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
 
 		// Default corruptAlertThreshold
@@ -315,7 +315,7 @@ describe("Persistence", () => {
 
     it("accepts corrupted data on a certain threshold", async ()=>{
         await Promise.all(fakeData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
         d = new Datastore({
 			ref: testDb,
@@ -335,7 +335,7 @@ describe("Persistence", () => {
 
     it("rejects corrupted data on a certain threshold", async ()=>{
         await Promise.all(fakeData.split("\n").map(data=>{
-            return d.persistence.writeData(data,data);
+            return d.persistence.data.set(data,data);
         }));
         d = new Datastore({
 			ref: testDb,
@@ -358,7 +358,7 @@ describe("Persistence", () => {
 		const bd = (s: string) => s.substring(7, s.length - 6);
 
 		it("Declaring only one hook will throw an exception to prevent data loss", async () => {
-			await d.persistence.writeData('#', 'some content');
+			await d.persistence.data.set('#', 'some content');
 			(() => {
 				new Datastore({
 					ref: testDb,
@@ -382,7 +382,7 @@ describe("Persistence", () => {
 		});
 
 		it("Declaring two hooks that are not reverse of one another will cause an exception to prevent data loss", async () => {
-			await d.persistence.writeData('#', 'some content');
+			await d.persistence.data.set('#', 'some content');
 			(() => {
 				new Datastore({
 					ref: testDb,
@@ -408,7 +408,7 @@ describe("Persistence", () => {
             await d.loadDatabase();
             await d.insert({ _id:"id1", hello: "world" });
             await d.insert({ _id:"id2", hello: "world again" });
-            const doc0 = ((await d.persistence.data.get('id1')) as string);
+            const doc0 = (((await d.persistence.data.values()).find(x=>x.indexOf('"id1"') > -1)) as string);
             let docBD0 = bd(doc0);
 
             doc0.substring(0, 7).should.equal("before_");
@@ -429,10 +429,10 @@ describe("Persistence", () => {
             await d.insert({ _id:"id1", p: "Mars" });
             await d.insert({ _id:"id2", p: "Jupiter" });
 
-            const doc0 = ((await d.persistence.data.get('id1')) as string);
+            const doc0 = (((await d.persistence.data.values()).find(x=>x.indexOf('"id1"') > -1)) as string);
             let docBD0 = bd(doc0);
 
-            const doc1 = ((await d.persistence.data.get('id2')) as string);
+            const doc1 = (((await d.persistence.data.values()).find(x=>x.indexOf('"id2"') > -1)) as string);
             let docBD1 = bd(doc1);
 
 
@@ -461,10 +461,10 @@ describe("Persistence", () => {
 
             await d.insert({ _id:"id1", p: "Mars" });
             
-            const doc0 = ((await d.persistence.data.get('id1')) as string);
+            const doc0 = (((await d.persistence.data.values()).find(x=>x.indexOf('"id1"') > -1)) as string);
             let docBD0 = bd(doc0);
             
-            const index0 = ((await d.persistence.data.get('idefix')) as string);
+            const index0 = (((await d.persistence.data.values()).find(x=>x.indexOf('"idefix"') > -1)) as string);
             let indexBD0 = bd(index0);
 
             doc0.substring(0, 7).should.equal("before_");
@@ -502,7 +502,7 @@ describe("Persistence", () => {
 			await d.remove({ yo: "ya" });
 			await d.ensureIndex({ fieldName: "idefix" });
 
-            chai.expect(await d.persistence.data.length()).eq(2);
+            chai.expect(await d.persistence.data.length()).eq(3);
 			{
 				// Everything is deserialized correctly, including deletes and indexes
 				const d = new Datastore({
@@ -545,7 +545,7 @@ describe("Persistence", () => {
 				for (let i = 0; i < 10; i++) {
 					doc.arr.push(customUtils.randomString(10));
 				}
-                d.persistence.writeData(doc._id, model.serialize(doc));
+                d.persistence.data.set(doc._id, model.serialize(doc));
 			}
 		}
 

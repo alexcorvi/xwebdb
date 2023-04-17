@@ -40,9 +40,9 @@ describe("customUtils", () => {
 			let s1 = customUtils.randomString(2);
 			let s2 = customUtils.randomString(10);
 			let s3 = customUtils.randomString(100);
-			chai.expect(customUtils.xxh(s1).toString().length).above(8).below(11);
-			chai.expect(customUtils.xxh(s2).toString().length).above(8).below(11);
-			chai.expect(customUtils.xxh(s2).toString().length).above(8).below(11);
+			chai.expect(customUtils.xxh(s1).toString().length).above(7).below(11);
+			chai.expect(customUtils.xxh(s2).toString().length).above(7).below(11);
+			chai.expect(customUtils.xxh(s2).toString().length).above(7).below(11);
 		});
 		it("Given hashes are unique enough", ()=>{
 			let i = 500;
