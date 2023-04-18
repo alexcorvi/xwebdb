@@ -97,13 +97,15 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		if (this.RSA && this.syncInterval) {
 			setInterval(async () => {
 				if (!this.syncInProgress) {
+					let err = undefined;
 					this.syncInProgress = true;
 					try {
 						await this.sync!._sync();
 					} catch (e) {
-						console.log(new Error(e as any));
+						err = e;
 					}
 					this.syncInProgress = false;
+					if(err) throw new Error(err as any)
 				}
 			}, this.syncInterval);
 		}

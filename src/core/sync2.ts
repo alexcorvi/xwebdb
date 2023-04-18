@@ -35,7 +35,7 @@ export class Sync {
 			sent: number;
 			received: number;
 			diff: -1 | 0 | 1;
-		}>((resolve) => {
+		}>((resolve, reject) => {
 			let interval = setInterval(async () => {
 				if (!this.p.syncInProgress) {
 					clearInterval(interval);
@@ -45,13 +45,15 @@ export class Sync {
 						received: number;
 						diff: -1 | 0 | 1;
 					} = { sent: 0, received: 0, diff: -1 };
+					let err = undefined;
 					try {
 						syncResult = await this._sync();
 					} catch (e) {
-						console.log(Error(e as any));
+						err = Error(e as any);
 					}
 					this.p.syncInProgress = false;
-					resolve(syncResult);
+					if (err) reject(err);
+					else resolve(syncResult);
 				}
 			}, 1);
 		});
