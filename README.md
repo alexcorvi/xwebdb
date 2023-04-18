@@ -48,6 +48,7 @@
 	- [ ] Adapters (each)
 	- [ ] Synching
 	- [ ] Reactive
+- [ ] zero-dependecy
 - [ ] Reactive
 - [ ] Improve `Class Database` API
 - [ ] Examples
