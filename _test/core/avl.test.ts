@@ -14,12 +14,12 @@ export class TestAvlTree<K, V> extends AvlTree<K, V> {
 describe("AVLTree", () => {
 	describe("contains", () => {
 		it("should return false if the tree is empty", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.isFalse(tree.contains(1));
 		});
 
 		it("should return whether the tree contains a node", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.isFalse(tree.contains(1));
 			assert.isFalse(tree.contains(2));
 			assert.isFalse(tree.contains(3));
@@ -32,7 +32,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should return false when the expected parent has no children", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(2, null);
 			assert.isFalse(tree.contains(1));
 			assert.isFalse(tree.contains(3));
@@ -41,7 +41,7 @@ describe("AVLTree", () => {
 
 	describe("custom compare function", () => {
 		it("should function correctly given a non-reverse customCompare", () => {
-			const tree = new TestAvlTree<number, null>((a, b) => b - a);
+			const tree = new TestAvlTree<number, null>("any", (a, b) => b - a);
 			tree.insert(2, null);
 			tree.insert(1, null);
 			tree.insert(3, null);
@@ -67,7 +67,7 @@ describe("AVLTree", () => {
 			interface IComplexObject {
 				innerKey: number;
 			}
-			const tree = new TestAvlTree<IComplexObject, null>((a, b) => a.innerKey - b.innerKey);
+			const tree = new TestAvlTree<IComplexObject, null>("any", (a, b) => a.innerKey - b.innerKey);
 			tree.insert({ innerKey: 1 }, null);
 			assert.isTrue(tree.contains({ innerKey: 1 }));
 			assert.isFalse(tree.contains({ innerKey: 2 }));
@@ -76,13 +76,13 @@ describe("AVLTree", () => {
 
 	describe("delete", () => {
 		it("should not change the size of a tree with no root", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.delete(1, null);
 			assert.equal(tree.size, 0);
 		});
 
 		it("should delete a single key", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, null);
 			tree.delete(1, null);
 			assert.isTrue(tree.isEmpty);
@@ -96,7 +96,7 @@ describe("AVLTree", () => {
 		 *   1   3                           3
 		 */
 		it("should correctly balance the left left case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(4, 4);
 			tree.insert(2, 2);
 			tree.insert(6, 6);
@@ -141,7 +141,7 @@ describe("AVLTree", () => {
 		 *         5   7                  5
 		 */
 		it("should correctly balance the right right case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(4, 4);
 			tree.insert(2, 2);
 			tree.insert(6, 6);
@@ -188,7 +188,7 @@ describe("AVLTree", () => {
 		 *     3   5
 		 */
 		it("should correctly balance the left right case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(6, 6);
 			tree.insert(2, 2);
 			tree.insert(7, 7);
@@ -252,7 +252,7 @@ describe("AVLTree", () => {
 		 *       4   6
 		 */
 		it("should correctly balance the right left case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(3, 3);
 			tree.insert(2, 2);
 			tree.insert(7, 7);
@@ -307,7 +307,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should take the right child if the left does not exist", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, 1);
 			tree.insert(2, 2);
 			tree.delete(1, null);
@@ -320,7 +320,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should take the left child if the right does not exist", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(2, 2);
 			tree.insert(1, 1);
 			tree.delete(2, null);
@@ -333,7 +333,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should get the right child if the node has 2 leaf children", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(2, 2);
 			tree.insert(1, 1);
 			tree.insert(3, 3);
@@ -347,7 +347,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should get the in-order successor if the node has both children", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(2, 2);
 			tree.insert(1, 1);
 			tree.insert(4, 4);
@@ -365,12 +365,12 @@ describe("AVLTree", () => {
 
 	describe("findMaximum", () => {
 		it("should return null when the tree is empty", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.equal(tree.findMaximum(), null);
 		});
 
 		it("should return the maximum key in the tree", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(3, null);
 			tree.insert(5, null);
 			tree.insert(1, null);
@@ -382,12 +382,12 @@ describe("AVLTree", () => {
 
 	describe("findMinimum", () => {
 		it("should return null when the tree is empty", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.equal(tree.findMinimum(), null);
 		});
 
 		it("should return the minimum key in the tree", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(5, null);
 			tree.insert(3, null);
 			tree.insert(1, null);
@@ -399,7 +399,7 @@ describe("AVLTree", () => {
 
 	describe("get", () => {
 		it("should return the correct values", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, 4);
 			tree.insert(2, 5);
 			tree.insert(3, 6);
@@ -409,7 +409,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should empty array when the value doesn't exist", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.equal(JSON.stringify(tree.get(1)), JSON.stringify([]));
 			assert.equal(JSON.stringify(tree.get(2)), JSON.stringify([]));
 			assert.equal(JSON.stringify(tree.get(3)), JSON.stringify([]));
@@ -424,7 +424,7 @@ describe("AVLTree", () => {
 
 	describe("insert", () => {
 		it("should return the size of the tree", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, null);
 			tree.insert(2, null);
 			tree.insert(3, null);
@@ -434,7 +434,7 @@ describe("AVLTree", () => {
 		});
 
 		it("should ignore insert of duplicate key", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, null);
 			tree.insert(1, null);
 			assert.equal(tree.size, 2);
@@ -451,7 +451,7 @@ describe("AVLTree", () => {
 		 *   w   x
 		 */
 		it("should correctly balance the left left case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(3, null);
 			tree.insert(2, null);
 			tree.insert(1, null);
@@ -472,7 +472,7 @@ describe("AVLTree", () => {
 		 *     x   y
 		 */
 		it("should correctly balance the left right case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(3, null);
 			tree.insert(1, null);
 			tree.insert(2, null);
@@ -493,7 +493,7 @@ describe("AVLTree", () => {
 		 *       y   z
 		 */
 		it("should correctly balance the right right case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, null);
 			tree.insert(2, null);
 			tree.insert(3, null);
@@ -514,7 +514,7 @@ describe("AVLTree", () => {
 		 *   x   y
 		 */
 		it("should correctly balance the right left case", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			tree.insert(1, null);
 			tree.insert(3, null);
 			tree.insert(2, null);
@@ -528,7 +528,7 @@ describe("AVLTree", () => {
 
 	describe("isEmpty", () => {
 		it("should return whether the tree is empty", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.isTrue(tree.isEmpty);
 			tree.insert(1, null);
 			assert.isFalse(tree.isEmpty);
@@ -538,7 +538,7 @@ describe("AVLTree", () => {
 	});
 	describe("size", () => {
 		it("should return the size of the tree", () => {
-			const tree = new TestAvlTree();
+			const tree = new TestAvlTree("any");
 			assert.equal(tree.size, 0);
 			tree.insert(1, null);
 			assert.equal(tree.size, 1);
