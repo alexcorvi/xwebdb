@@ -28,9 +28,7 @@
 	"author": "Alex Corvi",
 	"license": "MIT",
 	"dependencies": {
-		"diff-sorted-array": "^3.0.0",
 		"idb-keyval": "^6.2.0",
-		"ow": "^0.17.0",
 		"p-queue": "^6.3.0"
 	},
 	"devDependencies": {
