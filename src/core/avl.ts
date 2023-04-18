@@ -222,13 +222,15 @@ export class AvlTree<K, V> {
 	private _size: number = 0;
 	private _compare: CompareFunction<K>;
 	public unique: boolean = false;
+	public fieldName: string = '';
 	/**
 	 * Creates a new AVL Tree.
 	 * @param _compare An optional custom compare function.
 	 */
-	constructor(compare?: CompareFunction<K>, unique: boolean = false) {
+	constructor(fieldName: string, compare?: CompareFunction<K> , unique: boolean = false) {
 		this._compare = compare ? compare : this._defaultCompare;
 		this.unique = unique;
+		this.fieldName = fieldName;
 	}
 
 	/**
@@ -285,6 +287,7 @@ export class AvlTree<K, V> {
 				`Can't insert key ${key}, it violates the unique constraint`
 			) as any;
 			err.key = key;
+			err.prop = this.fieldName;
 			err.errorType = "uniqueViolated";
 			throw err;
 		}

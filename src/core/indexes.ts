@@ -79,11 +79,19 @@ export class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
 			this.sparse = sparse;
 		}
 
-		this.tree = new AvlTree(model.compareThings, this.unique);
+		this.tree = new AvlTree(
+			this.fieldName,
+			model.compareThings,
+			this.unique
+		);
 	}
 
 	reset() {
-		this.tree = new AvlTree(model.compareThings, this.unique);
+		this.tree = new AvlTree(
+			this.fieldName,
+			model.compareThings,
+			this.unique
+		);
 	}
 
 	/**
@@ -181,7 +189,9 @@ export class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
 		if (!Array.isArray(key)) {
 			this.tree.delete(key, doc);
 		} else {
-			uniqueProjectedKeys(key).forEach((_key) => this.tree.delete(_key, doc));
+			uniqueProjectedKeys(key).forEach((_key) =>
+				this.tree.delete(_key, doc)
+			);
 		}
 	}
 
@@ -267,13 +277,12 @@ export class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
 		} else {
 			let res: Doc[] = [];
 			input.forEach((item) => {
-				this.tree.get(item).forEach(singleRes=>{
+				this.tree.get(item).forEach((singleRes) => {
 					if (!singleRes || !singleRes._id) {
 						return;
 					}
 					res.push(singleRes);
 				});
-				
 			});
 			return res.filter((x, i) => res.indexOf(x) === i);
 		}
