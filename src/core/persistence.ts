@@ -7,7 +7,7 @@ import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
 import { Sync } from "./sync2";
 
-type persistenceLine = {
+export type persistenceLine = {
 	type: "index" | "doc" | "corrupt";
 	status: "add" | "remove";
 	data: any;
