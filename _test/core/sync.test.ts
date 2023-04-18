@@ -1,5 +1,6 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
+chai.config.includeStack = true;
 import unifydb from "../../dist/unifydb.js";
 const { Database, BaseModel } = unifydb;
 class Kid extends BaseModel<Kid> {
@@ -1218,7 +1219,7 @@ describe("Database Syncing", () => {
 					update: { $set: { age: 61 } },
 				});
 				await d2.remove({
-					filter: { name: "six" }
+					filter: { name: "six" },
 				});
 
 				{
@@ -1357,7 +1358,7 @@ describe("Database Syncing", () => {
 					update: { $set: { age: 61 } },
 				});
 				await d2.remove({
-					filter: { name: "six" }
+					filter: { name: "six" },
 				});
 
 				{
@@ -1456,21 +1457,1057 @@ describe("Database Syncing", () => {
 					s4.diff.should.eq(-1);
 				}
 			});
-			it("Update + Remove vs. Update", async () => {});
-			it("Multiple updates on both sides", async () => {});
-			it("Multiple updates + remove vs. remove", async () => {});
-			it("Multiple updates + remove vs. multiple updates + remove", async () => {});
-			it("Custom conflict resolution", async () => {});
-		});
-		describe("Unique key conflict resolution", async () => {
-			it("Creation of document with same unique Key on both DBs", async () => {});
-			it("update of document with same unique Key, same key created on other DB", async () => {});
-			it("Ensuring unique index on A, creating document violating constraint on B", async () => {});
-			it("Ensuring unique index on A, updating document violating constraint on B", async () => {});
+			it("Update + Remove vs. Update", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 222 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 22 } },
+				});
+				await d1.remove({
+					filter: { name: "two" },
+				});
+
+				await d1.update({
+					filter: { name: "six" },
+					update: { $set: { age: 62 } },
+				});
+				await d1.remove({
+					filter: { name: "six" },
+				});
+				await d2.update({
+					filter: { name: "six" },
+					update: { $set: { age: 666 } },
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+
+					s1.received.should.eq(0);
+					s1.sent.should.eq(2);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(666);
+				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(666);
+				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Multiple updates on both sides", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 22 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 222 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 2222 } },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 922 } },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 9222 } },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 92222 } },
+				});
+				await d2.update({
+					filter: { name: "six" },
+					update: { $set: { age: 96 } },
+				});
+				await d2.update({
+					filter: { name: "six" },
+					update: { $set: { age: 966 } },
+				});
+				await d2.update({
+					filter: { name: "six" },
+					update: { $set: { age: 9666 } },
+				});
+				await d1.update({
+					filter: { name: "six" },
+					update: { $set: { age: 6 } },
+				});
+				await d1.update({
+					filter: { name: "six" },
+					update: { $set: { age: 66 } },
+				});
+				await d1.update({
+					filter: { name: "six" },
+					update: { $set: { age: 666 } },
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+
+					s1.received.should.eq(0);
+					s1.sent.should.eq(2);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(666);
+				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(666);
+				(await d1.find({ filter: { name: "two" } }))[0].age.should.eq(92222);
+				(await d2.find({ filter: { name: "two" } }))[0].age.should.eq(92222);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Multiple updates + remove vs. remove", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 22 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 222 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 2222 } },
+				});
+				await d1.remove({
+					filter: { name: "two" },
+				});
+				await d2.remove({
+					filter: { name: "two" },
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(0);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Multiple updates + remove vs. multiple updates + remove", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 22 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 222 } },
+				});
+				await d1.update({
+					filter: { name: "two" },
+					update: { $set: { age: 2222 } },
+				});
+				await d1.remove({
+					filter: { name: "two" },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 22 } },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 222 } },
+				});
+				await d2.update({
+					filter: { name: "two" },
+					update: { $set: { age: 2222 } },
+				});
+				await d2.remove({
+					filter: { name: "two" },
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(0);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
 		});
 		describe("indexes", () => {
-			it("ensuring indexes", async () => {});
-			it("removing indexes", async () => {});
+			it("ensuring indexes", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+				await d2.ensureIndex({
+					unique: false,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(0);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				d1._datastore.indexes.name.fieldName.should.eq("name");
+				d1._datastore.indexes.name.unique.should.eq(false);
+				d1._datastore.indexes.name.sparse.should.eq(true);
+				d2._datastore.indexes.name.fieldName.should.eq("name");
+				d2._datastore.indexes.name.unique.should.eq(false);
+				d2._datastore.indexes.name.sparse.should.eq(true);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("removing indexes", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d2.sync();
+				const s2 = await d1.sync();
+				const s3 = await d2.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+				await d2.ensureIndex({
+					unique: false,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(0);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				d1._datastore.indexes.name.fieldName.should.eq("name");
+				d1._datastore.indexes.name.unique.should.eq(false);
+				d1._datastore.indexes.name.sparse.should.eq(true);
+				d2._datastore.indexes.name.fieldName.should.eq("name");
+				d2._datastore.indexes.name.unique.should.eq(false);
+				d2._datastore.indexes.name.sparse.should.eq(true);
+
+				await d2.ensureIndex({ fieldName: "name", unique: true, sparse: false });
+				await d2.removeIndex("name");
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(0);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(0);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+				chai.expect(d1._datastore.indexes.name).eq(undefined);
+				chai.expect(d2._datastore.indexes.name).eq(undefined);
+
+				await d1.ensureIndex({ fieldName: "name", unique: true, sparse: false });
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(0);
+					s2.received.should.eq(1);
+					s3.received.should.eq(0);
+					s3.sent.should.eq(0);
+				}
+
+				d1._datastore.indexes.name.fieldName.should.eq("name");
+				d1._datastore.indexes.name.unique.should.eq(true);
+				d1._datastore.indexes.name.sparse.should.eq(false);
+
+				d2._datastore.indexes.name.fieldName.should.eq("name");
+				d2._datastore.indexes.name.unique.should.eq(true);
+				d2._datastore.indexes.name.sparse.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+		});
+		describe("Unique key conflict resolution", async () => {
+			it("Creation of document with same unique Key on both DBs", async function () {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				d1._datastore.indexes["name"].unique.should.eq(true);
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(3);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(3);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.insert([Kid.new({ name: "samename", age: 1 })]);
+				await d2.insert([Kid.new({ name: "samename", age: 2 })]);
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Creation of document with same unique Key on both DBs (reverse order)", async function () {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(3);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(3);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				d1._datastore.indexes["name"].unique.should.eq(true);
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				await d2.insert([Kid.new({ name: "samename", age: 2 })]);
+				await d1.insert([Kid.new({ name: "samename", age: 1 })]);
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("update of document with same unique Key, same key created on other DB", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				d1._datastore.indexes["name"].unique.should.eq(true);
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(3);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(3);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.insert([Kid.new({ name: "samename", age: 9999 })]);
+				await d2.update({ filter: { name: "ten" }, update: { $set: { name: "samename" } } });
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("update of document with same unique Key, same key created on other DB (reverse order)", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				await d1.ensureIndex({
+					unique: true,
+					sparse: true,
+					fieldName: "name",
+				});
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(3);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(3);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				d1._datastore.indexes["name"].unique.should.eq(true);
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				await d2.update({ filter: { name: "ten" }, update: { $set: { name: "samename" } } });
+				await d1.insert([Kid.new({ name: "samename", age: 9999 })]);
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Ensuring unique index on A, creating document violating constraint on B", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.create([Kid.new({ name: "ten", age: 1010 })]);
+				await d2.ensureIndex({ fieldName: "name", unique: true });
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "ten" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 1010).should.above(-1);
+				(await d1.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 10).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "ten" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 1010).should.above(-1);
+				(await d2.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 10).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
+			it("Ensuring unique index on A, updating document violating constraint on B", async () => {
+				const docs1 = [
+					Kid.new({
+						age: 10,
+						name: "ten",
+					}),
+					Kid.new({
+						age: 1,
+						name: "one",
+					}),
+				];
+				const docs2 = [
+					Kid.new({
+						age: 6,
+						name: "six",
+					}),
+					Kid.new({
+						age: 2,
+						name: "two",
+					}),
+				];
+
+				await d1.insert(docs1);
+				await d2.insert(docs2);
+
+				const s1 = await d1.sync();
+				const s2 = await d2.sync();
+				const s3 = await d1.sync();
+
+				s1.received.should.eq(0);
+				s1.sent.should.eq(2);
+				s2.sent.should.eq(2);
+				s2.received.should.eq(2);
+				s3.received.should.eq(2);
+				s3.sent.should.eq(0);
+
+				await d1.update({ filter: { name: "ten" }, update: { $set: { name: "one" } } });
+				await d2.ensureIndex({ fieldName: "name", unique: true });
+				d2._datastore.indexes["name"].unique.should.eq(true);
+
+				{
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					s1.received.should.eq(0);
+					s1.sent.should.eq(1);
+					s2.sent.should.eq(1);
+					s2.received.should.eq(1);
+					s3.received.should.eq(1);
+					s3.sent.should.eq(0);
+				}
+
+				(await d1.find({ filter: { name: "one" } })).length.should.eq(2);
+				(await d1.find({ filter: { name: "one" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ filter: { name: "one" } })).findIndex((x) => x.age === 10).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				(await d2.find({ filter: { name: "one" } })).length.should.eq(2);
+				(await d2.find({ filter: { name: "one" } })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ filter: { name: "one" } })).findIndex((x) => x.age === 10).should.above(-1);
+				d1._datastore.indexes["name"].unique.should.eq(false);
+
+				{
+					// hashes are equal
+					const s1 = await d1.sync();
+					const s2 = await d2.sync();
+					const s3 = await d1.sync();
+					const s4 = await d2.sync();
+					(s1.diff === -1 || s1.diff === 0).should.eq(true);
+					(s2.diff === -1 || s2.diff === 0).should.eq(true);
+					s3.diff.should.eq(-1);
+					s4.diff.should.eq(-1);
+				}
+			});
 		});
 	});
 });
