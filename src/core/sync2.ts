@@ -1,7 +1,7 @@
-import { Persistence } from "./persistence";
+import { Persistence, persistenceLine } from "./persistence";
 import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
-import { IDB } from "./idb";
+import { Index, model } from ".";
 type diff = { key: string; value: string };
 
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
@@ -10,10 +10,7 @@ export class Sync {
 	private p: Persistence;
 	rdata: remoteStore;
 
-	constructor(
-		persistence: Persistence,
-		rdata: remoteStore,
-	) {
+	constructor(persistence: Persistence, rdata: remoteStore) {
 		this.p = persistence;
 		this.rdata = rdata;
 	}
@@ -69,7 +66,7 @@ export class Sync {
 		const rev = key.split("_")[1];
 		const thisTime = Number(rev.substring(2));
 		const conflictingIndex = thatDiffs.findIndex((x) =>
-			x.key.startsWith(_id+"_")
+			x.key.startsWith(_id + "_")
 		);
 		if (conflictingIndex > -1) {
 			const conflicting = thatDiffs[conflictingIndex];
@@ -92,6 +89,49 @@ export class Sync {
 		}
 
 		return { thisDiffs, thatDiffs };
+	}
+
+	causesUCV(
+		input: string
+	):
+		| { type: "doc"; prop: string; value: string }
+		| { type: "index"; fieldName: string; sparse: boolean }
+		| false {
+		let line: persistenceLine = this.p.treatSingleLine(input);
+		if (line.status === "remove") return false;
+		try {
+			if (line.type === "doc") {
+				// don't cause UCV by _id (without this line all updates would trigger UCV)
+				// _id UCVs conflicts are only natural
+				// and solved by the fact that they are persisted on the same index
+				line.data._id = null;
+				this.p.db.addToIndexes(line.data);
+			} else {
+				this.p.db.indexes[line.data.fieldName] = new Index(
+					line.data.data
+				);
+				this.p.db.indexes[line.data.fieldName].insert(
+					this.p.db.getAllData()
+				);
+			}
+		} catch (e) {
+			if (line.type === "doc") {
+				return {
+					type: "doc",
+					prop: (e as any).prop,
+					value: (e as any).key,
+				};
+			} else {
+				delete this.p.db.indexes[line.data.fieldName];
+				return {
+					type: "index",
+					fieldName: line.data.fieldName,
+					sparse: !!line.data.data.sparse,
+				};
+			}
+		}
+		this.p.db.removeFromIndexes(line.data);
+		return false;
 	}
 
 	async _sync(): Promise<{
@@ -156,18 +196,49 @@ export class Sync {
 
 		// downloading
 		const downRemove: string[] = [];
-		const downSet: [string,string][] = [];
+		const downSet: [string, string][] = [];
 		for (let index = 0; index < remoteDiffs.length; index++) {
 			const diff = remoteDiffs[index];
+			const UCV = this.causesUCV(diff.value);
+
+			// if unique constraint violations occured
+			// make the key non-unique
+			// any other implementation would result in unjustified complexity
+			if (UCV && UCV.type === "doc") {
+				const uniqueProp = UCV.prop;
+				await this.p.data.set(
+					(localKeys.find(x=>x.startsWith(uniqueProp + "_")) || ""),
+					this.p.encode(
+						model.serialize({
+							$$indexCreated: {
+								fieldName: uniqueProp,
+								unique: false,
+								sparse: this.p.db.indexes[uniqueProp].sparse,
+							},
+						})
+					)
+				);
+			}
+			else if (UCV && UCV.type === "index") {
+				diff.value = this.p.encode(
+					model.serialize({
+						$$indexCreated: {
+							fieldName: UCV.fieldName,
+							unique: false,
+							sparse: UCV.sparse,
+						},
+					})
+				)
+			}
 			const oldIDRev =
 				localKeys.find((key) =>
 					key.toString().startsWith(diff.key.split("_")[0] + "_")
 				) || "";
 			if (oldIDRev) downRemove.push(oldIDRev);
-			downSet.push([diff.key, diff.value])
+			downSet.push([diff.key, diff.value]);
 		}
-		await this.p.data.dels(downRemove)
-		await this.p.data.sets(downSet)
+		await this.p.data.dels(downRemove);
+		await this.p.data.sets(downSet);
 		await this.setLocalHash();
 
 		// uploading
@@ -177,7 +248,7 @@ export class Sync {
 			const diff = localDiffs[index];
 			const oldIDRev =
 				remoteKeys.find((key) =>
-					key.toString().startsWith(diff.key.split("_")[0]+"_")
+					key.toString().startsWith(diff.key.split("_")[0] + "_")
 				) || "";
 			if (oldIDRev) upRemove.push(oldIDRev);
 			upSet.push({ key: diff.key, value: diff.value });
