@@ -34,10 +34,10 @@
 	- [ ] S3 Adapter (not advised)
 	- [x] Memory adapter (for demo & tests)
 	- [ ] Write tests
-		- [ ] Sync Integration
-		- [ ] Check sync function step (diff) on all tests
+		- [x] Sync Integration
+		- [x] Check sync function step (diff) on all tests
 		- [ ] Sync Unit
-		- [ ] KV Adapter
+		- [ ] All adapters
 	- [X] Work with conflicts
 	- [ ] transaction log truncation (deleted? updated again?)
 	- [ ] idb operations in bulk for perf improvements
