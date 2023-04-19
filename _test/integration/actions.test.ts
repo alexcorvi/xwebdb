@@ -90,17 +90,17 @@ describe("Actions", async () => {
 			model: Employee,
 		});
 
-        beforeEach(async () => {
-            db = new Database<Employee>({
-                ref: dbName,
-                model: Employee,
-            });
-            await db.reload();
-            (await db.count({})).should.equal(0);
-        });
-        afterEach(async () => {
-            await db.delete({filter: {}, multi: true});
-        });
+		beforeEach(async () => {
+			db = new Database<Employee>({
+				ref: dbName,
+				model: Employee,
+			});
+			await db.reload();
+			(await db.count({})).should.equal(0);
+		});
+		afterEach(async () => {
+			await db.delete({}, true);
+		});
 
 		describe("Creating", () => {
 			it("Basic creation", async () => {
@@ -154,12 +154,8 @@ describe("Actions", async () => {
 				]);
 				const docs = await db.read({});
 				expect(docs.length).to.be.equal(2);
-				expect(docs.findIndex((x) => x._id === "1")).to.be.greaterThan(
-					-1
-				);
-				expect(docs.findIndex((x) => x._id === "2")).to.be.greaterThan(
-					-1
-				);
+				expect(docs.findIndex((x) => x._id === "1")).to.be.greaterThan(-1);
+				expect(docs.findIndex((x) => x._id === "2")).to.be.greaterThan(-1);
 			});
 			it("Test signature", async () => {
 				{
@@ -258,30 +254,32 @@ describe("Actions", async () => {
 			});
 			it("Basic filter", async () => {
 				{
-					const res = await db.read({ filter: { name: "a" } });
+					const res = await db.read({ name: "a" });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("a");
 					expect(res[0].age).to.be.eq(1);
 					expect(res[0].male).to.be.eq(true);
 				}
 				{
-					const res = await db.read({ filter: { name: "b" } });
+					const res = await db.read({ name: "b" });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("b");
 					expect(res[0].age).to.be.eq(2);
 					expect(res[0].male).to.be.eq(false);
 				}
 				{
-					const res = await db.read({
-						filter: {
+					const res = await db.read(
+						{
 							age: {
 								$lt: 3,
 							},
 						},
-						sort: {
-							age: 1,
-						},
-					});
+						{
+							sort: {
+								age: 1,
+							},
+						}
+					);
 					expect(res.length).to.be.eq(2);
 					const doc1 = res.find((x) => x.name === "a")!;
 					const doc2 = res.find((x) => x.name === "b")!;
@@ -295,18 +293,14 @@ describe("Actions", async () => {
 			});
 			it("Deep filter", async () => {
 				{
-					const res = await db.read({
-						filter: { $deep: { "d.a.x": { $eq: 10 } } },
-					});
+					const res = await db.read({ $deep: { "d.a.x": { $eq: 10 } } });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("d");
 					expect(res[0].age).to.be.eq(4);
 					expect(res[0].male).to.be.eq(false);
 				}
 				{
-					const res = await db.read({
-						filter: { $deep: { "d.a.x": { $eq: 20 } } },
-					});
+					const res = await db.read({ $deep: { "d.a.x": { $eq: 20 } } });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("e");
 					expect(res[0].age).to.be.eq(5);
@@ -314,10 +308,8 @@ describe("Actions", async () => {
 				}
 				{
 					const res = await db.read({
-						filter: {
-							$deep: {
-								"d.a.x": { $lt: 20 },
-							},
+						$deep: {
+							"d.a.x": { $lt: 20 },
 						},
 					});
 					expect(res.length).to.be.eq(1);
@@ -337,30 +329,24 @@ describe("Actions", async () => {
 				expect(res.findIndex((x) => x.age === 5)).to.be.greaterThan(-1);
 			});
 			it("limiting", async () => {
-				const res = await db.find({ limit: 3 });
+				const res = await db.find({}, { limit: 3 });
 				expect(res.length).to.be.eq(3);
 			});
 			it("skipping", async () => {
-				const res = await db.find({ skip: 3 });
+				const res = await db.find({}, { skip: 3 });
 				expect(res.length).to.be.eq(2);
 			});
 			it("projecting", async () => {
-				const res = await db.find({
-					filter: { name: "a" },
-					project: { _id: 0, male: 1 },
-				});
+				const res = await db.find({ name: "a" }, { project: { _id: 0, male: 1 } });
 				expect(res[0]).to.be.deep.equal({ male: true });
 			});
 			it("deep projecting", async () => {
-				const res = await db.find({
-					filter: { name: "e" },
-					project: { _id: 0, $deep: { "d.a.x": 1 } },
-				});
+				const res = await db.find({ name: "e" }, { project: { _id: 0, $deep: { "d.a.x": 1 } } });
 				expect(res[0]).to.be.deep.equal({ d: { a: { x: 20 } } });
 			});
 			it("sorting", async () => {
 				{
-					const res1 = await db.find({ sort: { male: 1 } });
+					const res1 = await db.find({}, { sort: { male: 1 } });
 					expect(res1[0].male).to.be.eq(false);
 					expect(res1[1].male).to.be.eq(false);
 					expect(res1[2].male).to.be.eq(true);
@@ -368,7 +354,7 @@ describe("Actions", async () => {
 					expect(res1[4].male).to.be.eq(true);
 				}
 				{
-					const res2 = await db.find({ sort: { male: -1 } });
+					const res2 = await db.find({}, { sort: { male: -1 } });
 					expect(res2[0].male).to.be.eq(true);
 					expect(res2[1].male).to.be.eq(true);
 					expect(res2[2].male).to.be.eq(true);
@@ -377,13 +363,11 @@ describe("Actions", async () => {
 				}
 			});
 			it("deep sorting", async () => {
-				const res1 = await db.find({ sort: { $deep: { "d.a.x": 1 } } });
+				const res1 = await db.find({}, { sort: { $deep: { "d.a.x": 1 } } });
 				expect(res1[res1.length - 1].d?.a.x).to.be.equal(20);
 				expect(res1[res1.length - 2].d?.a.x).to.be.equal(10);
 
-				const res2 = await db.find({
-					sort: { $deep: { "d.a.x": -1 } },
-				});
+				const res2 = await db.find({}, { sort: { $deep: { "d.a.x": -1 } } });
 				expect(res2[0].d?.a.x).to.be.equal(20);
 				expect(res2[1].d?.a.x).to.be.equal(10);
 			});
@@ -398,18 +382,14 @@ describe("Actions", async () => {
 					expect(typeof doc.isFemale).to.be.eq("function");
 				});
 				it("filter by getter", async () => {
-					const res = await db.find({ filter: { female: true } });
+					const res = await db.find({ female: true });
 					expect(res.length).to.be.eq(2);
-					expect(
-						res.findIndex((x) => x.name === "b")
-					).to.be.greaterThan(-1);
-					expect(
-						res.findIndex((x) => x.name === "d")
-					).to.be.greaterThan(-1);
+					expect(res.findIndex((x) => x.name === "b")).to.be.greaterThan(-1);
+					expect(res.findIndex((x) => x.name === "d")).to.be.greaterThan(-1);
 				});
 				it("sort by getter", async () => {
 					{
-						const res1 = await db.find({ sort: { female: -1 } });
+						const res1 = await db.find({}, { sort: { female: -1 } });
 						expect(res1[0].male).to.be.eq(false);
 						expect(res1[1].male).to.be.eq(false);
 						expect(res1[2].male).to.be.eq(true);
@@ -417,7 +397,7 @@ describe("Actions", async () => {
 						expect(res1[4].male).to.be.eq(true);
 					}
 					{
-						const res2 = await db.find({ sort: { female: 1 } });
+						const res2 = await db.find({}, { sort: { female: 1 } });
 						expect(res2[0].male).to.be.eq(true);
 						expect(res2[1].male).to.be.eq(true);
 						expect(res2[2].male).to.be.eq(true);
@@ -426,16 +406,16 @@ describe("Actions", async () => {
 					}
 				});
 				it("projecting a getter", async () => {
-					const res = await db.find({
-						filter: { name: "a" },
-						project: { _id: 0, female: 1 },
-					});
+					const res = await db.find(
+						{ name: "a" },
+						{
+							project: { _id: 0, female: 1 },
+						}
+					);
 					expect(res[0]).to.be.deep.equal({ female: false });
 				});
 				it("run function", async () => {
-					const doc = (
-						await db.find({ filter: { female: true } })
-					)[0];
+					const doc = (await db.find({ female: true }))[0];
 					expect(doc.isFemale()).to.be.eq(true);
 				});
 			});
@@ -461,75 +441,30 @@ describe("Actions", async () => {
 				]);
 			});
 			it("Basic filter", async () => {
-				await db.update({
-					filter: {
-						age: 28,
-					},
-					update: {
-						$set: {
-							name: "aly",
-						},
-					},
-				});
-				const afterUpdate = await db.find({ filter: { age: 28 } });
+				await db.update({ age: 28 }, { $set: { name: "aly" } });
+				const afterUpdate = await db.find({ age: 28 });
 				expect(afterUpdate.length).to.be.eq(1);
 				expect(afterUpdate[0].name).to.be.eq("aly");
 			});
 			it("Deep filter", async () => {
-				await db.update({
-					filter: {
-						$deep: {
-							"d.a.x": {
-								$eq: 0,
-							},
-						},
-					},
-					update: {
-						$set: {
-							name: "name2",
-						},
-					},
-				});
-				const afterUpdate = await db.find({ filter: { age: 28 } });
+				await db.update({ $deep: { "d.a.x": { $eq: 0 } } }, { $set: { name: "name2" } });
+				const afterUpdate = await db.find({ age: 28 });
 				expect(afterUpdate.length).to.be.eq(1);
 				expect(afterUpdate[0].name).to.be.eq("name2");
 			});
 			it("with no filter", async () => {
-				await db.update({
-					filter: {},
-					update: {
-						$set: {
-							name: "all",
-						},
-					},
-				});
-				const afterUpdate = await db.find({ filter: { name: "all" } });
+				await db.update({}, { $set: { name: "all" } });
+				const afterUpdate = await db.find({ name: "all" });
 				expect(afterUpdate.length).to.be.eq(1);
 			});
 			it("Multi update", async () => {
-				await db.update({
-					filter: {},
-					update: {
-						$set: {
-							name: "all",
-						},
-					},
-					multi: true,
-				});
-				const afterUpdate = await db.find({ filter: { name: "all" } });
+				await db.update({}, { $set: { name: "all" } }, true);
+				const afterUpdate = await db.find({ name: "all" });
 				expect(afterUpdate.length).to.be.eq(2);
 			});
 			it("Test signature & modeling", async () => {
 				{
-					const res = await db.update({
-						filter: {},
-						update: {
-							$set: {
-								male: true,
-							},
-						},
-						multi: true,
-					});
+					const res = await db.update({}, { $set: { male: true } }, true);
 					expect(res.number).eq(2);
 					expect(res.docs.length).eq(2);
 					expect(res.docs[0].female).eq(false);
@@ -538,17 +473,7 @@ describe("Actions", async () => {
 					expect(res.docs[1].isFemale()).eq(false);
 				}
 				{
-					const res = await db.update({
-						filter: {
-							female: false,
-						},
-						update: {
-							$set: {
-								male: false,
-							},
-						},
-						multi: true,
-					});
+					const res = await db.update({ female: false }, { $set: { male: false } }, true);
 					expect(res.number).eq(2);
 					expect(res.docs.length).eq(2);
 					expect(res.docs[0].female).eq(true);
@@ -572,43 +497,33 @@ describe("Actions", async () => {
 				]);
 			});
 			it("When the document is found", async () => {
-				const res = await db.upsert({
-					filter: { name: "alex" },
-					update: {
-						$set: {
-							name: "aly",
-						},
-						$setOnInsert: Employee.new({ name: "aly" }),
-					},
-				});
+				const res = await db.upsert(
+					{ name: "alex" },
+					{ $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly" }) }
+				);
 				expect(res.upsert).eq(false);
 				expect(res.number).eq(1);
 				expect(res.docs.length).eq(1);
 				expect(res.docs[0].name).eq("aly");
-				const find = await db.find({ filter: { name: "aly" } });
+				const find = await db.find({ name: "aly" });
 				expect(find.length).eq(1);
 				expect(find[0].age).eq(27);
-				const findAll = await db.find({ filter: {} });
+				const findAll = await db.find({});
 				expect(findAll.length).eq(1); // no insertion occurred
 			});
 			it("When the document is not found", async () => {
-				const res = await db.upsert({
-					filter: { name: "david" },
-					update: {
-						$set: {
-							name: "aly",
-						},
-						$setOnInsert: Employee.new({ name: "aly", age: 19 }),
-					},
-				});
+				const res = await db.upsert(
+					{ name: "david" },
+					{ $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly", age: 19 }) }
+				);
 				expect(res.upsert).eq(true);
 				expect(res.number).eq(1);
 				expect(res.docs.length).eq(1);
 				expect(res.docs[0].name).eq("aly");
-				const find = await db.find({ filter: { name: "aly" } });
+				const find = await db.find({ name: "aly" });
 				expect(find.length).eq(1);
 				expect(find[0].age).eq(19);
-				const findAll = await db.find({ filter: {} });
+				const findAll = await db.find({});
 				expect(findAll.length).eq(2); // insertion of a new document occurred
 			});
 		});
@@ -644,12 +559,8 @@ describe("Actions", async () => {
 				expect(await db.count({ age: 2 })).eq(2);
 			});
 			it("Deep filter", async () => {
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 0 } } })).eq(
-					1
-				);
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(
-					2
-				);
+				expect(await db.count({ $deep: { "d.a.x": { $eq: 0 } } })).eq(1);
+				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(2);
 			});
 			it("with no filter", async () => {
 				expect(await db.count()).eq(3);
@@ -684,7 +595,7 @@ describe("Actions", async () => {
 				]);
 			});
 			it("Basic filter", async () => {
-				const res = await db.delete({ filter: { female: true } });
+				const res = await db.delete({ female: true });
 				expect(res.number).eq(1);
 				expect(res.docs[0].name).eq("dina");
 				expect(res.docs[0].female).eq(true);
@@ -694,9 +605,7 @@ describe("Actions", async () => {
 				expect(await db.count({ name: "dina" })).eq(0);
 			});
 			it("Deep filter", async () => {
-				const res = await db.delete({
-					filter: { $deep: { "d.a.x": { $eq: 1 } } },
-				});
+				const res = await db.delete({ $deep: { "d.a.x": { $eq: 1 } } });
 				expect(res.number).eq(1);
 				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(
 					1 // one is left, since this is not a multi delete
@@ -704,15 +613,12 @@ describe("Actions", async () => {
 				expect(await db.count()).eq(2);
 			});
 			it("with no filter", async () => {
-				const res = await db.delete({ filter: {} });
+				const res = await db.delete({});
 				expect(res.number).eq(1);
 				expect(await db.count()).eq(2);
 			});
 			it("multi delete", async () => {
-				const res = await db.delete({
-					filter: { $deep: { "d.a.x": { $eq: 1 } } },
-					multi: true,
-				});
+				const res = await db.delete({ $deep: { "d.a.x": { $eq: 1 } } }, true);
 				expect(res.number).eq(2);
 				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(
 					0 // no one is left, since this is a multi delete

@@ -50,7 +50,7 @@ export class Database<S extends BaseModel<S>> {
 			corruptAlertThreshold: options.corruptAlertThreshold,
 			timestampData: options.timestampData,
 			syncToRemote: options.syncToRemote,
-			syncInterval: options.syncInterval
+			syncInterval: options.syncInterval,
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}
@@ -62,7 +62,7 @@ export class Database<S extends BaseModel<S>> {
 	/**
 	 * insert documents
 	 */
-	public async insert(docs: S[]): Promise<{ docs: S[]; number: number }> {
+	public async insert(docs: S[] | S): Promise<{ docs: S[]; number: number }> {
 		await this.reloadFirst();
 		const res = await this._datastore.insert(docs as any);
 		return res;
@@ -71,22 +71,23 @@ export class Database<S extends BaseModel<S>> {
 	/**
 	 * Find document(s) that meets a specified criteria
 	 */
-	public async read({
-		filter,
-		skip,
-		limit,
-		project,
-		sort = undefined,
-	}: {
-		filter?: Filter<NFP<S>>;
-		skip?: number;
-		limit?: number;
-		sort?: SchemaKeySort<NFP<S>>;
-		project?: SchemaKeyProjection<NFP<S>>;
-	}): Promise<S[]> {
-		filter = fixDeep(filter || {});
-		sort = fixDeep(sort || {});
-		project = fixDeep(project || {});
+	public async read(
+		filter: Filter<NFP<S>> = {},
+		{
+			skip = 0,
+			limit = 0,
+			project = {},
+			sort = {},
+		}: {
+			skip?: number;
+			limit?: number;
+			sort?: SchemaKeySort<NFP<S>>;
+			project?: SchemaKeyProjection<NFP<S>>;
+		} = {}
+	): Promise<S[]> {
+		filter = fixDeep(filter);
+		sort = fixDeep(sort);
+		project = fixDeep(project);
 
 		const cursor = this._datastore.cursor(filter);
 		if (sort) {
@@ -108,15 +109,11 @@ export class Database<S extends BaseModel<S>> {
 	/**
 	 * Update document(s) that meets the specified criteria
 	 */
-	public async update({
-		filter,
-		update,
-		multi,
-	}: {
-		filter: Filter<NFP<S>>;
-		update: UpdateOperators<NFP<S>>;
-		multi?: boolean;
-	}): Promise<{ docs: S[]; number: number }> {
+	public async update(
+		filter: Filter<NFP<S>>,
+		update: UpdateOperators<NFP<S>>,
+		multi: boolean = false
+	): Promise<{ docs: S[]; number: number }> {
 		filter = fixDeep(filter || {});
 		if (update.$set) {
 			update.$set = fixDeep(update.$set);
@@ -136,15 +133,11 @@ export class Database<S extends BaseModel<S>> {
 	 * Update document(s) that meets the specified criteria,
 	 * and do an insertion if no documents are matched
 	 */
-	public async upsert({
-		filter,
-		update,
-		multi,
-	}: {
-		filter: Filter<NFP<S>>;
-		update: UpsertOperators<NFP<S>>;
-		multi?: boolean;
-	}): Promise<{ docs: S[]; number: number; upsert: boolean }> {
+	public async upsert(
+		filter: Filter<NFP<S>>,
+		update: UpsertOperators<NFP<S>>,
+		multi: boolean = false
+	): Promise<{ docs: S[]; number: number; upsert: boolean }> {
 		filter = fixDeep(filter || {});
 		if (update.$set) {
 			update.$set = fixDeep(update.$set);
@@ -173,13 +166,10 @@ export class Database<S extends BaseModel<S>> {
 	 * Delete document(s) that meets the specified criteria
 	 *
 	 */
-	public async delete({
-		filter,
-		multi,
-	}: {
-		filter: Filter<NFP<S>>;
-		multi?: boolean;
-	}): Promise<{ docs: S[]; number: number }> {
+	public async delete(
+		filter: Filter<NFP<S>>,
+		multi: boolean = false
+	): Promise<{ docs: S[]; number: number }> {
 		filter = fixDeep(filter || {});
 		await this.reloadFirst();
 		const res = await this._datastore.remove(filter, {
@@ -217,8 +207,10 @@ export class Database<S extends BaseModel<S>> {
 	}
 
 	async sync() {
-		if(!this._datastore.persistence.sync) {
-			throw new Error("Can not perform sync operation unless provided with remote DB adapter")
+		if (!this._datastore.persistence.sync) {
+			throw new Error(
+				"Can not perform sync operation unless provided with remote DB adapter"
+			);
 		}
 		await this.reloadFirst();
 		return await this._datastore.persistence.sync.sync();

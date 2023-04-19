@@ -46,7 +46,7 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(1);
 
-			const resOnD2 = await d2.find({ filter: { age: 12 } });
+			const resOnD2 = await d2.find({ age: 12 });
 			resOnD2.length.should.eq(1);
 			resOnD2[0].name.should.eq("alex");
 			resOnD2[0]._id.should.eq(doc._id);
@@ -77,39 +77,33 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(1);
 
-			const resOnD2 = await d2.find({ filter: { age: 12 } });
+			const resOnD2 = await d2.find({ age: 12 });
 			resOnD2.length.should.eq(1);
 			resOnD2[0].name.should.eq("alex");
 			resOnD2[0]._id.should.eq(doc._id);
 
 			{
-				await d1.update({
-					filter: { age: 12 },
-					update: { $set: { age: 13 } },
-				});
+				await d1.update({ age: 12 }, { $set: { age: 13 } });
 				const s1 = await d1.sync();
 				const s2 = await d2.sync();
 				s1.received.should.eq(0);
 				s1.sent.should.eq(1);
 				s2.sent.should.eq(0);
 				s2.received.should.eq(1);
-				const resOnD2 = await d2.find({ filter: { age: 13 } });
+				const resOnD2 = await d2.find({ age: 13 });
 				resOnD2.length.should.eq(1);
 				resOnD2[0].name.should.eq("alex");
 				resOnD2[0]._id.should.eq(doc._id);
 			}
 			{
-				await d2.update({
-					filter: { age: 13 },
-					update: { $set: { age: 14 } },
-				});
+				await d2.update({ age: 13 }, { $set: { age: 14 } });
 				const s2 = await d2.sync();
 				const s1 = await d1.sync();
 				s1.received.should.eq(1);
 				s1.sent.should.eq(0);
 				s2.sent.should.eq(1);
 				s2.received.should.eq(0);
-				const resOnD1 = await d2.find({ filter: { age: 14 } });
+				const resOnD1 = await d2.find({ age: 14 });
 				resOnD1.length.should.eq(1);
 				resOnD1[0].name.should.eq("alex");
 				resOnD1[0]._id.should.eq(doc._id);
@@ -140,20 +134,20 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(1);
 
-			const resOnD2 = await d2.find({ filter: { age: 12 } });
+			const resOnD2 = await d2.find({ age: 12 });
 			resOnD2.length.should.eq(1);
 			resOnD2[0].name.should.eq("alex");
 			resOnD2[0]._id.should.eq(doc._id);
 
 			{
-				await d1.remove({ filter: { age: 12 } });
+				await d1.remove({ age: 12 });
 				const s1 = await d1.sync();
 				const s2 = await d2.sync();
 				s1.received.should.eq(0);
 				s1.sent.should.eq(1);
 				s2.sent.should.eq(0);
 				s2.received.should.eq(1);
-				const resOnD2 = await d2.find({ filter: { age: 12 } });
+				const resOnD2 = await d2.find({ age: 12 });
 				resOnD2.length.should.eq(0);
 			}
 			{
@@ -193,7 +187,7 @@ describe("Database Syncing", () => {
 			const resOnD2 = await d2.find({});
 			resOnD2.length.should.eq(2);
 			{
-				await d2.remove({ filter: {}, multi: true });
+				await d2.remove({}, true);
 				const s2 = await d2.sync();
 				const s1 = await d1.sync();
 				s1.received.should.eq(2);
@@ -224,10 +218,7 @@ describe("Database Syncing", () => {
 				age: 13,
 			});
 			await d1.insert([doc, doc2]);
-			await d1.update({
-				filter: { name: "marc" },
-				update: { $inc: { age: 5 } },
-			});
+			await d1.update({ name: "marc" }, { $inc: { age: 5 } });
 			const s1 = await d1.sync();
 			const s2 = await d2.sync();
 			s1.sent.should.eq(2);
@@ -235,8 +226,8 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(2);
 
-			const alex = (await d2.find({ filter: { name: "alex" } }))[0];
-			const marc = (await d2.find({ filter: { name: "marc" } }))[0];
+			const alex = (await d2.find({ name: "alex" }))[0];
+			const marc = (await d2.find({ name: "marc" }))[0];
 			const all = await d2.find({});
 
 			all.length.should.eq(2);
@@ -264,7 +255,7 @@ describe("Database Syncing", () => {
 				age: 13,
 			});
 			await d1.insert([doc, doc2]);
-			await d1.remove({ filter: { name: "marc" } });
+			await d1.remove({ name: "marc" });
 			const s1 = await d1.sync();
 			const s2 = await d2.sync();
 			s1.sent.should.eq(2);
@@ -272,8 +263,8 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(2);
 
-			const alex = (await d2.find({ filter: { name: "alex" } }))[0];
-			const marc = await d2.find({ filter: { name: "marc" } });
+			const alex = (await d2.find({ name: "alex" }))[0];
+			const marc = await d2.find({ name: "marc" });
 			const all = await d2.find({});
 
 			all.length.should.eq(1);
@@ -301,15 +292,9 @@ describe("Database Syncing", () => {
 				age: 13,
 			});
 			await d1.insert([doc, doc2]);
-			await d1.update({
-				filter: { name: "alex" },
-				update: { $set: { age: 5 } },
-			});
-			await d1.update({
-				filter: { name: "marc" },
-				update: { $set: { age: 2 } },
-			});
-			await d1.remove({ filter: { name: "marc" } });
+			await d1.update({ name: "alex" }, { $set: { age: 5 } });
+			await d1.update({ name: "marc" }, { $set: { age: 2 } });
+			await d1.remove({ name: "marc" });
 			const s1 = await d1.sync();
 			const s2 = await d2.sync();
 			s1.sent.should.eq(2);
@@ -317,8 +302,8 @@ describe("Database Syncing", () => {
 			s2.sent.should.eq(0);
 			s2.received.should.eq(2);
 
-			const alex = (await d2.find({ filter: { name: "alex" } }))[0];
-			const marc = await d2.find({ filter: { name: "marc" } });
+			const alex = (await d2.find({ name: "alex" }))[0];
+			const marc = await d2.find({ name: "marc" });
 			const all = await d2.find({});
 
 			all.length.should.eq(1);
@@ -351,15 +336,8 @@ describe("Database Syncing", () => {
 				);
 			}
 			await d1.insert(docs);
-			const update = await d1.update({
-				filter: { name: "Alex" },
-				update: { $set: { age: 10 } },
-				multi: true,
-			});
-			const removal = await d1.remove({
-				filter: { name: "Ron" },
-				multi: true,
-			});
+			const update = await d1.update({ name: "Alex" }, { $set: { age: 10 } }, true);
+			const removal = await d1.remove({ name: "Ron" }, true);
 			const s1 = await d1.sync();
 			const s2 = await d2.sync();
 			s1.sent.should.eq(docs.length);
@@ -368,8 +346,8 @@ describe("Database Syncing", () => {
 			s2.received.should.eq(docs.length);
 
 			const all = await d2.find({});
-			const alex = await d2.find({ filter: { name: "alex" } });
-			const ron = await d2.find({ filter: { name: "Ron" } });
+			const alex = await d2.find({ name: "alex" });
+			const ron = await d2.find({ name: "Ron" });
 
 			all.length.should.eq(docs.length - removal.number);
 			alex.filter((x) => x.age === 10).length.should.eq(alex.length);
@@ -398,36 +376,18 @@ describe("Database Syncing", () => {
 			});
 			await d1.insert([doc, doc2]);
 
-			await d1.update({
-				filter: { name: "may" },
-				update: { $set: { age: 3 } },
-			});
-			await d1.update({
-				filter: { name: "jim" },
-				update: { $set: { age: 4 } },
-			});
+			await d1.update({ name: "may" }, { $set: { age: 3 } });
+			await d1.update({ name: "jim" }, { $set: { age: 4 } });
 			await d1.sync();
 			await d2.sync();
 
-			await d2.update({
-				filter: { name: "may" },
-				update: { $set: { age: 2 } },
-			});
-			await d2.update({
-				filter: { name: "jim" },
-				update: { $set: { age: 3 } },
-			});
+			await d2.update({ name: "may" }, { $set: { age: 2 } });
+			await d2.update({ name: "jim" }, { $set: { age: 3 } });
 			await d2.sync();
 			await d1.sync();
 
-			await d1.update({
-				filter: { name: "may" },
-				update: { $set: { age: 11 } },
-			});
-			await d1.update({
-				filter: { name: "jim" },
-				update: { $set: { age: 12 } },
-			});
+			await d1.update({ name: "may" }, { $set: { age: 11 } });
+			await d1.update({ name: "jim" }, { $set: { age: 12 } });
 			await d1.sync();
 			await d2.sync();
 			await d1.sync();
@@ -443,13 +403,13 @@ describe("Database Syncing", () => {
 			await d3.sync();
 
 			const onD1 = await d1.find({
-				filter: { $or: [{ name: "may" }, { name: "jim" }] },
+				$or: [{ name: "may" }, { name: "jim" }],
 			});
 			const onD2 = await d2.find({
-				filter: { $or: [{ name: "may" }, { name: "jim" }] },
+				$or: [{ name: "may" }, { name: "jim" }],
 			});
 			const onD3 = await d3.find({
-				filter: { $or: [{ name: "may" }, { name: "jim" }] },
+				$or: [{ name: "may" }, { name: "jim" }],
 			});
 
 			onD1.length.should.eq(2);
@@ -505,12 +465,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(1);
 				s3.sent.should.eq(0);
 
-				const onD1 = await d1.find({
-					filter: { $or: [{ name: "may" }, { name: "jim" }] },
-				});
-				const onD2 = await d2.find({
-					filter: { $or: [{ name: "may" }, { name: "jim" }] },
-				});
+				const onD1 = await d1.find({ $or: [{ name: "may" }, { name: "jim" }] });
+				const onD2 = await d2.find({ $or: [{ name: "may" }, { name: "jim" }] });
 
 				onD1.length.should.eq(2);
 				onD2.length.should.eq(2);
@@ -566,12 +522,8 @@ describe("Database Syncing", () => {
 
 					{
 						// old documents
-						const onD1 = await d1.find({
-							filter: { $or: [{ name: "may" }, { name: "jim" }] },
-						});
-						const onD2 = await d2.find({
-							filter: { $or: [{ name: "may" }, { name: "jim" }] },
-						});
+						const onD1 = await d1.find({ $or: [{ name: "may" }, { name: "jim" }] });
+						const onD2 = await d2.find({ $or: [{ name: "may" }, { name: "jim" }] });
 
 						onD1.length.should.eq(2);
 						onD2.length.should.eq(2);
@@ -585,10 +537,10 @@ describe("Database Syncing", () => {
 
 					// new documents
 					const onD1 = await d1.find({
-						filter: { name: { $in: ["one", "two", "six", "ten"] } },
+						name: { $in: ["one", "two", "six", "ten"] },
 					});
 					const onD2 = await d2.find({
-						filter: { name: { $in: ["one", "two", "six", "ten"] } },
+						name: { $in: ["one", "two", "six", "ten"] },
 					});
 
 					onD1.length.should.eq(4);
@@ -651,14 +603,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "one" },
-					update: { $mul: { age: 2 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $mul: { age: 2 } },
-				});
+				await d1.update({ name: "one" }, { $mul: { age: 2 } });
+				await d2.update({ name: "two" }, { $mul: { age: 2 } });
 
 				{
 					const s1 = await d1.sync();
@@ -672,15 +618,15 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "one" } }))[0].age.should.eq(2);
-				(await d1.find({ filter: { name: "two" } }))[0].age.should.eq(4);
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(6); // not updated
-				(await d1.find({ filter: { name: "ten" } }))[0].age.should.eq(10); // not updated
+				(await d1.find({ name: "one" }))[0].age.should.eq(2);
+				(await d1.find({ name: "two" }))[0].age.should.eq(4);
+				(await d1.find({ name: "six" }))[0].age.should.eq(6); // not updated
+				(await d1.find({ name: "ten" }))[0].age.should.eq(10); // not updated
 
-				(await d2.find({ filter: { name: "one" } }))[0].age.should.eq(2);
-				(await d2.find({ filter: { name: "two" } }))[0].age.should.eq(4);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(6); // not updated
-				(await d2.find({ filter: { name: "ten" } }))[0].age.should.eq(10); // not updated
+				(await d2.find({ name: "one" }))[0].age.should.eq(2);
+				(await d2.find({ name: "two" }))[0].age.should.eq(4);
+				(await d2.find({ name: "six" }))[0].age.should.eq(6); // not updated
+				(await d2.find({ name: "ten" }))[0].age.should.eq(10); // not updated
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -728,8 +674,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.remove({ filter: { name: "one" } });
-				await d2.remove({ filter: { name: "two" } });
+				await d1.remove({ name: "one" });
+				await d2.remove({ name: "two" });
 
 				{
 					const s1 = await d1.sync();
@@ -743,15 +689,15 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(1); // not removed
-				(await d1.find({ filter: { name: "ten" } })).length.should.eq(1); // not removed
+				(await d1.find({ name: "one" })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(1); // not removed
+				(await d1.find({ name: "ten" })).length.should.eq(1); // not removed
 
-				(await d2.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(1); // not removed
-				(await d2.find({ filter: { name: "ten" } })).length.should.eq(1); // not removed
+				(await d2.find({ name: "one" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(1); // not removed
+				(await d2.find({ name: "ten" })).length.should.eq(1); // not removed
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -799,14 +745,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.remove({
-					filter: { name: { $in: ["one", "two"] } },
-					multi: true,
-				});
-				await d2.remove({
-					filter: { name: { $in: ["six", "ten"] } },
-					multi: true,
-				});
+				await d1.remove({ name: { $in: ["one", "two"] } }, true);
+				await d2.remove({ name: { $in: ["six", "ten"] } }, true);
 				{
 					const s1 = await d1.sync();
 					const s2 = await d2.sync();
@@ -819,15 +759,15 @@ describe("Database Syncing", () => {
 					s3.received.should.eq(2);
 				}
 
-				(await d1.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d1.find({ name: "one" })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d1.find({ name: "ten" })).length.should.eq(0);
 
-				(await d2.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d2.find({ name: "one" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "ten" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -863,22 +803,10 @@ describe("Database Syncing", () => {
 				];
 				await d1.insert(docs1);
 				await d2.insert(docs2);
-				await d1.update({
-					filter: { name: "one" },
-					update: { $set: { age: 1111 } },
-				});
-				await d1.update({
-					filter: { name: "ten" },
-					update: { $set: { age: 1010 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 6666 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
+				await d1.update({ name: "one" }, { $set: { age: 1111 } });
+				await d1.update({ name: "ten" }, { $set: { age: 1010 } });
+				await d2.update({ name: "six" }, { $set: { age: 6666 } });
+				await d2.update({ name: "two" }, { $set: { age: 2222 } });
 
 				const s1 = await d1.sync();
 				const s2 = await d2.sync();
@@ -890,15 +818,15 @@ describe("Database Syncing", () => {
 				s2.received.should.eq(2);
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
-				(await d1.find({ filter: { name: "one" } }))[0].age.should.eq(1111);
-				(await d1.find({ filter: { name: "two" } }))[0].age.should.eq(2222);
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(6666);
-				(await d1.find({ filter: { name: "ten" } }))[0].age.should.eq(1010);
+				(await d1.find({ name: "one" }))[0].age.should.eq(1111);
+				(await d1.find({ name: "two" }))[0].age.should.eq(2222);
+				(await d1.find({ name: "six" }))[0].age.should.eq(6666);
+				(await d1.find({ name: "ten" }))[0].age.should.eq(1010);
 
-				(await d2.find({ filter: { name: "one" } }))[0].age.should.eq(1111);
-				(await d2.find({ filter: { name: "two" } }))[0].age.should.eq(2222);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(6666);
-				(await d2.find({ filter: { name: "ten" } }))[0].age.should.eq(1010);
+				(await d2.find({ name: "one" }))[0].age.should.eq(1111);
+				(await d2.find({ name: "two" }))[0].age.should.eq(2222);
+				(await d2.find({ name: "six" }))[0].age.should.eq(6666);
+				(await d2.find({ name: "ten" }))[0].age.should.eq(1010);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -934,10 +862,10 @@ describe("Database Syncing", () => {
 				];
 				await d1.insert(docs1);
 				await d2.insert(docs2);
-				await d1.remove({ filter: { name: "one" } });
-				await d1.remove({ filter: { name: "ten" } });
-				await d2.remove({ filter: { name: "six" } });
-				await d2.remove({ filter: { name: "two" } });
+				await d1.remove({ name: "one" });
+				await d1.remove({ name: "ten" });
+				await d2.remove({ name: "six" });
+				await d2.remove({ name: "two" });
 
 				const s1 = await d1.sync();
 				const s2 = await d2.sync();
@@ -949,15 +877,15 @@ describe("Database Syncing", () => {
 				s2.received.should.eq(2);
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
-				(await d1.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d1.find({ name: "one" })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d1.find({ name: "ten" })).length.should.eq(0);
 
-				(await d2.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d2.find({ name: "one" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "ten" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -993,26 +921,14 @@ describe("Database Syncing", () => {
 				];
 				await d1.insert(docs1);
 				await d2.insert(docs2);
-				await d1.update({
-					filter: { name: "one" },
-					update: { $set: { age: 1111 } },
-				});
-				await d1.update({
-					filter: { name: "ten" },
-					update: { $set: { age: 1010 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 6666 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
-				await d1.remove({ filter: { name: "one" } });
-				await d1.remove({ filter: { name: "ten" } });
-				await d2.remove({ filter: { name: "six" } });
-				await d2.remove({ filter: { name: "two" } });
+				await d1.update({ name: "one" }, { $set: { age: 1111 } });
+				await d1.update({ name: "ten" }, { $set: { age: 1010 } });
+				await d2.update({ name: "six" }, { $set: { age: 6666 } });
+				await d2.update({ name: "two" }, { $set: { age: 2222 } });
+				await d1.remove({ name: "one" });
+				await d1.remove({ name: "ten" });
+				await d2.remove({ name: "six" });
+				await d2.remove({ name: "two" });
 
 				const s1 = await d1.sync();
 				const s2 = await d2.sync();
@@ -1024,15 +940,15 @@ describe("Database Syncing", () => {
 				s2.received.should.eq(2);
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
-				(await d1.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d1.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d1.find({ name: "one" })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d1.find({ name: "ten" })).length.should.eq(0);
 
-				(await d2.find({ filter: { name: "one" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "ten" } })).length.should.eq(0);
+				(await d2.find({ name: "one" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "ten" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1082,8 +998,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.remove({ filter: { name: "six" } });
-				await d2.remove({ filter: { name: "six" } });
+				await d1.remove({ name: "six" });
+				await d2.remove({ name: "six" });
 				{
 					const s1 = await d1.sync();
 					const s2 = await d2.sync();
@@ -1095,8 +1011,8 @@ describe("Database Syncing", () => {
 					s3.received.should.eq(1);
 					s3.sent.should.eq(0);
 				}
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1144,14 +1060,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 61 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 62 } },
-				});
+				await d1.update({ name: "six" }, { $set: { age: 61 } });
+				await d2.update({ name: "six" }, { $set: { age: 62 } });
 
 				{
 					const s1 = await d1.sync();
@@ -1165,8 +1075,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(62);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(62);
+				(await d1.find({ name: "six" }))[0].age.should.eq(62);
+				(await d2.find({ name: "six" }))[0].age.should.eq(62);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1214,13 +1124,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 61 } },
-				});
-				await d2.remove({
-					filter: { name: "six" },
-				});
+				await d1.update({ name: "six" }, { $set: { age: 61 } });
+				await d2.remove({ name: "six" });
 
 				{
 					const s1 = await d2.sync();
@@ -1234,8 +1139,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1283,13 +1188,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d2.remove({
-					filter: { name: "six" },
-				});
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 62 } },
-				});
+				await d2.remove({ name: "six" });
+				await d1.update({ name: "six" }, { $set: { age: 62 } });
 
 				{
 					const s1 = await d2.sync();
@@ -1304,8 +1204,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(62);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(62);
+				(await d1.find({ name: "six" }))[0].age.should.eq(62);
+				(await d2.find({ name: "six" }))[0].age.should.eq(62);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1353,13 +1253,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 61 } },
-				});
-				await d2.remove({
-					filter: { name: "six" },
-				});
+				await d1.update({ name: "six" }, { $set: { age: 61 } });
+				await d2.remove({ name: "six" });
 
 				{
 					const s1 = await d1.sync();
@@ -1373,8 +1268,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "six" } })).length.should.eq(0);
+				(await d1.find({ name: "six" })).length.should.eq(0);
+				(await d2.find({ name: "six" })).length.should.eq(0);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1422,13 +1317,8 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d2.remove({
-					filter: { name: "six" },
-				});
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 62 } },
-				});
+				await d2.remove({ name: "six" });
+				await d1.update({ name: "six" }, { $set: { age: 62 } });
 
 				{
 					const s1 = await d1.sync();
@@ -1443,8 +1333,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(62);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(62);
+				(await d1.find({ name: "six" }))[0].age.should.eq(62);
+				(await d2.find({ name: "six" }))[0].age.should.eq(62);
 				{
 					// hashes are equal
 					const s1 = await d1.sync();
@@ -1492,29 +1382,13 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 222 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 22 } },
-				});
-				await d1.remove({
-					filter: { name: "two" },
-				});
+				await d2.update({ name: "two" }, { $set: { age: 222 } });
+				await d1.update({ name: "two" }, { $set: { age: 22 } });
+				await d1.remove({ name: "two" });
 
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 62 } },
-				});
-				await d1.remove({
-					filter: { name: "six" },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 666 } },
-				});
+				await d1.update({ name: "six" }, { $set: { age: 62 } });
+				await d1.remove({ name: "six" });
+				await d2.update({ name: "six" }, { $set: { age: 666 } });
 
 				{
 					const s1 = await d1.sync();
@@ -1529,10 +1403,10 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(666);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(666);
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d1.find({ name: "six" }))[0].age.should.eq(666);
+				(await d2.find({ name: "six" }))[0].age.should.eq(666);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
 
 				{
 					// hashes are equal
@@ -1581,54 +1455,18 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 22 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 222 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 922 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 9222 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 92222 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 96 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 966 } },
-				});
-				await d2.update({
-					filter: { name: "six" },
-					update: { $set: { age: 9666 } },
-				});
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 6 } },
-				});
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 66 } },
-				});
-				await d1.update({
-					filter: { name: "six" },
-					update: { $set: { age: 666 } },
-				});
+				await d1.update({ name: "two" }, { $set: { age: 22 } });
+				await d1.update({ name: "two" }, { $set: { age: 222 } });
+				await d1.update({ name: "two" }, { $set: { age: 2222 } });
+				await d2.update({ name: "two" }, { $set: { age: 922 } });
+				await d2.update({ name: "two" }, { $set: { age: 9222 } });
+				await d2.update({ name: "two" }, { $set: { age: 92222 } });
+				await d2.update({ name: "six" }, { $set: { age: 96 } });
+				await d2.update({ name: "six" }, { $set: { age: 966 } });
+				await d2.update({ name: "six" }, { $set: { age: 9666 } });
+				await d1.update({ name: "six" }, { $set: { age: 6 } });
+				await d1.update({ name: "six" }, { $set: { age: 66 } });
+				await d1.update({ name: "six" }, { $set: { age: 666 } });
 
 				{
 					const s1 = await d1.sync();
@@ -1643,10 +1481,10 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "six" } }))[0].age.should.eq(666);
-				(await d2.find({ filter: { name: "six" } }))[0].age.should.eq(666);
-				(await d1.find({ filter: { name: "two" } }))[0].age.should.eq(92222);
-				(await d2.find({ filter: { name: "two" } }))[0].age.should.eq(92222);
+				(await d1.find({ name: "six" }))[0].age.should.eq(666);
+				(await d2.find({ name: "six" }))[0].age.should.eq(666);
+				(await d1.find({ name: "two" }))[0].age.should.eq(92222);
+				(await d2.find({ name: "two" }))[0].age.should.eq(92222);
 
 				{
 					// hashes are equal
@@ -1695,24 +1533,11 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 22 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 222 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
-				await d1.remove({
-					filter: { name: "two" },
-				});
-				await d2.remove({
-					filter: { name: "two" },
-				});
+				await d1.update({ name: "two" }, { $set: { age: 22 } });
+				await d1.update({ name: "two" }, { $set: { age: 222 } });
+				await d1.update({ name: "two" }, { $set: { age: 2222 } });
+				await d1.remove({ name: "two" });
+				await d2.remove({ name: "two" });
 
 				{
 					const s1 = await d1.sync();
@@ -1727,8 +1552,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
 
 				{
 					// hashes are equal
@@ -1777,36 +1602,14 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 22 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 222 } },
-				});
-				await d1.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
-				await d1.remove({
-					filter: { name: "two" },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 22 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 222 } },
-				});
-				await d2.update({
-					filter: { name: "two" },
-					update: { $set: { age: 2222 } },
-				});
-				await d2.remove({
-					filter: { name: "two" },
-				});
+				await d1.update({ name: "two" }, { $set: { age: 22 } });
+				await d1.update({ name: "two" }, { $set: { age: 222 } });
+				await d1.update({ name: "two" }, { $set: { age: 2222 } });
+				await d1.remove({ name: "two" });
+				await d2.update({ name: "two" }, { $set: { age: 22 } });
+				await d2.update({ name: "two" }, { $set: { age: 222 } });
+				await d2.update({ name: "two" }, { $set: { age: 2222 } });
+				await d2.remove({ name: "two" });
 
 				{
 					const s1 = await d1.sync();
@@ -1821,8 +1624,8 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "two" } })).length.should.eq(0);
-				(await d2.find({ filter: { name: "two" } })).length.should.eq(0);
+				(await d1.find({ name: "two" })).length.should.eq(0);
+				(await d2.find({ name: "two" })).length.should.eq(0);
 
 				{
 					// hashes are equal
@@ -1837,7 +1640,7 @@ describe("Database Syncing", () => {
 				}
 			});
 		});
-		describe("indexes", () => {
+		describe("Indexes", () => {
 			it("ensuring indexes", async () => {
 				const docs1 = [
 					Kid.new({
@@ -2092,14 +1895,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				(await d1.find({ name: "samename" })).length.should.eq(2);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 2).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				(await d2.find({ name: "samename" })).length.should.eq(2);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 2).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
@@ -2174,14 +1977,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				(await d1.find({ name: "samename" })).length.should.eq(2);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 2).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 2).should.above(-1);
+				(await d2.find({ name: "samename" })).length.should.eq(2);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 2).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
@@ -2242,7 +2045,7 @@ describe("Database Syncing", () => {
 				s3.sent.should.eq(0);
 
 				await d1.insert([Kid.new({ name: "samename", age: 9999 })]);
-				await d2.update({ filter: { name: "ten" }, update: { $set: { name: "samename" } } });
+				await d2.update({ name: "ten" }, { $set: { name: "samename" } });
 
 				{
 					const s1 = await d1.sync();
@@ -2256,14 +2059,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				(await d1.find({ name: "samename" })).length.should.eq(2);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 9999).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				(await d2.find({ name: "samename" })).length.should.eq(2);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 9999).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
@@ -2323,7 +2126,7 @@ describe("Database Syncing", () => {
 				d1._datastore.indexes["name"].unique.should.eq(true);
 				d2._datastore.indexes["name"].unique.should.eq(true);
 
-				await d2.update({ filter: { name: "ten" }, update: { $set: { name: "samename" } } });
+				await d2.update({ name: "ten" }, { $set: { name: "samename" } });
 				await d1.insert([Kid.new({ name: "samename", age: 9999 })]);
 
 				{
@@ -2338,14 +2141,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
-				(await d1.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				(await d1.find({ name: "samename" })).length.should.eq(2);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ name: "samename" })).findIndex((x) => x.age === 9999).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "samename" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 10).should.above(-1);
-				(await d2.find({ filter: { name: "samename" } })).findIndex((x) => x.age === 9999).should.above(-1);
+				(await d2.find({ name: "samename" })).length.should.eq(2);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ name: "samename" })).findIndex((x) => x.age === 9999).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
@@ -2412,14 +2215,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "ten" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 1010).should.above(-1);
-				(await d1.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ name: "ten" })).length.should.eq(2);
+				(await d1.find({ name: "ten" })).findIndex((x) => x.age === 1010).should.above(-1);
+				(await d1.find({ name: "ten" })).findIndex((x) => x.age === 10).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "ten" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 1010).should.above(-1);
-				(await d2.find({ filter: { name: "ten" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ name: "ten" })).length.should.eq(2);
+				(await d2.find({ name: "ten" })).findIndex((x) => x.age === 1010).should.above(-1);
+				(await d2.find({ name: "ten" })).findIndex((x) => x.age === 10).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
@@ -2470,7 +2273,7 @@ describe("Database Syncing", () => {
 				s3.received.should.eq(2);
 				s3.sent.should.eq(0);
 
-				await d1.update({ filter: { name: "ten" }, update: { $set: { name: "one" } } });
+				await d1.update({ name: "ten" }, { $set: { name: "one" } });
 				await d2.ensureIndex({ fieldName: "name", unique: true });
 				d2._datastore.indexes["name"].unique.should.eq(true);
 
@@ -2486,14 +2289,14 @@ describe("Database Syncing", () => {
 					s3.sent.should.eq(0);
 				}
 
-				(await d1.find({ filter: { name: "one" } })).length.should.eq(2);
-				(await d1.find({ filter: { name: "one" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d1.find({ filter: { name: "one" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d1.find({ name: "one" })).length.should.eq(2);
+				(await d1.find({ name: "one" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d1.find({ name: "one" })).findIndex((x) => x.age === 10).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
-				(await d2.find({ filter: { name: "one" } })).length.should.eq(2);
-				(await d2.find({ filter: { name: "one" } })).findIndex((x) => x.age === 1).should.above(-1);
-				(await d2.find({ filter: { name: "one" } })).findIndex((x) => x.age === 10).should.above(-1);
+				(await d2.find({ name: "one" })).length.should.eq(2);
+				(await d2.find({ name: "one" })).findIndex((x) => x.age === 1).should.above(-1);
+				(await d2.find({ name: "one" })).findIndex((x) => x.age === 10).should.above(-1);
 				d1._datastore.indexes["name"].unique.should.eq(false);
 
 				{
