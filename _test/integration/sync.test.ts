@@ -15,7 +15,7 @@ export const memoryStores: {
 } = {};
 
 export const memoryAdapter = () => (name: string) => {
-	name = name.replace(/_\d(_\w+)$/, "$1"); // replacer is to make the sync demo work
+	name = name.replace(/_\d+$/, ""); // replacer is to make the sync demo work
 	if (!memoryStores[name]) memoryStores[name] = {};
 	return new MemoryStore(name);
 };

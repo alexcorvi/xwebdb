@@ -63,15 +63,12 @@ interface PersistenceOptions<G extends Partial<BaseModel<G>>> {
 export class Persistence<G extends Partial<BaseModel<G>> = any> {
 	db: Datastore<G>;
 	ref: string = "";
-
 	data: IDB<string>;
-
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
 	syncInProgress = false;
 	sync?: Sync;
 	devalidateHash: number = 0;
-
 	corruptAlertThreshold: number = 0.1;
 	encode = (s: string) => s;
 	decode = (s: string) => s;
@@ -85,13 +82,13 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		this.db = options.db;
 		this.ref = this.db.ref;
 
-		this.data = new IDB(this.ref + "_" + "d");
+		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
 		this.devalidateHash = options.devalidateHash || 0;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
-			const rdata = this.RSA(this.ref + "_" + "d");
+			const rdata = this.RSA(this.ref);
 			this.sync = new Sync(this, rdata);
 		}
 
