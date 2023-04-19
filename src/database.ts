@@ -20,8 +20,11 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
 	corruptAlertThreshold?: number;
 	timestampData?: boolean;
 	reloadBeforeOperations?: boolean;
-	syncToRemote?: (name: string) => remoteStore;
-	syncInterval?: number;
+	sync?: {
+		syncToRemote?: (name: string) => remoteStore;
+		syncInterval?: number;
+		devalidateHash?: number;
+	}
 }
 
 export class Database<S extends BaseModel<S>> {
@@ -49,8 +52,9 @@ export class Database<S extends BaseModel<S>> {
 			decode: options.decode,
 			corruptAlertThreshold: options.corruptAlertThreshold,
 			timestampData: options.timestampData,
-			syncToRemote: options.syncToRemote,
-			syncInterval: options.syncInterval,
+			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
+			syncInterval: options.sync ? options.sync.syncInterval : undefined,
+			devalidateHash: options.sync ? options.sync.devalidateHash : undefined
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}

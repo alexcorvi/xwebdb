@@ -23,6 +23,7 @@ export interface DataStoreOptions<G> {
 	timestampData?: boolean;
 	syncToRemote?: (name: string) => remoteStore;
 	syncInterval?: number;
+	devalidateHash?: number;
 	model?: (new () => G) & {
 		new: (json: G) => G;
 	};
@@ -68,6 +69,7 @@ export class Datastore<
 			corruptAlertThreshold: options.corruptAlertThreshold || 0,
 			syncToRemote: options.syncToRemote,
 			syncInterval: options.syncInterval,
+			devalidateHash: options.devalidateHash
 		});
 
 		if (options.timestampData) {

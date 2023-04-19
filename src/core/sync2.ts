@@ -9,7 +9,7 @@ const asc = (a: string, b: string) => (a > b ? 1 : -1);
 export class Sync {
 	private p: Persistence;
 	rdata: remoteStore;
-
+	
 	constructor(persistence: Persistence, rdata: remoteStore) {
 		this.p = persistence;
 		this.rdata = rdata;
@@ -17,13 +17,23 @@ export class Sync {
 
 	async setLocalHash(keys?: string[]) {
 		if (!keys) keys = (await this.p.data.keys()) as string[];
-		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
+		const hash = u
+			.xxh(
+				JSON.stringify(keys.sort(asc)) +
+					Math.floor(Date.now() / this.p.devalidateHash)
+			)
+			.toString();
 		this.p.data.set("$H", hash);
 	}
 
 	async setRemoteHash(keys?: string[]) {
 		if (!keys) keys = (await this.rdata.keys()) as string[];
-		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
+		const hash = u
+			.xxh(
+				JSON.stringify(keys.sort(asc)) +
+					Math.floor(Date.now() / this.p.devalidateHash)
+			)
+			.toString();
 		this.rdata.setItem("$H", hash);
 	}
 

@@ -11,13 +11,17 @@ class Kid extends BaseModel<Kid> {
 describe("Database Syncing", () => {
 	let d1 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_1",
-		syncToRemote: unifydb.adapters.memoryAdapter("", ""),
-		syncInterval: 9999999999999,
+		sync: {
+			syncToRemote: unifydb.adapters.memoryAdapter("", ""),
+			syncInterval: 9999999999999,
+		},
 	});
 	let d2 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_2",
-		syncToRemote: unifydb.adapters.memoryAdapter("", ""),
-		syncInterval: 9999999999999,
+		sync: {
+			syncToRemote: unifydb.adapters.memoryAdapter("", ""),
+			syncInterval: 9999999999999,
+		},
 	});
 	beforeEach(async () => {
 		Object.keys(unifydb.adapters.memoryStores).forEach((dbName) => {
@@ -394,8 +398,10 @@ describe("Database Syncing", () => {
 
 			let d3 = new Database<{ _id: string; name: string; age: number }>({
 				ref: "db_3",
-				syncToRemote: unifydb.adapters.memoryAdapter("", ""),
-				syncInterval: 9999999999999,
+				sync: {
+					syncToRemote: unifydb.adapters.memoryAdapter("", ""),
+					syncInterval: 9999999999999,
+				},
 			});
 			// start by cleaning it
 			await d3._datastore.persistence.deleteEverything();
