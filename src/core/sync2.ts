@@ -20,7 +20,7 @@ export class Sync {
 		const hash = u
 			.xxh(
 				JSON.stringify(keys.sort(asc)) +
-					Math.floor(Date.now() / this.p.devalidateHash)
+					Math.floor(Date.now() / (this.p.devalidateHash))
 			)
 			.toString();
 		this.p.data.set("$H", hash);
@@ -31,7 +31,7 @@ export class Sync {
 		const hash = u
 			.xxh(
 				JSON.stringify(keys.sort(asc)) +
-					Math.floor(Date.now() / this.p.devalidateHash)
+					Math.floor(Date.now() / (this.p.devalidateHash))
 			)
 			.toString();
 		this.rdata.setItem("$H", hash);
