@@ -5,7 +5,7 @@ import * as model from "./model";
 import { BaseModel } from "../types";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
-import { Sync } from "./sync2";
+import { Sync } from "./sync";
 
 export type persistenceLine = {
 	type: "index" | "doc" | "corrupt";
