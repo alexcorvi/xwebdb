@@ -16,7 +16,7 @@ export const memoryStores: {
 
 export const memoryAdapter = () => (name: string) => {
 	name = name.replace(/_\d(_\w+)$/, "$1"); // replacer is to make the sync demo work
-	if(!memoryStores[name]) memoryStores[name] = {};
+	if (!memoryStores[name]) memoryStores[name] = {};
 	return new MemoryStore(name);
 };
 
@@ -68,7 +68,6 @@ class MemoryStore {
 		return Object.keys(memoryStores[this.name]);
 	}
 }
-
 
 describe("Database Syncing", () => {
 	let d1 = new Database<{ _id: string; name: string; age: number }>({
@@ -2379,6 +2378,83 @@ describe("Database Syncing", () => {
 					s4.diff.should.eq(-1);
 				}
 			});
+		});
+	});
+
+	describe("Devalidation of hashes", () => {
+		it("hashes devalidated in specific amount of time", async () => {
+			let d1 = new Database<{ _id: string; name: string; age: number }>({
+				ref: "db_A",
+				sync: {
+					syncToRemote: memoryAdapter(),
+					syncInterval: 9999999999999,
+					devalidateHash: 500,
+				},
+			});
+			let d2 = new Database<{ _id: string; name: string; age: number }>({
+				ref: "db_B",
+				sync: {
+					syncToRemote: memoryAdapter(),
+					syncInterval: 9999999999999,
+				},
+			});
+
+			const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i));
+
+			await d1.insert(Kid.new({}));
+			await d2.insert(Kid.new({}));
+
+			{
+				const s1 = await d1.sync();
+				const s2 = await d1.sync();
+				const s3 = await d1.sync();
+				(s1.diff === 1).should.eq(true);
+				(s2.diff === -1 || s2.diff === 0).should.eq(true);
+				s3.diff.should.eq(-1);
+			}
+			{
+				const s1 = await d2.sync();
+				const s2 = await d2.sync();
+				const s3 = await d2.sync();
+				(s1.diff === 1).should.eq(true);
+				(s2.diff === -1 || s2.diff === 0).should.eq(true);
+				s3.diff.should.eq(-1);
+			}
+
+			await wait(100);
+			{
+				// not devalidated .. still needs more time
+				const s1 = await d1.sync();
+				const s2 = await d1.sync();
+				s1.diff.should.eq(-1);
+				s2.diff.should.eq(-1);
+			}
+			{
+				// not devalidated
+				const s1 = await d2.sync();
+				const s2 = await d2.sync();
+				s1.diff.should.eq(-1);
+				s2.diff.should.eq(-1);
+			}
+
+			await wait(400);
+			{
+				// devalidated
+				const s1 = await d1.sync();
+				const s2 = await d1.sync();
+				s1.diff.should.eq(0);
+				s2.diff.should.eq(-1);
+			}
+			{
+				// not devalidated
+				const s1 = await d2.sync();
+				const s2 = await d2.sync();
+				s1.diff.should.eq(-1);
+				s2.diff.should.eq(-1);
+			}
+
+			await d1._datastore.persistence.deleteEverything();
+			await d2._datastore.persistence.deleteEverything();
 		});
 	});
 });
