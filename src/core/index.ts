@@ -7,3 +7,4 @@ export { Persistence, PersistenceEvent } from "./persistence";
 export { AvlTree } from "./avl";
 export { customUtils };
 export { model };
+export { Q } from "./q";

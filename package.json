@@ -28,8 +28,7 @@
 	"author": "Alex Corvi",
 	"license": "MIT",
 	"dependencies": {
-		"idb-keyval": "^6.2.0",
-		"p-queue": "^6.3.0"
+		"idb-keyval": "^6.2.0"
 	},
 	"devDependencies": {
 		"@rollup/plugin-commonjs": "^11.1.0",

@@ -3,7 +3,7 @@ import { memoryStores } from './core/adapters/memory';
 import { Database } from "./database";
 import { BaseModel } from "./types/base-schema";
 import { Persistence, PersistenceEvent } from "./core";
-import { Cursor } from "./core";
+import { Cursor, Q } from "./core";
 import * as customUtils from "./core/customUtils";
 import { Datastore } from "./core";
 import {Index} from "./core"
@@ -24,7 +24,8 @@ const unifydb = {
         customUtils,
         Datastore,
         Index,
-        modelling
+        modelling,
+        Q
     }
 };
 

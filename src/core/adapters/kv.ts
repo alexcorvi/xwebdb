@@ -1,4 +1,4 @@
-import pq from "p-queue";
+import {Q} from "../q";
 import { remoteAdapter, remoteStore } from "./type";
 
 /*
@@ -326,8 +326,8 @@ class Namespace implements remoteStore {
 		// Cloudflare, sadly, still doesn't bulk gets!
 		// so we're just looping through the given keys
 		// to make things slightly better:
-		// we're setting a max concurrent connection using pq
-		const q = new pq({ concurrency: 20 });
+		// we're setting a max concurrent connection using Q
+		const q = new Q(20);
 		const valuesPromises: Promise<string>[] = [];
 		for (let index = 0; index < keys.length; index++) {
 			const key = keys[index];

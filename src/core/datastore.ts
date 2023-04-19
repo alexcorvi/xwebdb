@@ -5,7 +5,7 @@ import * as model from "./model";
 import { Persistence } from "./persistence";
 import * as types from "../types";
 import { BaseModel } from "../types/base-schema";
-import Q from "p-queue";
+import {Q} from "./q" ;
 import { remoteStore } from "./adapters/type";
 
 export interface EnsureIndexOptions {
@@ -41,10 +41,7 @@ export class Datastore<
 
 	persistence: Persistence<G>;
 	// rename to something denotes that it's an internal thing
-	q: Q = new Q({
-		concurrency: 1,
-		autoStart: false,
-	});
+	q: Q = new Q(1);
 
 	indexes: { [key: string]: Index<string, G> } = {
 		_id: new Index({ fieldName: "_id", unique: true }),

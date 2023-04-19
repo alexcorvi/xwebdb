@@ -49,6 +49,10 @@
 	- [ ] Synching
 	- [ ] Reactive
 - [ ] zero-dependecy
+	- [x] q
+- [ ] Performance
+	- [ ] loops
+	- [x] q
 - [ ] Reactive
 - [ ] Improve `Class Database` API
 - [ ] Examples
