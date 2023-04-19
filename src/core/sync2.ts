@@ -9,7 +9,7 @@ const asc = (a: string, b: string) => (a > b ? 1 : -1);
 export class Sync {
 	private p: Persistence;
 	rdata: remoteStore;
-	
+
 	constructor(persistence: Persistence, rdata: remoteStore) {
 		this.p = persistence;
 		this.rdata = rdata;
@@ -17,24 +17,18 @@ export class Sync {
 
 	async setLocalHash(keys?: string[]) {
 		if (!keys) keys = (await this.p.data.keys()) as string[];
-		const hash = u
-			.xxh(
-				JSON.stringify(keys.sort(asc)) +
-					Math.floor(Date.now() / (this.p.devalidateHash))
-			)
-			.toString();
-		this.p.data.set("$H", hash);
+		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
+		this.p.data.set("$H", "$H" + hash + "_" + this.timeSignature());
 	}
 
 	async setRemoteHash(keys?: string[]) {
 		if (!keys) keys = (await this.rdata.keys()) as string[];
-		const hash = u
-			.xxh(
-				JSON.stringify(keys.sort(asc)) +
-					Math.floor(Date.now() / (this.p.devalidateHash))
-			)
-			.toString();
-		this.rdata.setItem("$H", hash);
+		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
+		this.rdata.setItem("$H", "$H" + hash + "_" + this.timeSignature());
+	}
+
+	timeSignature() {
+		return Math.floor(Date.now() / this.p.devalidateHash);
 	}
 
 	sync() {
@@ -149,11 +143,14 @@ export class Sync {
 		received: number;
 		diff: -1 | 0 | 1;
 	}> {
-		const rHash = await this.rdata!.getItem("$H");
+		const timeSignature = this.timeSignature().toString();
+		const rHash = (await this.rdata!.getItem("$H")) || "0";
 		const lHash = (await this.p.data.get("$H")) || "0";
+		const hashTime = lHash.split("_")[1];
 		if (
-			lHash === rHash ||
-			(lHash === "0" && (rHash || "").indexOf("10009") > -1)
+			hashTime === timeSignature &&
+			(lHash === rHash ||
+				(lHash === "0" && (rHash || "").indexOf("10009") > -1))
 		) {
 			return { sent: 0, received: 0, diff: -1 };
 		}

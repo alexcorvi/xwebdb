@@ -282,7 +282,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		const all = await this.data.values();
 		for (let i = 0; i < all.length; i++) {
 			const line = all[i];
-			if (isNaN(Number(line)) && line !== "$deleted")
+			if ((!line.startsWith("$H")) && line !== "$deleted")
 				event.emit("readLine", line);
 		}
 		event.emit("end", "");
