@@ -225,7 +225,7 @@ describe("Que", ()=>{
             const promiseQueue = new Q(2);
             promiseQueue.add(() => {
                 return new Promise((resolve) => {
-                    assert.strictEqual(promiseQueue.ongoingCount, 1);
+                    assert.strictEqual(promiseQueue.ongoingCount, 2);
                     setTimeout(() => {
                         resolve(1);
                     }, 50);
