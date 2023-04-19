@@ -171,7 +171,7 @@ export class Sync {
 				continue;
 			} else if (li === ll || asc(lv, rv) > 0) {
 				ri++;
-				const b = await this.brace(
+				await this.brace(
 					rv,
 					(x: string) => this.rdata.getItem(x),
 					remoteDiffs,
@@ -179,7 +179,7 @@ export class Sync {
 				);
 			} else {
 				li++;
-				const b = await this.brace(
+				await this.brace(
 					lv,
 					(x: string) => this.p.data.get(x) as any,
 					localDiffs,
@@ -207,7 +207,7 @@ export class Sync {
 			if (UCV && UCV.type === "doc") {
 				const uniqueProp = UCV.prop;
 				await this.p.data.set(
-					(localKeys.find(x=>x.startsWith(uniqueProp + "_")) || ""),
+					localKeys.find((x) => x.startsWith(uniqueProp + "_")) || "",
 					this.p.encode(
 						model.serialize({
 							$$indexCreated: {
@@ -218,8 +218,7 @@ export class Sync {
 						})
 					)
 				);
-			}
-			else if (UCV && UCV.type === "index") {
+			} else if (UCV && UCV.type === "index") {
 				diff.value = this.p.encode(
 					model.serialize({
 						$$indexCreated: {
@@ -228,7 +227,7 @@ export class Sync {
 							sparse: UCV.sparse,
 						},
 					})
-				)
+				);
 			}
 			const oldIDRev =
 				localKeys.find((key) =>
