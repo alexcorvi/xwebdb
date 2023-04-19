@@ -1,7 +1,6 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
-/// <reference path="../../node_modules/localforage/typings/localforage.d.ts" />
 
 import unifydb from "../../dist/unifydb.js";
 const BaseModel = unifydb.BaseModel;
