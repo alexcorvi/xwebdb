@@ -1,22 +1,11 @@
-import {Q} from "../q";
+import { Q } from "../q";
 import { remoteAdapter, remoteStore } from "./type";
 
-/*
-	const savedNS = {
-		endpointA: {
-			namespace1: "id1",
-			namespace2: "id2",
-		},
-		endpointB: {
-			namespace1: "id1",
-			namespace2: "id2",
-		}
-	}
-*/
 const savedNS: { [endpoint: string]: { [title: string]: string } } = {};
 
-export const kvAdapter: remoteAdapter = (endpoint: string, token: string) => (name: string) =>
-	new Namespace({ endpoint, token, name });
+export const kvAdapter: remoteAdapter =
+	(endpoint: string, token: string) => (name: string) =>
+		new Namespace({ endpoint, token, name });
 
 async function kvRequest(
 	instance: Namespace,
@@ -322,7 +311,7 @@ class Namespace implements remoteStore {
 		return results;
 	}
 	async getItems(keys: string[]) {
-		if(keys.length === 0) return [];
+		if (keys.length === 0) return [];
 		// Cloudflare, sadly, still doesn't bulk gets!
 		// so we're just looping through the given keys
 		// to make things slightly better:
@@ -334,11 +323,11 @@ class Namespace implements remoteStore {
 			valuesPromises.push(q.add(() => this.getItem(key)));
 		}
 		const values = await Promise.all(valuesPromises);
-		const result: {key: string, value: string}[] = [];
+		const result: { key: string; value: string }[] = [];
 		for (let index = 0; index < keys.length; index++) {
 			let key = keys[index];
 			let value = values[index];
-			result.push({key, value})
+			result.push({ key, value });
 		}
 		return result;
 	}

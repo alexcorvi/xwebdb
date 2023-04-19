@@ -145,7 +145,7 @@ function deepCopy<T>(
 		Object.keys(obj).forEach((k) => {
 			if (!strictKeys || (k[0] !== "$" && k.indexOf(".") === -1)) {
 				(res as keyedObject)[k] = deepCopy(
-					((obj as unknown) as keyedObject)[k],
+					(obj as unknown as keyedObject)[k],
 					model,
 					strictKeys
 				);
@@ -282,8 +282,8 @@ function compareThings<V>(
 
 	for (let i = 0; i < Math.min(aKeys.length, bKeys.length); i += 1) {
 		let comp = compareThings(
-			((a as unknown) as keyedObject)[aKeys[i]],
-			((b as unknown) as keyedObject)[bKeys[i]]
+			(a as unknown as keyedObject)[aKeys[i]],
+			(b as unknown as keyedObject)[bKeys[i]]
 		);
 
 		if (comp !== 0) {
@@ -343,21 +343,21 @@ const lastStepModifierFunctions: ModifierGroup = {
 		if (
 			value !== null &&
 			typeof value === "object" &&
-			((value as unknown) as keyedObject)["$slice"] &&
-			((value as unknown) as keyedObject)["$each"] === undefined
+			(value as unknown as keyedObject)["$slice"] &&
+			(value as unknown as keyedObject)["$each"] === undefined
 		) {
-			((value as unknown) as keyedObject).$each = [];
+			(value as unknown as keyedObject).$each = [];
 		}
 
 		if (
 			value !== null &&
 			typeof value === "object" &&
-			((value as unknown) as keyedObject)["$each"]
+			(value as unknown as keyedObject)["$each"]
 		) {
-			const eachVal = ((value as unknown) as keyedObject)["$each"];
-			const sliceVal = ((value as unknown) as keyedObject)["$slice"];
-			const posVal = ((value as unknown) as keyedObject)["$position"];
-			const sortVal = ((value as unknown) as keyedObject)["$sort"];
+			const eachVal = (value as unknown as keyedObject)["$each"];
+			const sliceVal = (value as unknown as keyedObject)["$slice"];
+			const posVal = (value as unknown as keyedObject)["$position"];
+			const sortVal = (value as unknown as keyedObject)["$sort"];
 
 			const allKeys = Object.keys(value);
 
@@ -461,7 +461,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 			throw new Error("Can't $addToSet an element on non-array values");
 		}
 
-		const eachVal = ((value as unknown) as keyedObject)["$each"];
+		const eachVal = (value as unknown as keyedObject)["$each"];
 
 		if (value !== null && typeof value === "object" && eachVal) {
 			if (Object.keys(value).length > 1) {
@@ -824,8 +824,8 @@ function areThingsEqual<A, B>(a: A, b: B): boolean {
 		}
 		if (
 			!areThingsEqual(
-				((a as unknown) as keyedObject)[aKeys[i]],
-				((b as unknown) as keyedObject)[aKeys[i]]
+				(a as unknown as keyedObject)[aKeys[i]],
+				(b as unknown as keyedObject)[aKeys[i]]
 			)
 		) {
 			return false;
@@ -973,9 +973,9 @@ comparisonFunctions.$exists = function (value, exists) {
 	}
 
 	if (value === undefined) {
-		return (!exists as unknown) as boolean;
+		return !exists as unknown as boolean;
 	} else {
-		return (exists as unknown) as boolean;
+		return exists as unknown as boolean;
 	}
 };
 
@@ -984,13 +984,11 @@ comparisonFunctions.$size = function (obj, value) {
 	if (!Array.isArray(obj)) {
 		return false;
 	}
-	if (((value as unknown) as number) % 1 !== 0) {
+	if ((value as unknown as number) % 1 !== 0) {
 		throw new Error("$size operator called without an integer");
 	}
 
-	return (
-		((obj as unknown) as any[]).length === ((value as unknown) as number)
-	);
+	return (obj as unknown as any[]).length === (value as unknown as number);
 };
 
 comparisonFunctions.$elemMatch = function (obj, value) {

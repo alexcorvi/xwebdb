@@ -52,12 +52,6 @@ export class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
 	unique: boolean = false;
 	sparse: boolean = false;
 
-	treeOptions = {
-		unique: this.unique,
-		compareKeys: model.compareThings,
-		checkValueEquality,
-	};
-
 	tree: AvlTree<Key, Doc>;
 
 	constructor({

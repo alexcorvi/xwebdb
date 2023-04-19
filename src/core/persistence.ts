@@ -64,7 +64,7 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 	db: Datastore<G>;
 	ref: string = "";
 
-	data: IDB;
+	data: IDB<string>;
 
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
@@ -80,8 +80,6 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 				new: (json: G) => G;
 		  })
 		| undefined;
-	protected _memoryIndexes: string[] = [];
-	protected _memoryData: string[] = [];
 	constructor(options: PersistenceOptions<G>) {
 		this._model = options.model;
 		this.db = options.db;
@@ -335,11 +333,6 @@ export class Persistence<G extends Partial<BaseModel<G>> = any> {
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevsData);
 		if (this.sync) await this.sync.setLocalHash(keys);
-	}
-
-	async clearData() {
-		const list = await this.data.keys();
-		this.deleteData(list as string[]);
 	}
 	/**
 	 * Deletes all data
