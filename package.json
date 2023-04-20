@@ -8,10 +8,7 @@
 		"test": "test"
 	},
 	"scripts": {
-		"server": "ts-node src/bin configs.db.js",
-		"test": "mocha",
-		"build": "rollup -c && tsc --emitDeclarationOnly",
-		"benchmark": "node benchmark"
+		"build": "rollup.js"
 	},
 	"keywords": [
 		"mongodb",
@@ -36,6 +33,7 @@
 		"chai": "^4.2.0",
 		"mocha": "^7.1.1",
 		"rollup": "^2.7.2",
+		"terser": "^5.17.1",
 		"tslib": "^2.5.0",
 		"typescript": "^5.0.4",
 		"underscore": "^1.13.6"
