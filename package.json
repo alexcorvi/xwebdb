@@ -15,7 +15,9 @@
 		"mongo",
 		"typescript",
 		"ts",
-		"database"
+		"database",
+		"web",
+		"serverless"
 	],
 	"homepage": "https://alex-corvi.gitbook.io/xwebdb/",
 	"repository": {
