@@ -1,4 +1,4 @@
-# UnifyDB
+# xwebdb / Cross Web Database
 
 > Work in progress, unstable api, still not usable, check issues & Todo list below for more info.
 
@@ -38,23 +38,24 @@
 		- [x] Check sync function step (diff) on all tests
 		- [ ] Sync Unit
 		- [ ] All adapters
-	- [X] Work with conflicts
-	- [ ] transaction log truncation (deleted? updated again?)
-	- [ ] idb operations in bulk for perf improvements
-	- [ ] devalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
+	- [x] Work with conflicts
+	- [x] transaction log truncation (deleted? updated again?)
+	- [x] idb operations in bulk for perf improvements
+	- [x] devalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
+	- [ ] force sync (regardless of ongoing/hash)
+	- [ ] test devalidation
 - [ ] Setup Sync demo
 	- [ ] updating docs
 - [ ] Split optional functionalities into modules (for the browser)
 	- [ ] Adapters (each)
 	- [ ] Synching
 	- [ ] Reactive
-- [ ] zero-dependecy
-	- [x] q
 - [ ] Performance
 	- [ ] loops
 	- [x] q
 - [ ] Reactive
-- [ ] Improve `Class Database` API
+- [x] Improve `Class Database` API
 - [ ] Examples
 - [ ] Benchmark
 - [ ] Docs
+- [ ] Landing page
