@@ -8,7 +8,7 @@ const asc = (a: string, b: string) => (a > b ? 1 : -1);
 
 export class Sync {
 	private p: Persistence;
-	rdata: remoteStore;
+	private rdata: remoteStore;
 
 	constructor(persistence: Persistence, rdata: remoteStore) {
 		this.p = persistence;
@@ -27,7 +27,7 @@ export class Sync {
 		this.rdata.setItem("$H", "$H" + hash + "_" + this.timeSignature());
 	}
 
-	timeSignature() {
+	private timeSignature() {
 		return Math.floor(Date.now() / this.p.devalidateHash);
 	}
 
@@ -60,7 +60,7 @@ export class Sync {
 		});
 	}
 
-	async brace(
+	private async brace(
 		key: string,
 		getter: (x: string) => Promise<string>,
 		thisDiffs: diff[],
@@ -95,7 +95,7 @@ export class Sync {
 		return { thisDiffs, thatDiffs };
 	}
 
-	causesUCV(
+	private causesUCV(
 		input: string
 	):
 		| { type: "doc"; prop: string; value: string }
