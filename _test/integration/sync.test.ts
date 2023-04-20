@@ -1,8 +1,7 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
-chai.config.includeStack = true;
-import unifydb from "../../dist/unifydb.js";
-const { Database, BaseModel } = unifydb;
+import xwebdb from "../../dist/xwebdb.js";
+const { Database, BaseModel } = xwebdb;
 class Kid extends BaseModel<Kid> {
 	name: string;
 	age: number;

@@ -1,8 +1,8 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
 /// <reference path="../../dist/index.d.ts" />
-import unifydb from "../../dist/unifydb.js";
+import xwebdb from "../../dist/xwebdb.js";
 
-const Q = unifydb._internal.Q;
+const Q = xwebdb._internal.Q;
 const assert = chai.assert;
 
 describe("Que", ()=>{

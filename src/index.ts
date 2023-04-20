@@ -9,7 +9,7 @@ import {Index} from "./core"
 import * as modelling from "./core/model"
 import {kvAdapter} from "./core/adapters";
 
-const unifydb = {
+const xwebdb = {
     Database,
     BaseModel,
     adapters: {
@@ -28,4 +28,4 @@ const unifydb = {
     }
 };
 
-export default unifydb;
+export default xwebdb;

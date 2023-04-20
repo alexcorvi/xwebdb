@@ -2,9 +2,9 @@
 /// <reference path="../../dist/index.d.ts" />
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
-import unifydb from "../../dist/unifydb.js";
-const BaseModel = unifydb.BaseModel;
-const Database = unifydb.Database;
+import xwebdb from "../../dist/xwebdb.js";
+const BaseModel = xwebdb.BaseModel;
+const Database = xwebdb.Database;
 const expect = chai.expect;
 
 const testDb = "testdatabase";

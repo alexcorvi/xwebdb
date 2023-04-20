@@ -2,11 +2,11 @@
 /// <reference path="../../dist/index.d.ts" />
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
-import unifydb from "../../dist/unifydb.js";
+import xwebdb from "../../dist/xwebdb.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 const _:any = underscore;
-const BaseModel = unifydb.BaseModel
-const { Datastore, modelling : model } = unifydb._internal;
+const BaseModel = xwebdb.BaseModel
+const { Datastore, modelling : model } = xwebdb._internal;
 
 const assert = chai.assert;
 

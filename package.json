@@ -1,9 +1,9 @@
 {
-	"name": "unifydb",
+	"name": "xwebdb",
 	"version": "0.0.0",
 	"description": "Strongly-typed, NoSQL, fast, light-weight, synching, Mongo-like database with built-in ODM.",
-	"main": "./dist/unifydb.js",
-	"types": "./dist/index.d.ts",
+	"main": "./dist/xwebdb.js",
+	"types": "./dist/xwebdb.d.ts",
 	"directories": {
 		"test": "test"
 	},
@@ -20,10 +20,10 @@
 		"ts",
 		"database"
 	],
-	"homepage": "https://alex-corvi.gitbook.io/unifydb/",
+	"homepage": "https://alex-corvi.gitbook.io/xwebdb/",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/alexcorvi/unifydb.git"
+		"url": "git+https://github.com/alexcorvi/xwebdb.git"
 	},
 	"author": "Alex Corvi",
 	"license": "MIT",
