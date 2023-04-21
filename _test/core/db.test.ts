@@ -131,7 +131,7 @@ describe("Database", function () {
 					_id: "test",
 					stuff: true,
 				});
-				doc.docs[0]._id.should.equal("test");
+				doc.docs[0]._id!.should.equal("test");
 			}
 			{
 				const docs = await d.find({ stuff: true });
@@ -237,11 +237,11 @@ describe("Database", function () {
 				insertedDoc.hello.should.equal("world");
 				assert.isDefined(insertedDoc.createdAt);
 				assert.isDefined(insertedDoc.updatedAt);
-				insertedDoc.createdAt.should.equal(insertedDoc.updatedAt);
+				insertedDoc.createdAt!.should.equal(insertedDoc.updatedAt);
 				assert.isDefined(insertedDoc._id);
 				Object.keys(insertedDoc).length.should.equal(4);
 				assert.isBelow(
-					Math.abs(insertedDoc.createdAt.getTime() - beginning),
+					Math.abs(insertedDoc.createdAt!.getTime() - beginning),
 					reloadTimeUpperBound
 				);
 				// No more than 30ms should have elapsed (worst case, if there is a flush)
@@ -295,10 +295,10 @@ describe("Database", function () {
 			const insertedDoc = (await d.insert(newDoc)).docs[0];
 
 			Object.keys(insertedDoc).length.should.equal(4);
-			insertedDoc.createdAt.getTime().should.equal(234);
+			insertedDoc.createdAt!.getTime().should.equal(234);
 			// Not modified
 			assert.isBelow(
-				insertedDoc.updatedAt.getTime() - beginning,
+				insertedDoc.updatedAt!.getTime() - beginning,
 				reloadTimeUpperBound
 			);
 			// Created
@@ -326,10 +326,10 @@ describe("Database", function () {
 			await d.loadDatabase();
 			const insertedDoc = (await d.insert(newDoc)).docs[0];
 			Object.keys(insertedDoc).length.should.equal(4);
-			insertedDoc.updatedAt.getTime().should.equal(9);
+			insertedDoc.updatedAt!.getTime().should.equal(9);
 			// Not modified
 			assert.isBelow(
-				insertedDoc.createdAt.getTime() - beginning,
+				insertedDoc.createdAt!.getTime() - beginning,
 				reloadTimeUpperBound
 			);
 			// Created
@@ -344,11 +344,11 @@ describe("Database", function () {
 		});
 		it("Can insert a doc with id 0", (done) => {
 			d.insert({
-				_id: 0,
+				_id: 0 as any,
 				hello: "world",
 			}).then(({ docs }) => {
 				const { _id, hello } = docs[0];
-				_id.should.equal(0);
+				_id!.should.equal(0);
 				hello.should.equal("world");
 				done();
 			});
@@ -900,11 +900,11 @@ describe("Database", function () {
 				.then((res) => {
 					const insertedDoc = res.docs[0];
 					assert.isBelow(
-						insertedDoc.updatedAt.getTime() - beginning,
+						insertedDoc.updatedAt!.getTime() - beginning,
 						reloadTimeUpperBound
 					);
 					assert.isBelow(
-						insertedDoc.createdAt.getTime() - beginning,
+						insertedDoc.createdAt!.getTime() - beginning,
 						reloadTimeUpperBound
 					);
 					Object.keys(insertedDoc).length.should.equal(4);
@@ -1636,10 +1636,10 @@ describe("Database", function () {
 					d.indexes._id.getMatching("aaa")[0]
 				);
 				(d.indexes.z.tree.get("12")[0] as any).should.equal(
-					d.indexes._id.getMatching(newDoc1._id)[0]
+					d.indexes._id.getMatching(newDoc1._id!)[0]
 				);
 				(d.indexes.z.tree.get("14")[0] as any).should.equal(
-					d.indexes._id.getMatching(newDoc2._id)[0]
+					d.indexes._id.getMatching(newDoc2._id!)[0]
 				);
 				// The data in the z index is correct
 				const docs = await d.find({});
@@ -2094,24 +2094,24 @@ describe("Database", function () {
 							docs.length.should.equal(2);
 							d.getAllData().length.should.equal(2);
 							d.indexes._id
-								.getMatching(doc1._id)
+								.getMatching(doc1._id!)
 								.length.should.equal(1);
 							d.indexes.a
 								.getMatching(1 as any)
 								.length.should.equal(1);
 							(
-								d.indexes._id.getMatching(doc1._id)[0] as any
+								d.indexes._id.getMatching(doc1._id!)[0] as any
 							).should.equal(
 								d.indexes.a.getMatching(1 as any)[0]
 							);
 							d.indexes._id
-								.getMatching(doc2._id)
+								.getMatching(doc2._id!)
 								.length.should.equal(1);
 							d.indexes.a
 								.getMatching(2 as any)
 								.length.should.equal(1);
 							(
-								d.indexes._id.getMatching(doc2._id)[0] as any
+								d.indexes._id.getMatching(doc2._id!)[0] as any
 							).should.equal(
 								d.indexes.a.getMatching(2 as any)[0]
 							);
@@ -2129,7 +2129,7 @@ describe("Database", function () {
 					a: 1,
 					b: "hello",
 				});
-				const _id = res.docs[0]._id;
+				const _id = res.docs[0]._id!;
 				expect(
 					await rejected(() =>
 						d.insert({
@@ -2288,22 +2288,22 @@ describe("Database", function () {
 										456 as any
 									)[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc1._id)[0]
+									d.indexes._id.getMatching(doc1._id!)[0]
 								);
 								(
 									d.indexes.b.getMatching("no")[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc1._id)[0]
+									d.indexes._id.getMatching(doc1._id!)[0]
 								);
 								(
 									d.indexes.a.getMatching(2 as any)[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc2._id)[0]
+									d.indexes._id.getMatching(doc2._id!)[0]
 								);
 								(
 									d.indexes.b.getMatching("si")[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc2._id)[0]
+									d.indexes._id.getMatching(doc2._id!)[0]
 								);
 								return d.update(
 									{},
@@ -2357,12 +2357,12 @@ describe("Database", function () {
 										466 as any
 									)[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc1._id)[0]
+									d.indexes._id.getMatching(doc1._id!)[0]
 								);
 								(
 									d.indexes.a.getMatching(12 as any)[0] as any
 								).should.equal(
-									d.indexes._id.getMatching(doc2._id)[0]
+									d.indexes._id.getMatching(doc2._id!)[0]
 								);
 								// Can't test the pointers in b as their order is randomized, but it is the same as with a
 								done();
@@ -2750,26 +2750,26 @@ describe("Database", function () {
 											2 as any
 										)[0] as any
 									).should.equal(
-										d.indexes._id.getMatching(doc2._id)[0]
+										d.indexes._id.getMatching(doc2._id!)[0]
 									);
 									(
 										d.indexes.b.getMatching("si")[0] as any
 									).should.equal(
-										d.indexes._id.getMatching(doc2._id)[0]
+										d.indexes._id.getMatching(doc2._id!)[0]
 									);
 									(
 										d.indexes.a.getMatching(
 											3 as any
 										)[0] as any
 									).should.equal(
-										d.indexes._id.getMatching(doc3._id)[0]
+										d.indexes._id.getMatching(doc3._id!)[0]
 									);
 									(
 										d.indexes.b.getMatching(
 											"coin"
 										)[0] as any
 									).should.equal(
-										d.indexes._id.getMatching(doc3._id)[0]
+										d.indexes._id.getMatching(doc3._id!)[0]
 									);
 									return d.remove({}, { multi: true });
 								})
