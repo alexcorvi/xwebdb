@@ -21,6 +21,7 @@ export interface ObservableArray<A extends object> {
 	observable: Observable<A>;
 	observe: (observer: Observer<A>) => void;
 	unobserve: (observers?: Observer<A> | Observer<A>[]) => void;
+	silently(work: () => Promise<void>): Promise<void>;
 }
 
 const INSERT = "insert";
@@ -662,15 +663,26 @@ function observable<D, A extends D[]>(
 				parent: null,
 		  }).proxy;
 
+		function unobserve (observers?: Observer<A> | Observer<A>[]) {
+			if (!observers) return __unobserve(o);
+			else if (Array.isArray(observers)) return __unobserve(o, ...observers);
+			else return __unobserve(o, observers);
+		}
+
+		function observe (observer: Observer<A>) {
+			__observe(o, observer);
+		}
+
+		async function silently(work: ()=>Promise<void>) {
+			const observers = await unobserve();
+			await work();
+			observers.forEach(x=>observe(x))
+		}
+
 	return {
-		observe: function (observer: Observer<A>) {
-			observe(o, observer);
-		},
-		unobserve: function (observers?: Observer<A> | Observer<A>[]) {
-			if (!observers) unobserve(o);
-			else if (Array.isArray(observers)) unobserve(o, ...observers);
-			else unobserve(o, observers);
-		},
+		observe,
+		unobserve,
+		silently,
 		observable: o,
 	};
 }
@@ -679,7 +691,7 @@ function isObservable<T>(input: T) {
 	return !!(input && (input as any)[oMetaKey]);
 }
 
-function observe<T extends object>(
+function __observe<T extends object>(
 	observable: Observable<T>,
 	observer: Observer<T>
 ) {
@@ -689,29 +701,30 @@ function observe<T extends object>(
 	}
 }
 
-async function unobserve<T extends object>(
+async function __unobserve<T extends object>(
 	observable: Observable<T> | Promise<Observable<T>>,
 	...observers: Observer<T>[]
 ) {
 	if (observable instanceof Promise)
 		observable = await Promise.resolve(observable);
 	const existingObs = observable[oMetaKey].observers;
-	let el = existingObs.length;
-	if (!el) {
-		return;
+	let length = existingObs.length;
+	if (!length) {
+		return [];
 	}
 
 	if (!observers.length) {
-		existingObs.splice(0);
-		return;
+		return existingObs.splice(0);
 	}
 
-	while (el) {
-		let i = observers.indexOf(existingObs[--el]);
+	let spliced:Observer<T>[] = [];
+	while (length) {
+		let i = observers.indexOf(existingObs[--length]);
 		if (i >= 0) {
-			existingObs.splice(el, 1);
+			spliced.concat(existingObs.splice(length, 1));
 		}
 	}
+	return spliced;
 }
 
 export { observable, isObservable };
