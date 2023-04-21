@@ -19,6 +19,18 @@ _pronounced: Cross Web Database_
 - Reactive (can be used as a state-manager for react/angular/svelte/vue ...etc)
 - Designed for serverless applications
 
+### Comparision with other databases
+#### PouchDB
+||Common Features|XWebDB Features|
+| ------------ | ------------ | ------------ |
+|1|   |   |
+|2|   |   |
+
+#### Dexie.js
+#### Localforage
+#### LokiJs
+#### RxDB
+
 ### Current progress
 - [x] AVLTree & Indexing
 - [x] Modelling system
@@ -55,11 +67,13 @@ _pronounced: Cross Web Database_
 	- [x] q
 - [ ] Reactive
 	- [x] Make observable nested arrays possible 
-		- [ ] write unit core tests for "observable"
+		- [ ] TESTING REQUIRED: write unit core tests for "observable"
 	- [x] use live() to return an observable result that will be consumed by the application
-		- [ ] write integration tests for "live"
-	- [ ] UI frameworks state should update automagically once the database updates (if the update)
-	- [ ] observe this result for changes from the UI framework side and reflect those changes onto the DB
+		- [ ] TESTING REQUIRED: write integration tests for "live"
+	- [x] UI frameworks state should update automagically once the database updates (if the update)
+		- [ ] check comments at the end of observable file... seems to be working just needs more testing
+	- [x] observe this result for changes from the UI framework side and reflect those changes onto the DB
+		- [ ] TESTING REQUIRED: write integration tests for "live"
 	- [ ] observe changes in the database and reflect them onto the live query and hence the application
 - [x] Improve `Class Database` API
 - [ ] Examples
