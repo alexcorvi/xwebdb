@@ -1,5 +1,6 @@
 import { Datastore, EnsureIndexOptions, Persistence } from "./core";
 import { remoteStore } from "./core/adapters/type";
+import { Change, ObservableArray, observable } from "./core/observable";
 import {
 	NFP,
 	BaseModel,
@@ -24,7 +25,7 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
 		syncToRemote?: (name: string) => remoteStore;
 		syncInterval?: number;
 		devalidateHash?: number;
-	}
+	};
 }
 
 export class Database<S extends BaseModel<S>> {
@@ -54,7 +55,9 @@ export class Database<S extends BaseModel<S>> {
 			timestampData: options.timestampData,
 			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
-			devalidateHash: options.sync ? options.sync.devalidateHash : undefined
+			devalidateHash: options.sync
+				? options.sync.devalidateHash
+				: undefined,
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}
@@ -70,6 +73,51 @@ export class Database<S extends BaseModel<S>> {
 		await this.reloadFirst();
 		const res = await this._datastore.insert(docs as any);
 		return res;
+	}
+
+	public async live(
+		filter: Filter<NFP<S>> = {},
+		{
+			skip = 0,
+			limit = 0,
+			project = {},
+			sort = {},
+		}: {
+			skip?: number;
+			limit?: number;
+			sort?: SchemaKeySort<NFP<S>>;
+			project?: SchemaKeyProjection<NFP<S>>;
+		} = {}
+	): Promise<ObservableArray<S[]>> {
+		const res = await this.read(...arguments);
+		const o = observable(res);
+		o.observe((changes) => {
+			let operations: Promise<any>[] = [];
+			for (let i = 0; i < changes.length; i++) {
+				const change = changes[i];
+				if (change.path.length > 1 || change.type === "update") {
+					// updating
+					let doc = change.object[change.path[0] as number];
+					let _id = doc._id;
+					operations.push(this.update({ _id: _id } as any, { $set: doc as any }));
+				} else if (change.type === "delete") {
+					// deleting
+					let doc = change.oldValue;
+					let _id = doc._id;
+					operations.push(this.delete({ _id } as any));
+				} else if (change.type === "insert") {
+					// inserting
+					let doc = change.value;
+					let _id = doc._id;
+					operations.push(this.insert(doc));
+				}
+			}
+			Promise.all(operations).catch(e=>{
+				console.error("Applying observable changes on the database failed with error");
+				console.error(e);
+			});
+		});
+		return o;
 	}
 
 	/**
