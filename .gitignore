@@ -9,6 +9,3 @@ yarn-debug.log*
 yarn-error.log*
 
 stats.json
-
-#temporary
-dist
