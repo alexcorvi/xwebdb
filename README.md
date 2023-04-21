@@ -1,6 +1,5 @@
-# xwebdb / Cross Web Database
-
-> Work in progress, unstable api, still not usable, check issues & Todo list below for more info.
+# XWebDB
+_pronounced: Cross Web Database_
 
 <p align="center">
 	<img src="https://i.postimg.cc/0yp2LmPJ/exchange-databases.png" width="100">
@@ -8,6 +7,7 @@
 	<br>
 </p>
 
+> Work in progress, unstable api, still not usable, check issues & Todo list below for more info.
 
 ### What is this?
 - A database for the browser
@@ -54,6 +54,13 @@
 	- [ ] loops
 	- [x] q
 - [ ] Reactive
+	- [x] Make observable nested arrays possible 
+		- [ ] write unit core tests for "observable"
+	- [x] use live() to return an observable result that will be consumed by the application
+		- [ ] write integration tests for "live"
+	- [ ] UI frameworks state should update automagically once the database updates (if the update)
+	- [ ] observe this result for changes from the UI framework side and reflect those changes onto the DB
+	- [ ] observe changes in the database and reflect them onto the live query and hence the application
 - [x] Improve `Class Database` API
 - [ ] Examples
 - [ ] Benchmark
