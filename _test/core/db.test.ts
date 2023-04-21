@@ -1,5 +1,5 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
-/// <reference path="../../dist/index.d.ts" />
+/// <reference path="../../dist/xwebdb.d.ts" />
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
 import xwebdb from "../../dist/xwebdb.js";

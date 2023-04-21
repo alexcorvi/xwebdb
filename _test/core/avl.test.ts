@@ -1,5 +1,5 @@
 /// <reference path="../../node_modules/@types/chai/index.d.ts" />
-/// <reference path="../../dist/index.d.ts" />
+/// <reference path="../../dist/xwebdb.d.ts" />
 import xwebdb from "../../dist/xwebdb.js";
 
 const AvlTree = xwebdb._internal.avl.AvlTree;
