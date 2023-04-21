@@ -1,14 +1,15 @@
 {
 	"name": "xwebdb",
-	"version": "0.0.0",
+	"version": "0.0.1",
 	"description": "Strongly-typed, NoSQL, fast, light-weight, synching, Mongo-like database with built-in ODM.",
 	"main": "./dist/xwebdb.js",
 	"types": "./dist/xwebdb.d.ts",
+	"module": "./dist/xweb.module.js",
 	"directories": {
 		"test": "test"
 	},
 	"scripts": {
-		"build": "rollup.js"
+		"build": "node rollup.js"
 	},
 	"keywords": [
 		"mongodb",

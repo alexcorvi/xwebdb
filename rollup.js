@@ -16,10 +16,19 @@ async function build() {
 			input: "./src/index.ts",
 			plugins: [resolve(), typescript()],
 		});
+		
+		// UMD
 		const code = (await bundle.generate({ name: pkg.name, format: "umd" }))
 			.output[0].code;
 		writeFileSync(pkg.main, code);
+
+		// UMD Minified
 		writeFileSync(pkg.main.replace(/\.js$/, ".min.js"), (await minify(code, { compress: true })).code)
+		
+		// ES Module
+		const codeModule = (await bundle.generate({ format: "module" }))
+			.output[0].code;
+		writeFileSync(pkg.module, codeModule);
 	} catch (error) {
 		buildFailed = true;
 		console.error(error);
