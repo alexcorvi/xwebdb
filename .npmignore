@@ -1,0 +1,10 @@
+# Exclude all files and folders
+*
+
+# Include the src folder and index.js file
+!dist/
+!npmignore
+!LICENSE.MD
+!package-lock.json
+!package.json
+!README.MD
