@@ -1,1 +1,1 @@
-export * from "./kv";
+export { kvAdapter } from './kv';

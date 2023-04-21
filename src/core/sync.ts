@@ -1,7 +1,9 @@
 import { Persistence, persistenceLine } from "./persistence";
 import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
-import { Index, model } from ".";
+import { Index } from "./indexes";
+import * as modelling from "./model";
+
 type diff = { key: string; value: string };
 
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
@@ -216,7 +218,7 @@ export class Sync {
 				await this.p.data.set(
 					localKeys.find((x) => x.startsWith(uniqueProp + "_")) || "",
 					this.p.encode(
-						model.serialize({
+						modelling.serialize({
 							$$indexCreated: {
 								fieldName: uniqueProp,
 								unique: false,
@@ -227,7 +229,7 @@ export class Sync {
 				);
 			} else if (UCV && UCV.type === "index") {
 				diff.value = this.p.encode(
-					model.serialize({
+					modelling.serialize({
 						$$indexCreated: {
 							fieldName: UCV.fieldName,
 							unique: false,
