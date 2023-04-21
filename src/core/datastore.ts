@@ -375,7 +375,7 @@ export class Datastore<
 	private async _insert(newDoc: G | G[]) {
 		let preparedDoc = this.prepareDocumentForInsertion(newDoc);
 		this._insertInCache(preparedDoc);
-
+		// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
 		await this.persistence.writeNewData(
 			Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc]
 		);
@@ -555,6 +555,7 @@ export class Datastore<
 
 			// Update the datafile
 			const updatedDocs = modifications.map((x) => x.newDoc);
+			// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
 			await this.persistence.writeNewData(updatedDocs);
 
 			return {
@@ -623,6 +624,7 @@ export class Datastore<
 				this.removeFromIndexes(d);
 			}
 		});
+		// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
 		await this.persistence.deleteData(removedDocs.map(x=>x._id || ""));
 		return {
 			number: numRemoved,
