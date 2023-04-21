@@ -82,41 +82,64 @@ export class Database<S extends BaseModel<S>> {
 			limit = 0,
 			project = {},
 			sort = {},
+			toDB = true,
+			fromDB = true,
 		}: {
 			skip?: number;
 			limit?: number;
 			sort?: SchemaKeySort<NFP<S>>;
 			project?: SchemaKeyProjection<NFP<S>>;
+			toDB?: boolean;
+			fromDB?: boolean;
 		} = {}
 	): Promise<ObservableArray<S[]>> {
 		const res = await this.read(...arguments);
 		const o = observable(res);
-		o.observe((changes) => {
-			let operations: Promise<any>[] = [];
-			for (let i = 0; i < changes.length; i++) {
-				const change = changes[i];
-				if (change.path.length > 1 || change.type === "update") {
-					// updating
-					let doc = change.object[change.path[0] as number];
-					let _id = doc._id;
-					operations.push(this.update({ _id: _id } as any, { $set: doc as any }));
-				} else if (change.type === "delete") {
-					// deleting
-					let doc = change.oldValue;
-					let _id = doc._id;
-					operations.push(this.delete({ _id } as any));
-				} else if (change.type === "insert") {
-					// inserting
-					let doc = change.value;
-					let _id = doc._id;
-					operations.push(this.insert(doc));
+
+		if (toDB) {
+			o.observe((changes) => {
+				let operations: Promise<any>[] = [];
+				for (let i = 0; i < changes.length; i++) {
+					const change = changes[i];
+					if (change.path.length > 1 || change.type === "update") {
+						// updating
+						let doc = change.object[change.path[0] as number];
+						let _id = doc._id;
+						operations.push(
+							this.update({ _id: _id } as any, {
+								$set: doc as any,
+							})
+						);
+					} else if (change.type === "delete") {
+						// deleting
+						let doc = change.oldValue;
+						let _id = doc._id;
+						operations.push(this.delete({ _id } as any));
+					} else if (change.type === "insert") {
+						// inserting
+						let doc = change.value;
+						let _id = doc._id;
+						operations.push(this.insert(doc));
+					}
 				}
-			}
-			Promise.all(operations).catch(e=>{
-				console.error("Applying observable changes on the database failed with error");
-				console.error(e);
+				Promise.all(operations).catch((e) => {
+					console.error(
+						"Applying observable changes on the database failed with error"
+					);
+					console.error(e);
+				});
 			});
-		});
+		}
+
+		if(fromDB) {
+			// TODO...
+			// suggestion:
+			// add hashtable of all the live queries in _datastore
+			// once a persistence event occured (check LQLQLQ comments)
+			// check all queries on by one to see if the resulting array would change
+			// if it does reflect those changes by copying all the observers (unobserve)
+			// and replacing the observable object
+		}
 		return o;
 	}
 
