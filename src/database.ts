@@ -1,6 +1,5 @@
-import { Datastore, EnsureIndexOptions, Persistence } from "./core";
+import { Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { Change, ObservableArray, observable } from "./core/observable";
 import {
 	NFP,
 	BaseModel,
@@ -92,18 +91,18 @@ export class Database<S extends BaseModel<S>> {
 			toDB?: boolean;
 			fromDB?: boolean;
 		} = {}
-	): Promise<ObservableArray<S[]>> {
+	): Promise<o.ObservableArray<S[]>> {
 		const res = await this.read(...arguments);
-		const o = observable(res);
+		const ob = o.observable(res);
 
 		if (toDB) {
-			o.observe((changes) => {
+			ob.observe((changes) => {
 				let operations: Promise<any>[] = [];
 				for (let i = 0; i < changes.length; i++) {
 					const change = changes[i];
 					if (change.path.length > 1 || change.type === "update") {
 						// updating
-						let doc = change.object[change.path[0] as number];
+						let doc = change.snapshot[change.path[0] as number];
 						let _id = doc._id;
 						operations.push(
 							this.update({ _id: _id } as any, {
@@ -140,7 +139,7 @@ export class Database<S extends BaseModel<S>> {
 			// if it does reflect those changes by copying all the observers (unobserve)
 			// and replacing the observable object
 		}
-		return o;
+		return ob;
 	}
 
 	/**
