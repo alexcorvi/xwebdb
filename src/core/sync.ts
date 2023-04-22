@@ -3,6 +3,7 @@ import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
 import { Index } from "./indexes";
 import * as modelling from "./model";
+import { liveUpdate } from "./live";
 
 type diff = { key: string; value: string };
 
@@ -265,6 +266,14 @@ export class Sync {
 		await this.rdata.setItems(upSet);
 		await this.setRemoteHash();
 		await this.p.loadDatabase();
+		try {
+			liveUpdate();
+		} catch(e) {
+			console.error(
+				`XWebDB: Could not do live updates due to an error:`,
+				e
+			);
+		}
 		return {
 			sent: localDiffs.length,
 			received: remoteDiffs.length,

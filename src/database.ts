@@ -1,5 +1,11 @@
-import { Datastore, EnsureIndexOptions, observable as o } from "./core";
+import {
+	Datastore,
+	EnsureIndexOptions,
+	observable as o,
+	observable,
+} from "./core";
 import { remoteStore } from "./core/adapters/type";
+import { addLive } from "./core/live";
 import {
 	NFP,
 	BaseModel,
@@ -94,9 +100,11 @@ export class Database<S extends BaseModel> {
 	): Promise<o.ObservableArray<S[]>> {
 		const res = await this.read(...arguments);
 		const ob = o.observable(res);
+		let toDBObserver: (changes: observable.Change<S[]>[]) => void = () =>
+			undefined;
 
 		if (toDB) {
-			ob.observe((changes) => {
+			toDBObserver = (changes: observable.Change<S[]>[]) => {
 				let operations: { [key: string]: () => Promise<any> } = {};
 				for (let i = 0; i < changes.length; i++) {
 					const change = changes[i];
@@ -120,26 +128,29 @@ export class Database<S extends BaseModel> {
 						operations[_id] = () => this.insert(doc);
 					}
 				}
-				const results = Object.values(operations).map(operation=>operation);
+				const results = Object.values(operations).map(
+					(operation) => operation
+				);
 				Promise.all(results).catch((e) => {
 					console.error(
-						"Applying observable changes on the database failed with error"
+						`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`,
+						e
 					);
-					console.error(e);
 				});
-			});
+			};
+			ob.observe(toDBObserver);
 		}
 
 		if (fromDB) {
-			// TODO...
-			// suggestion:
-			// add hashtable of all the live queries in _datastore
-			// once a persistence event occured (check LQLQLQ comments)
-			// check all queries on by one to see if the resulting array would change
-			// if it does reflect those changes by copying all the observers (unobserve)
-			// and replacing the observable object
+			addLive({
+				queryFilter: filter,
+				queryOptions: { skip, limit, project, sort },
+				database: this,
+				toDBObserver,
+				observable: ob,
+			});
 		}
-		
+
 		return ob;
 	}
 

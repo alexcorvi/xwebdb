@@ -73,7 +73,7 @@ function callObserverSafe<T>(
 		listener(changes);
 	} catch (e) {
 		console.error(
-			`failed to notify listener ${listener} with ${changes}`,
+			`XWebDB: Failed to notify listener ${listener} with ${changes}`,
 			e
 		);
 	}

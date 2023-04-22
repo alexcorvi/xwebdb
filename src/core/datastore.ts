@@ -7,6 +7,7 @@ import * as types from "../types";
 import { BaseModel } from "../types/base-schema";
 import {Q} from "./q" ;
 import { remoteStore } from "./adapters/type";
+import { liveUpdate } from "./live";
 
 export interface EnsureIndexOptions {
 	fieldName: string;
@@ -375,7 +376,14 @@ export class Datastore<
 	private async _insert(newDoc: G | G[]) {
 		let preparedDoc = this.prepareDocumentForInsertion(newDoc);
 		this._insertInCache(preparedDoc);
-		// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
+		try {
+			liveUpdate();
+		} catch(e) {
+			console.error(
+				`XWebDB: Could not do live updates due to an error:`,
+				e
+			);
+		}
 		await this.persistence.writeNewData(
 			Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc]
 		);
@@ -555,7 +563,14 @@ export class Datastore<
 
 			// Update the datafile
 			const updatedDocs = modifications.map((x) => x.newDoc);
-			// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
+			try {
+				liveUpdate();
+			} catch(e) {
+				console.error(
+					`XWebDB: Could not do live updates due to an error:`,
+					e
+				);
+			}
 			await this.persistence.writeNewData(updatedDocs);
 
 			return {
@@ -624,7 +639,14 @@ export class Datastore<
 				this.removeFromIndexes(d);
 			}
 		});
-		// LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
+		try {
+			liveUpdate();
+		} catch(e) {
+			console.error(
+				`XWebDB: Could not do live updates due to an error:`,
+				e
+			);
+		}
 		await this.persistence.deleteData(removedDocs.map(x=>x._id || ""));
 		return {
 			number: numRemoved,
