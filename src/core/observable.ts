@@ -21,7 +21,7 @@ export interface ObservableArray<A extends object> {
 	observable: Observable<A>;
 	observe: (observer: Observer<A>) => void;
 	unobserve: (observers?: Observer<A> | Observer<A>[]) => void;
-	silently(work: () => Promise<void>): Promise<void>;
+	silently: (work: (o: Observable<A>) => any) => void;
 }
 
 const INSERT = "insert";
@@ -30,6 +30,15 @@ const DELETE = "delete";
 const REVERSE = "reverse";
 const SHUFFLE = "shuffle";
 const oMetaKey = Symbol.for("object-observer-meta-key-0");
+
+function findGrandParent<T extends object>(observable: OMetaBase<T>): any {
+	if (observable.parent) return findGrandParent(observable.parent);
+	else return observable;
+}
+
+function copy(v: any) {
+	return JSON.parse(JSON.stringify({ tmp: v })).tmp;
+}
 
 function prepareObject<T extends object>(
 	source: T,
@@ -117,7 +126,8 @@ function callObservers<T extends object>(
 					[currentObservable.ownKey, ...change.path],
 					change.value,
 					change.oldValue,
-					change.object
+					change.object,
+					copy(findGrandParent(currentObservable).proxy)
 				);
 			}
 			currentObservable = parent;
@@ -168,7 +178,14 @@ function proxiedPop<T extends any[]>(this: Observable<T>) {
 	}
 
 	const changes = [
-		new Change(DELETE, [poppedIndex], undefined, popResult, this),
+		new Change(
+			DELETE,
+			[poppedIndex],
+			undefined,
+			popResult,
+			this,
+			copy(this)
+		),
 	];
 	callObservers(oMeta, changes);
 
@@ -193,7 +210,8 @@ function proxiedPush<T extends any[]>(this: Observable<T>) {
 			[i],
 			target[i],
 			undefined,
-			this
+			this,
+			copy(this)
 		);
 	}
 	callObservers(oMeta, changes);
@@ -224,7 +242,9 @@ function proxiedShift<T extends any[]>(this: Observable<T>) {
 		}
 	}
 
-	const changes = [new Change(DELETE, [0], undefined, shiftResult, this)];
+	const changes = [
+		new Change(DELETE, [0], undefined, shiftResult, this, copy(this)),
+	];
 	callObservers(oMeta, changes);
 
 	return shiftResult;
@@ -254,7 +274,14 @@ function proxiedUnshift<T extends any[]>(this: Observable<T>) {
 	const l = unshiftContent.length;
 	const changes = new Array(l);
 	for (let i = 0; i < l; i++) {
-		changes[i] = new Change(INSERT, [i], target[i], undefined, this);
+		changes[i] = new Change(
+			INSERT,
+			[i],
+			target[i],
+			undefined,
+			this,
+			copy(this)
+		);
 	}
 	callObservers(oMeta, changes);
 
@@ -276,7 +303,9 @@ function proxiedReverse<T extends any[]>(this: Observable<T>) {
 		}
 	}
 
-	const changes = [new Change(REVERSE, [], undefined, undefined, this)];
+	const changes = [
+		new Change(REVERSE, [], undefined, undefined, this, copy(this)),
+	];
 	callObservers(oMeta, changes);
 
 	return this;
@@ -300,7 +329,9 @@ function proxiedSort<T extends any[]>(
 		}
 	}
 
-	const changes = [new Change(SHUFFLE, [], undefined, undefined, this)];
+	const changes = [
+		new Change(SHUFFLE, [], undefined, undefined, this, copy(this)),
+	];
 	callObservers(oMeta, changes);
 
 	return this;
@@ -346,11 +377,25 @@ function proxiedFill<T extends any[]>(
 				}
 
 				changes.push(
-					new Change(UPDATE, [i], target[i], tmpTarget, this)
+					new Change(
+						UPDATE,
+						[i],
+						target[i],
+						tmpTarget,
+						this,
+						copy(this)
+					)
 				);
 			} else {
 				changes.push(
-					new Change(INSERT, [i], target[i], undefined, this)
+					new Change(
+						INSERT,
+						[i],
+						target[i],
+						undefined,
+						this,
+						copy(this)
+					)
 				);
 			}
 		}
@@ -410,7 +455,9 @@ function proxiedCopyWithin<T extends any[]>(
 			if (typeof nItem !== "object" && nItem === oItem) {
 				continue;
 			}
-			changes.push(new Change(UPDATE, [i], nItem, oItem, this));
+			changes.push(
+				new Change(UPDATE, [i], nItem, oItem, this, copy(this))
+			);
 		}
 
 		callObservers(oMeta, changes);
@@ -476,7 +523,8 @@ function proxiedSplice<T extends any[]>(this: Observable<T>) {
 					[startIndex + index],
 					target[startIndex + index],
 					spliceResult[index],
-					this
+					this,
+					copy(this)
 				)
 			);
 		} else {
@@ -486,7 +534,8 @@ function proxiedSplice<T extends any[]>(this: Observable<T>) {
 					[startIndex + index],
 					undefined,
 					spliceResult[index],
-					this
+					this,
+					copy(this)
 				)
 			);
 		}
@@ -498,7 +547,8 @@ function proxiedSplice<T extends any[]>(this: Observable<T>) {
 				[startIndex + index],
 				target[startIndex + index],
 				undefined,
-				this
+				this,
+				copy(this)
 			)
 		);
 	}
@@ -519,24 +569,27 @@ const proxiedArrayMethods = {
 	splice: proxiedSplice,
 };
 
-export class Change<T> {
+class Change<T> {
 	type: ChangeType;
 	path: (string | number | symbol)[];
 	value?: any;
 	oldValue?: any;
-	object: T;
+	object: any;
+	snapshot: T;
 	constructor(
 		type: ChangeType,
 		path: (string | number | symbol)[],
 		value: any | undefined,
 		oldValue: any | undefined,
-		object: T
+		object: T,
+		snapshot: T
 	) {
 		this.type = type;
 		this.path = path;
-		this.value = value;
-		this.oldValue = oldValue;
+		this.value = copy(value);
+		this.oldValue = copy(oldValue);
 		this.object = object;
+		this.snapshot = snapshot;
 	}
 }
 
@@ -597,7 +650,8 @@ class OMetaBase<T extends object> {
 								[key],
 								newValue,
 								undefined,
-								this.proxy
+								this.proxy,
+								copy(this.proxy)
 							),
 					  ]
 					: [
@@ -606,7 +660,8 @@ class OMetaBase<T extends object> {
 								[key],
 								newValue,
 								oldValue,
-								this.proxy
+								this.proxy,
+								copy(this.proxy)
 							),
 					  ];
 			callObservers(this, changes);
@@ -628,7 +683,14 @@ class OMetaBase<T extends object> {
 		}
 
 		const changes = [
-			new Change(DELETE, [key], undefined, oldValue, this.proxy),
+			new Change(
+				DELETE,
+				[key],
+				undefined,
+				oldValue,
+				this.proxy,
+				copy(this.proxy)
+			),
 		];
 		callObservers(this, changes);
 
@@ -655,7 +717,7 @@ class ArrayOMeta<G, T extends Array<G>> extends OMetaBase<T> {
 function observable<D, A extends D[]>(
 	target: A | Observable<A>
 ): ObservableArray<A> {
-	const o = (target as any)[oMetaKey]
+	const o = isObservable(target)
 		? (target as Observable<A>)
 		: new ArrayOMeta({
 				target: target,
@@ -663,21 +725,21 @@ function observable<D, A extends D[]>(
 				parent: null,
 		  }).proxy;
 
-		function unobserve (observers?: Observer<A> | Observer<A>[]) {
-			if (!observers) return __unobserve(o);
-			else if (Array.isArray(observers)) return __unobserve(o, ...observers);
-			else return __unobserve(o, observers);
-		}
+	function unobserve(observers?: Observer<A> | Observer<A>[]) {
+		if (!observers) return __unobserve(o);
+		else if (Array.isArray(observers)) return __unobserve(o, ...observers);
+		else return __unobserve(o, observers);
+	}
 
-		function observe (observer: Observer<A>) {
-			__observe(o, observer);
-		}
+	function observe(observer: Observer<A>) {
+		__observe(o, observer);
+	}
 
-		async function silently(work: ()=>Promise<void>) {
-			const observers = await unobserve();
-			await work();
-			observers.forEach(x=>observe(x))
-		}
+	async function silently(work: (o: Observable<A>) => any) {
+		const observers = await unobserve();
+		await work(o);
+		observers.forEach((x) => observe(x));
+	}
 
 	return {
 		observe,
@@ -717,7 +779,7 @@ async function __unobserve<T extends object>(
 		return existingObs.splice(0);
 	}
 
-	let spliced:Observer<T>[] = [];
+	let spliced: Observer<T>[] = [];
 	while (length) {
 		let i = observers.indexOf(existingObs[--length]);
 		if (i >= 0) {
@@ -727,7 +789,7 @@ async function __unobserve<T extends object>(
 	return spliced;
 }
 
-export { observable, isObservable };
+export { observable, isObservable, Change };
 
 // ========================
 // Vue: https://codesandbox.io/s/heuristic-hamilton-w7nu1m?file=/src/components/HelloWorld.vue
