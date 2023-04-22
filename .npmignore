@@ -2,7 +2,7 @@
 *
 
 # Include the src folder and index.js file
-!dist/
+!dist/**/*
 !npmignore
 !LICENSE.MD
 !package-lock.json
