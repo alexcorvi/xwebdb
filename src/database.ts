@@ -104,11 +104,10 @@ export class Database<S extends BaseModel> {
 						// updating
 						let doc = change.snapshot[change.path[0] as number];
 						let _id = doc._id;
-						operations.push(
-							this.update({ _id: _id } as any, {
+						operations[_id] = () =>
+							this.upsert({ _id: _id } as any, {
 								$set: doc as any,
-							})
-						);
+							});
 					} else if (change.type === "delete") {
 						// deleting
 						let doc = change.oldValue;
@@ -118,10 +117,11 @@ export class Database<S extends BaseModel> {
 						// inserting
 						let doc = change.value;
 						let _id = doc._id;
-						operations.push(this.insert(doc));
+						operations[_id] = () => this.insert(doc);
 					}
 				}
-				Promise.all(operations).catch((e) => {
+				const results = Object.values(operations).map(operation=>operation);
+				Promise.all(results).catch((e) => {
 					console.error(
 						"Applying observable changes on the database failed with error"
 					);
