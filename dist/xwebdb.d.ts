@@ -1,4 +1,4 @@
-import { AvlTree, Node, Persistence, PersistenceEvent, Cursor, Q, customUtils, Datastore, Index, modelling, adapters } from "./core";
+import { AvlTree, Node, Persistence, PersistenceEvent, Cursor, Q, customUtils, Datastore, Index, modelling, adapters, observable } from "./core";
 import { Database } from "./database";
 import { BaseModel } from "./types/base-schema";
 declare const _internal: {
@@ -6,6 +6,7 @@ declare const _internal: {
         AvlTree: typeof AvlTree;
         Node: typeof Node;
     };
+    observable: typeof observable;
     Cursor: typeof Cursor;
     customUtils: typeof customUtils;
     Datastore: typeof Datastore;
@@ -15,4 +16,4 @@ declare const _internal: {
     Persistence: typeof Persistence;
     PersistenceEvent: typeof PersistenceEvent;
 };
-export { Database, BaseModel, adapters, _internal, };
+export { Database, BaseModel, adapters, _internal };

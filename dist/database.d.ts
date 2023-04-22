@@ -1,6 +1,5 @@
-import { Datastore, EnsureIndexOptions } from "./core";
+import { Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { ObservableArray } from "./core/observable";
 import { NFP, BaseModel, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators } from "./types";
 export interface DatabaseConfigurations<S extends BaseModel<S>> {
     ref: string;
@@ -40,7 +39,7 @@ export declare class Database<S extends BaseModel<S>> {
         project?: SchemaKeyProjection<NFP<S>>;
         toDB?: boolean;
         fromDB?: boolean;
-    }): Promise<ObservableArray<S[]>>;
+    }): Promise<o.ObservableArray<S[]>>;
     /**
      * Find document(s) that meets a specified criteria
      */

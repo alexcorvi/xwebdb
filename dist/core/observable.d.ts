@@ -16,16 +16,17 @@ export interface ObservableArray<A extends object> {
     observable: Observable<A>;
     observe: (observer: Observer<A>) => void;
     unobserve: (observers?: Observer<A> | Observer<A>[]) => void;
-    silently(work: () => Promise<void>): Promise<void>;
+    silently: (work: (o: Observable<A>) => any) => void;
 }
 declare const oMetaKey: unique symbol;
-export declare class Change<T> {
+declare class Change<T> {
     type: ChangeType;
     path: (string | number | symbol)[];
     value?: any;
     oldValue?: any;
-    object: T;
-    constructor(type: ChangeType, path: (string | number | symbol)[], value: any | undefined, oldValue: any | undefined, object: T);
+    object: any;
+    snapshot: T;
+    constructor(type: ChangeType, path: (string | number | symbol)[], value: any | undefined, oldValue: any | undefined, object: T, snapshot: T);
 }
 declare class OMetaBase<T extends object> {
     parent: any;
@@ -45,4 +46,4 @@ declare class OMetaBase<T extends object> {
 }
 declare function observable<D, A extends D[]>(target: A | Observable<A>): ObservableArray<A>;
 declare function isObservable<T>(input: T): boolean;
-export { observable, isObservable };
+export { observable, isObservable, Change };

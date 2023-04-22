@@ -3523,6 +3523,15 @@
     const REVERSE = "reverse";
     const SHUFFLE = "shuffle";
     const oMetaKey = Symbol.for("object-observer-meta-key-0");
+    function findGrandParent(observable) {
+        if (observable.parent)
+            return findGrandParent(observable.parent);
+        else
+            return observable;
+    }
+    function copy(v) {
+        return JSON.parse(JSON.stringify({ tmp: v })).tmp;
+    }
     function prepareObject(source, oMeta, visited) {
         const target = {};
         target[oMetaKey] = oMeta;
@@ -3587,7 +3596,7 @@
             if (parent) {
                 for (let j = 0; j < l; j++) {
                     const change = changes[j];
-                    changes[j] = new Change(change.type, [currentObservable.ownKey, ...change.path], change.value, change.oldValue, change.object);
+                    changes[j] = new Change(change.type, [currentObservable.ownKey, ...change.path], change.value, change.oldValue, change.object, copy(findGrandParent(currentObservable).proxy));
                 }
                 currentObservable = parent;
             }
@@ -3633,7 +3642,7 @@
             }
         }
         const changes = [
-            new Change(DELETE, [poppedIndex], undefined, popResult, this),
+            new Change(DELETE, [poppedIndex], undefined, popResult, this, copy(this)),
         ];
         callObservers(oMeta, changes);
         return popResult;
@@ -3646,7 +3655,7 @@
         const pushResult = Reflect.apply(target.push, target, pushContent);
         const changes = [];
         for (let i = initialLength, j = target.length; i < j; i++) {
-            changes[i - initialLength] = new Change(INSERT, [i], target[i], undefined, this);
+            changes[i - initialLength] = new Change(INSERT, [i], target[i], undefined, this, copy(this));
         }
         callObservers(oMeta, changes);
         return pushResult;
@@ -3671,7 +3680,9 @@
                 }
             }
         }
-        const changes = [new Change(DELETE, [0], undefined, shiftResult, this)];
+        const changes = [
+            new Change(DELETE, [0], undefined, shiftResult, this, copy(this)),
+        ];
         callObservers(oMeta, changes);
         return shiftResult;
     }
@@ -3694,7 +3705,7 @@
         const l = unshiftContent.length;
         const changes = new Array(l);
         for (let i = 0; i < l; i++) {
-            changes[i] = new Change(INSERT, [i], target[i], undefined, this);
+            changes[i] = new Change(INSERT, [i], target[i], undefined, this, copy(this));
         }
         callObservers(oMeta, changes);
         return unshiftResult;
@@ -3712,7 +3723,9 @@
                 }
             }
         }
-        const changes = [new Change(REVERSE, [], undefined, undefined, this)];
+        const changes = [
+            new Change(REVERSE, [], undefined, undefined, this, copy(this)),
+        ];
         callObservers(oMeta, changes);
         return this;
     }
@@ -3729,7 +3742,9 @@
                 }
             }
         }
-        const changes = [new Change(SHUFFLE, [], undefined, undefined, this)];
+        const changes = [
+            new Change(SHUFFLE, [], undefined, undefined, this, copy(this)),
+        ];
         callObservers(oMeta, changes);
         return this;
     }
@@ -3761,10 +3776,10 @@
                             tmpTarget = tmpObserved.detach();
                         }
                     }
-                    changes.push(new Change(UPDATE, [i], target[i], tmpTarget, this));
+                    changes.push(new Change(UPDATE, [i], target[i], tmpTarget, this, copy(this)));
                 }
                 else {
-                    changes.push(new Change(INSERT, [i], target[i], undefined, this));
+                    changes.push(new Change(INSERT, [i], target[i], undefined, this, copy(this)));
                 }
             }
             callObservers(oMeta, changes);
@@ -3808,7 +3823,7 @@
                 if (typeof nItem !== "object" && nItem === oItem) {
                     continue;
                 }
-                changes.push(new Change(UPDATE, [i], nItem, oItem, this));
+                changes.push(new Change(UPDATE, [i], nItem, oItem, this, copy(this)));
             }
             callObservers(oMeta, changes);
         }
@@ -3852,14 +3867,14 @@
         let index;
         for (index = 0; index < removed; index++) {
             if (index < inserted) {
-                changes.push(new Change(UPDATE, [startIndex + index], target[startIndex + index], spliceResult[index], this));
+                changes.push(new Change(UPDATE, [startIndex + index], target[startIndex + index], spliceResult[index], this, copy(this)));
             }
             else {
-                changes.push(new Change(DELETE, [startIndex + index], undefined, spliceResult[index], this));
+                changes.push(new Change(DELETE, [startIndex + index], undefined, spliceResult[index], this, copy(this)));
             }
         }
         for (; index < inserted; index++) {
-            changes.push(new Change(INSERT, [startIndex + index], target[startIndex + index], undefined, this));
+            changes.push(new Change(INSERT, [startIndex + index], target[startIndex + index], undefined, this, copy(this)));
         }
         callObservers(oMeta, changes);
         return spliceResult;
@@ -3876,12 +3891,13 @@
         splice: proxiedSplice,
     };
     class Change {
-        constructor(type, path, value, oldValue, object) {
+        constructor(type, path, value, oldValue, object, snapshot) {
             this.type = type;
             this.path = path;
-            this.value = value;
-            this.oldValue = oldValue;
+            this.value = copy(value);
+            this.oldValue = copy(oldValue);
             this.object = object;
+            this.snapshot = snapshot;
         }
     }
     class OMetaBase {
@@ -3922,10 +3938,10 @@
                 }
                 const changes = oldValue === undefined
                     ? [
-                        new Change(INSERT, [key], newValue, undefined, this.proxy),
+                        new Change(INSERT, [key], newValue, undefined, this.proxy, copy(this.proxy)),
                     ]
                     : [
-                        new Change(UPDATE, [key], newValue, oldValue, this.proxy),
+                        new Change(UPDATE, [key], newValue, oldValue, this.proxy, copy(this.proxy)),
                     ];
                 callObservers(this, changes);
             }
@@ -3941,7 +3957,7 @@
                 }
             }
             const changes = [
-                new Change(DELETE, [key], undefined, oldValue, this.proxy),
+                new Change(DELETE, [key], undefined, oldValue, this.proxy, copy(this.proxy)),
             ];
             callObservers(this, changes);
             return true;
@@ -3961,7 +3977,7 @@
         }
     }
     function observable(target) {
-        const o = target[oMetaKey]
+        const o = isObservable(target)
             ? target
             : new ArrayOMeta({
                 target: target,
@@ -3982,8 +3998,8 @@
         function silently(work) {
             return __awaiter(this, void 0, void 0, function* () {
                 const observers = yield unobserve();
-                yield work();
-                observers.forEach(x => observe(x));
+                yield work(o);
+                observers.forEach((x) => observe(x));
             });
         }
         return {
@@ -3992,6 +4008,9 @@
             silently,
             observable: o,
         };
+    }
+    function isObservable(input) {
+        return !!(input && input[oMetaKey]);
     }
     function __observe(observable, observer) {
         const observers = observable[oMetaKey].observers;
@@ -4029,6 +4048,13 @@
     // ========================
     // REACT: https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js
     // ========================
+
+    var observable$1 = /*#__PURE__*/Object.freeze({
+        __proto__: null,
+        observable: observable,
+        isObservable: isObservable,
+        Change: Change
+    });
 
     class Database {
         constructor(options) {
@@ -4093,15 +4119,15 @@
         live(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, toDB = true, fromDB = true, } = {}) {
             return __awaiter(this, arguments, void 0, function* () {
                 const res = yield this.read(...arguments);
-                const o = observable(res);
+                const ob = observable(res);
                 if (toDB) {
-                    o.observe((changes) => {
+                    ob.observe((changes) => {
                         let operations = [];
                         for (let i = 0; i < changes.length; i++) {
                             const change = changes[i];
                             if (change.path.length > 1 || change.type === "update") {
                                 // updating
-                                let doc = change.object[change.path[0]];
+                                let doc = change.snapshot[change.path[0]];
                                 let _id = doc._id;
                                 operations.push(this.update({ _id: _id }, {
                                     $set: doc,
@@ -4126,7 +4152,7 @@
                         });
                     });
                 }
-                return o;
+                return ob;
             });
         }
         /**
@@ -4264,6 +4290,7 @@
 
     const _internal = {
         avl: { AvlTree, Node },
+        observable: observable$1,
         Cursor,
         customUtils,
         Datastore,
@@ -4271,7 +4298,7 @@
         modelling,
         Q,
         Persistence,
-        PersistenceEvent
+        PersistenceEvent,
     };
 
     exports.BaseModel = BaseModel;
