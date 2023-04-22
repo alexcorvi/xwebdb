@@ -47,7 +47,7 @@ function uniqueProjectedKeys<Key>(key: Key[]): (Key | string)[] {
 	);
 }
 
-export class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
+export class Index<Key, Doc extends Partial<BaseModel>> {
 	fieldName: string = "";
 	unique: boolean = false;
 	sparse: boolean = false;

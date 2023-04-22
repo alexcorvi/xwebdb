@@ -44,7 +44,7 @@ export class PersistenceEvent {
 	}
 }
 
-interface PersistenceOptions<G extends Partial<BaseModel<G>>> {
+interface PersistenceOptions<G extends Partial<BaseModel>> {
 	db: Datastore<G>;
 	encode?: (raw: string) => string;
 	decode?: (encrypted: string) => string;
@@ -60,7 +60,7 @@ interface PersistenceOptions<G extends Partial<BaseModel<G>>> {
 /**
  * Create a new Persistence object for database options.db
  */
-export class Persistence<G extends Partial<BaseModel<G>> = any> {
+export class Persistence<G extends Partial<BaseModel> = any> {
 	db: Datastore<G>;
 	ref: string = "";
 	data: IDB<string>;

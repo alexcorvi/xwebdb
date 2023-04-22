@@ -1,5 +1,5 @@
 import * as customUtils from "../core/customUtils";
-export class BaseModel<T> {
+export class BaseModel {
 	_id: string = customUtils.uid();
 	updatedAt?: Date;
 	createdAt?: Date;

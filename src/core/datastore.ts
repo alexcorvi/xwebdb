@@ -35,7 +35,7 @@ interface UpdateOptions {
 }
 
 export class Datastore<
-	G extends Partial<types.BaseModel<G>> & { [key: string]: any }
+	G extends Partial<types.BaseModel> & { [key: string]: any }
 > {
 	ref: string = "db";
 	timestampData = false;

@@ -10,7 +10,7 @@ import {
 	UpsertOperators,
 } from "./types"; // for some reason using @types will disable some type checks
 
-export interface DatabaseConfigurations<S extends BaseModel<S>> {
+export interface DatabaseConfigurations<S extends BaseModel> {
 	ref: string;
 	model?: (new () => S) & {
 		new: (json: S) => S;
@@ -27,7 +27,7 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
 	};
 }
 
-export class Database<S extends BaseModel<S>> {
+export class Database<S extends BaseModel> {
 	private ref: string;
 	private reloadBeforeOperations: boolean = false;
 	private model: (new () => S) & {
@@ -97,7 +97,7 @@ export class Database<S extends BaseModel<S>> {
 
 		if (toDB) {
 			ob.observe((changes) => {
-				let operations: Promise<any>[] = [];
+				let operations: { [key: string]: () => Promise<any> } = {};
 				for (let i = 0; i < changes.length; i++) {
 					const change = changes[i];
 					if (change.path.length > 1 || change.type === "update") {
@@ -113,7 +113,7 @@ export class Database<S extends BaseModel<S>> {
 						// deleting
 						let doc = change.oldValue;
 						let _id = doc._id;
-						operations.push(this.delete({ _id } as any));
+						operations[_id] = () => this.delete({ _id } as any);
 					} else if (change.type === "insert") {
 						// inserting
 						let doc = change.value;
@@ -130,7 +130,7 @@ export class Database<S extends BaseModel<S>> {
 			});
 		}
 
-		if(fromDB) {
+		if (fromDB) {
 			// TODO...
 			// suggestion:
 			// add hashtable of all the live queries in _datastore
@@ -139,6 +139,7 @@ export class Database<S extends BaseModel<S>> {
 			// if it does reflect those changes by copying all the observers (unobserve)
 			// and replacing the observable object
 		}
+		
 		return ob;
 	}
 
