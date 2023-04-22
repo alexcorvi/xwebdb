@@ -65,16 +65,20 @@ _pronounced: Cross Web Database_
 - [ ] Performance
 	- [ ] loops
 	- [x] q
+	- [ ] Deffer all IndexedDB interactions and do them in bulk (especially writes & deletes) 
 - [ ] Reactive
 	- [x] Make observable nested arrays possible 
-		- [ ] TESTING REQUIRED: write unit core tests for "observable"
+		- [x] TESTING REQUIRED: write unit core tests for "observable"
 	- [x] use live() to return an observable result that will be consumed by the application
 		- [ ] TESTING REQUIRED: write integration tests for "live"
 	- [x] UI frameworks state should update automagically once the database updates (if the update)
 		- [ ] check comments at the end of observable file... seems to be working just needs more testing
 	- [x] observe this result for changes from the UI framework side and reflect those changes onto the DB
+		- [ ] since updates are in batch, merge multiple operations on the same document
 		- [ ] TESTING REQUIRED: write integration tests for "live"
-	- [ ] observe changes in the database and reflect them onto the live query and hence the application
+	- [x] observe changes in the database and reflect them onto the live query and hence the application
+		- [ ] TESTING REQUIRED: write integration tests for "live"
+	- [x] Ability to kill live query
 - [x] Improve `Class Database` API
 - [ ] Examples
 - [ ] Benchmark
