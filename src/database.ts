@@ -5,7 +5,7 @@ import {
 	observable,
 } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { addLive } from "./core/live";
+import { addLive, kill } from "./core/live";
 import {
 	NFP,
 	BaseModel,
@@ -97,11 +97,16 @@ export class Database<S extends BaseModel> {
 			toDB?: boolean;
 			fromDB?: boolean;
 		} = {}
-	): Promise<o.ObservableArray<S[]>> {
+	): Promise<
+		o.ObservableArray<S[]> & {
+			kill: (w?: "toDB" | "fromDB") => void;
+		}
+	> {
 		const res = await this.read(...arguments);
 		const ob = o.observable(res);
 		let toDBObserver: (changes: observable.Change<S[]>[]) => void = () =>
 			undefined;
+		let fromDBuid = "";
 
 		if (toDB) {
 			toDBObserver = (changes: observable.Change<S[]>[]) => {
@@ -142,7 +147,7 @@ export class Database<S extends BaseModel> {
 		}
 
 		if (fromDB) {
-			addLive({
+			fromDBuid = addLive({
 				queryFilter: filter,
 				queryOptions: { skip, limit, project, sort },
 				database: this,
@@ -151,7 +156,17 @@ export class Database<S extends BaseModel> {
 			});
 		}
 
-		return ob;
+		return {
+			...ob,
+			kill(w) {
+				if (w === "toDB" || !w) {
+					ob.unobserve(toDBObserver);
+				}
+				if (w === "fromDB" || !w) {
+					kill(fromDBuid);
+				}
+			},
+		};
 	}
 
 	/**
