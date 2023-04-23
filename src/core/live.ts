@@ -20,7 +20,6 @@ interface LiveQuery<S extends BaseModel> {
 	};
 	observable: ObservableArray<Array<S>>;
 	toDBObserver: (changes: Change<S[]>[]) => void;
-	hash?: number;
 	id?: string;
 }
 
@@ -32,7 +31,6 @@ function hash<T extends { _id: string }>(res: T[]) {
 
 export function addLive<S extends BaseModel>(q: LiveQuery<S>) {
 	q.id = uid();
-	q.hash = hash(q.observable.observable);
 	liveQueries.push(q);
 	return q.id;
 }
@@ -42,12 +40,12 @@ export async function liveUpdate(): Promise<void> {
 		const q = liveQueries[index];
 		const newRes = await q.database.read(q.queryFilter, q.queryOptions);
 		const newHash = hash(newRes);
-		if (newHash === q.hash) continue;
-		q.observable.unobserve(q.toDBObserver);
+		const oldHash = hash(q.observable.observable);
+		if (newHash === oldHash) continue;
+		let u = await q.observable.unobserve(q.toDBObserver);
 		q.observable.observable.splice(0);
 		q.observable.observable.push(...newRes);
-		q.observable.observe(q.toDBObserver);
-		q.hash = newHash;
+		if (u.length) q.observable.observe(q.toDBObserver);
 	}
 }
 

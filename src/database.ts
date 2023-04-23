@@ -5,7 +5,7 @@ import {
 	observable,
 } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { addLive, kill } from "./core/live";
+import { addLive, kill, liveUpdate } from "./core/live";
 import {
 	NFP,
 	BaseModel,
@@ -99,7 +99,7 @@ export class Database<S extends BaseModel> {
 		} = {}
 	): Promise<
 		o.ObservableArray<S[]> & {
-			kill: (w?: "toDB" | "fromDB") => void;
+			kill: (w?: "toDB" | "fromDB") => Promise<void>;
 		}
 	> {
 		const res = await this.read(...arguments);
@@ -113,13 +113,33 @@ export class Database<S extends BaseModel> {
 				let operations: { [key: string]: () => Promise<any> } = {};
 				for (let i = 0; i < changes.length; i++) {
 					const change = changes[i];
-					if (change.path.length > 1 || change.type === "update") {
-						// updating
+					if (
+						change.path.length === 0 ||
+						change.type === "shuffle" ||
+						change.type === "reverse"
+					) {
+						continue;
+					} else if (
+						change.path.length === 1 &&
+						change.type === "update"
+					) {
+						let doc = change.snapshot[change.path[0] as number];
+						let _id = change.oldValue._id;
+						operations[_id] = () =>
+							this.update({ _id: _id } as any, {
+								$set: doc as any,
+							});
+					} else if (
+						change.path.length > 1 ||
+						change.type === "update"
+					) {
+						// updating specific field in document
 						let doc = change.snapshot[change.path[0] as number];
 						let _id = doc._id;
 						operations[_id] = () =>
 							this.upsert({ _id: _id } as any, {
 								$set: doc as any,
+								$setOnInsert: doc,
 							});
 					} else if (change.type === "delete") {
 						// deleting
@@ -133,10 +153,11 @@ export class Database<S extends BaseModel> {
 						operations[_id] = () => this.insert(doc);
 					}
 				}
-				const results = Object.values(operations).map(
-					(operation) => operation
+				const results = Object.values(operations).map((operation) =>
+					operation()
 				);
 				Promise.all(results).catch((e) => {
+					liveUpdate();
 					console.error(
 						`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`,
 						e
@@ -158,9 +179,9 @@ export class Database<S extends BaseModel> {
 
 		return {
 			...ob,
-			kill(w) {
+			async kill(w) {
 				if (w === "toDB" || !w) {
-					ob.unobserve(toDBObserver);
+					await ob.unobserve(toDBObserver);
 				}
 				if (w === "fromDB" || !w) {
 					kill(fromDBuid);

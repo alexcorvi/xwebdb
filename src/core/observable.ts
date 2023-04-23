@@ -20,7 +20,9 @@ interface Observer<T> {
 export interface ObservableArray<A extends object> {
 	observable: Observable<A>;
 	observe: (observer: Observer<A>) => void;
-	unobserve: (observers?: Observer<A> | Observer<A>[]) => void;
+	unobserve: (
+		observers?: Observer<A> | Observer<A>[]
+	) => Promise<Observer<A>[]>;
 	silently: (work: (o: Observable<A>) => any) => void;
 }
 
@@ -725,10 +727,11 @@ function observable<D, A extends D[]>(
 				parent: null,
 		  }).proxy;
 
-	function unobserve(observers?: Observer<A> | Observer<A>[]) {
-		if (!observers) return __unobserve(o);
-		else if (Array.isArray(observers)) return __unobserve(o, ...observers);
-		else return __unobserve(o, observers);
+	async function unobserve(observers?: Observer<A> | Observer<A>[]) {
+		if (!observers) return await __unobserve(o);
+		else if (Array.isArray(observers))
+			return await __unobserve(o, observers);
+		else return await __unobserve(o, [observers]);
 	}
 
 	function observe(observer: Observer<A>) {
@@ -765,7 +768,7 @@ function __observe<T extends object>(
 
 async function __unobserve<T extends object>(
 	observable: Observable<T> | Promise<Observable<T>>,
-	...observers: Observer<T>[]
+	observers?: Observer<T>[]
 ) {
 	if (observable instanceof Promise)
 		observable = await Promise.resolve(observable);
@@ -775,28 +778,19 @@ async function __unobserve<T extends object>(
 		return [];
 	}
 
-	if (!observers.length) {
+	if (!observers) {
 		return existingObs.splice(0);
 	}
 
 	let spliced: Observer<T>[] = [];
-	while (length) {
-		let i = observers.indexOf(existingObs[--length]);
-		if (i >= 0) {
-			spliced.concat(existingObs.splice(length, 1));
+	for (let index = 0; index < observers.length; index++) {
+		const observer = observers[index];
+		const i = existingObs.indexOf(observer);
+		if(i > -1) {
+			spliced.push(existingObs.splice(i,1)[0])
 		}
 	}
 	return spliced;
 }
 
-
 export { observable, isObservable, Change };
-
-// ========================
-// Vue: https://codesandbox.io/s/heuristic-hamilton-w7nu1m?file=/src/components/HelloWorld.vue
-// Still not reactive...
-// ========================
-// Agular: https://codesandbox.io/s/billowing-dream-872me1?file=/src/app/app.component.ts
-// ========================
-// REACT: https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js
-// ========================
