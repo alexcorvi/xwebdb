@@ -16,11 +16,9 @@ import {
 	UpsertOperators,
 } from "./types"; // for some reason using @types will disable some type checks
 
-export interface DatabaseConfigurations<S extends BaseModel> {
+export interface DatabaseConfigurations<C extends typeof BaseModel> {
 	ref: string;
-	model?: (new () => S) & {
-		new: (json: S) => S;
-	};
+	model?: C;
 	encode?(line: string): string;
 	decode?(line: string): string;
 	corruptAlertThreshold?: number;
@@ -36,19 +34,12 @@ export interface DatabaseConfigurations<S extends BaseModel> {
 export class Database<S extends BaseModel> {
 	private ref: string;
 	private reloadBeforeOperations: boolean = false;
-	private model: (new () => S) & {
-		new: (json: S) => S;
-	};
-	public _datastore: Datastore<S>;
+	private model: typeof BaseModel;
+	public _datastore: Datastore<S, typeof BaseModel>;
 	public loaded: Promise<boolean>;
 
-	constructor(options: DatabaseConfigurations<S>) {
-		this.model =
-			options.model ||
-			(BaseModel as (new () => S) & {
-				new: (json: S) => S;
-			});
-
+	constructor(options: DatabaseConfigurations<typeof BaseModel>) {
+		this.model = options.model || BaseModel;
 		this.ref = options.ref;
 		this.reloadBeforeOperations = !!options.reloadBeforeOperations;
 		this._datastore = new Datastore({
@@ -76,7 +67,7 @@ export class Database<S extends BaseModel> {
 	 */
 	public async insert(docs: S[] | S): Promise<{ docs: S[]; number: number }> {
 		await this.reloadFirst();
-		const res = await this._datastore.insert(docs as any);
+		const res = await this._datastore.insert(docs);
 		return res;
 	}
 

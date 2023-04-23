@@ -10,10 +10,10 @@ type diff = { key: string; value: string };
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
 
 export class Sync {
-	private p: Persistence;
+	private p: Persistence<any, any>;
 	private rdata: remoteStore;
 
-	constructor(persistence: Persistence, rdata: remoteStore) {
+	constructor(persistence: Persistence<any, any>, rdata: remoteStore) {
 		this.p = persistence;
 		this.rdata = rdata;
 	}
@@ -268,7 +268,7 @@ export class Sync {
 		await this.p.loadDatabase();
 		try {
 			liveUpdate();
-		} catch(e) {
+		} catch (e) {
 			console.error(
 				`XWebDB: Could not do live updates due to an error:`,
 				e

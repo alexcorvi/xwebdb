@@ -44,24 +44,23 @@ export class PersistenceEvent {
 	}
 }
 
-interface PersistenceOptions<G extends Partial<BaseModel>> {
-	db: Datastore<G>;
+interface PersistenceOptions<G extends BaseModel, C extends typeof BaseModel> {
+	db: Datastore<G, C>;
 	encode?: (raw: string) => string;
 	decode?: (encrypted: string) => string;
 	corruptAlertThreshold?: number;
-	model?: (new () => G) & {
-		new: (json: G) => G;
-	};
+	model?: typeof BaseModel;
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
 	devalidateHash?: number;
+	stripDefaults: boolean;
 }
 
 /**
  * Create a new Persistence object for database options.db
  */
-export class Persistence<G extends Partial<BaseModel> = any> {
-	db: Datastore<G>;
+export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
+	db: Datastore<G, C>;
 	ref: string = "";
 	data: IDB<string>;
 	RSA?: (name: string) => remoteStore;
@@ -72,12 +71,11 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 	corruptAlertThreshold: number = 0.1;
 	encode = (s: string) => s;
 	decode = (s: string) => s;
+	stripDefaults: boolean = false;
 	private _model:
-		| ((new () => G) & {
-				new: (json: G) => G;
-		  })
+		| typeof BaseModel
 		| undefined;
-	constructor(options: PersistenceOptions<G>) {
+	constructor(options: PersistenceOptions<G, C>) {
 		this._model = options.model;
 		this.db = options.db;
 		this.ref = this.db.ref;

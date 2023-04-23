@@ -3,7 +3,7 @@ export class BaseModel {
 	_id: string = customUtils.uid();
 	updatedAt?: Date;
 	createdAt?: Date;
-	static new<T>(this: new () => T, data: Partial<NFP<T>>): T {
+	static new<T extends object>(this: new () => T, data: Partial<NFP<T>>): T {
 		const instance = new this();
 		const keys = Object.keys(data);
 		for (let i = 0; i < keys.length; i++) {

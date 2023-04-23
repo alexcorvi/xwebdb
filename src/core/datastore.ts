@@ -5,7 +5,7 @@ import * as model from "./model";
 import { Persistence } from "./persistence";
 import * as types from "../types";
 import { BaseModel } from "../types/base-schema";
-import {Q} from "./q" ;
+import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 import { liveUpdate } from "./live";
 
@@ -16,7 +16,7 @@ export interface EnsureIndexOptions {
 	expireAfterSeconds?: number;
 }
 
-export interface DataStoreOptions<G> {
+export interface DataStoreOptions<G extends typeof BaseModel> {
 	ref: string;
 	encode?(line: string): string;
 	decode?(line: string): string;
@@ -25,9 +25,9 @@ export interface DataStoreOptions<G> {
 	syncToRemote?: (name: string) => remoteStore;
 	syncInterval?: number;
 	devalidateHash?: number;
-	model?: (new () => G) & {
-		new: (json: G) => G;
-	};
+	model?: G;
+	defer: number;
+	stripDefaults: boolean;
 }
 
 interface UpdateOptions {
@@ -36,12 +36,13 @@ interface UpdateOptions {
 }
 
 export class Datastore<
-	G extends Partial<types.BaseModel> & { [key: string]: any }
+	G extends types.BaseModel & { [key: string]: any },
+	C extends typeof BaseModel
 > {
 	ref: string = "db";
 	timestampData = false;
 
-	persistence: Persistence<G>;
+	persistence: Persistence<G, C>;
 	// rename to something denotes that it's an internal thing
 	q: Q = new Q(1);
 
@@ -51,12 +52,10 @@ export class Datastore<
 
 	ttlIndexes: { [key: string]: number } = {};
 
-	model: (new () => G) & {
-		new: (json: G) => G;
-	};
+	model: C;
 
-	constructor(options: DataStoreOptions<G>) {
-		this.model = options.model || BaseModel as any;
+	constructor(options: DataStoreOptions<C>) {
+		this.model = options.model || (BaseModel as any);
 		if (options.ref) {
 			this.ref = options.ref;
 		}
@@ -79,7 +78,7 @@ export class Datastore<
 	}
 
 	/**
-	 * Load the database from the datafile, and trigger the execution of buffered commands if any
+	 * Load the database from indexedDB, and trigger the execution of buffered commands if any
 	 */
 	async loadDatabase() {
 		return await this.persistence.loadDatabase();
@@ -502,8 +501,8 @@ export class Datastore<
 	/**
 	 * Find all documents matching the query
 	 */
-	cursor(query: any) {
-		const cursor = new Cursor<G>(this, query);
+	public cursor(query: any): Cursor<G, C> {
+		const cursor = new Cursor<G, C>(this, query);
 		return cursor;
 	}
 
@@ -535,7 +534,7 @@ export class Datastore<
 				) {
 					numReplaced++;
 					let createdAt = candidates[i].createdAt;
-					let modifiedDoc = model.modify(
+					let modifiedDoc = model.modify<G, C>(
 						candidates[i],
 						updateQuery,
 						this.model
@@ -654,7 +653,10 @@ export class Datastore<
 		};
 	}
 
-	async remove(query: any, options?: { multi: boolean }) {
+	public async remove(
+		query: any,
+		options?: { multi: boolean }
+	): Promise<types.Result<G>> {
 		return this.q.add(() => this._remove(query, options));
 	}
 }

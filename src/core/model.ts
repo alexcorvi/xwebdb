@@ -11,7 +11,7 @@ interface keyedObjectG<G> {
 }
 
 type PrimitiveValue = number | string | boolean | undefined | null | Date;
-type Value = keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
+type Value = BaseModel | keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
 
 /**
  * Check a key throw an error if the key is non valid
@@ -50,8 +50,8 @@ function checkObject(obj: Value) {
 		!(obj instanceof Date)
 	) {
 		Object.keys(obj).forEach(function (k) {
-			checkKey(k, obj[k]);
-			checkObject(obj[k]);
+			checkKey(k, obj[k as keyof Value]);
+			checkObject(obj[k as keyof Value]);
 		});
 	}
 }
@@ -650,12 +650,10 @@ Object.keys(lastStepModifierFunctions).forEach(function (modifier) {
 /**
  * Modify a DB object according to an update query
  */
-function modify<G extends { _id?: string }>(
+function modify<G extends BaseModel, C extends typeof BaseModel>(
 	obj: G,
 	updateQuery: any,
-	model: (new () => G) & {
-		new: (json: G) => G;
-	}
+	model: C
 ): G {
 	var keys = Object.keys(updateQuery);
 	let firstChars = keys.map((x) => x.charAt(0));

@@ -1,12 +1,12 @@
 import { Datastore } from "./datastore";
 import * as model from "./model";
-import { SchemaKeyProjection, SchemaKeySort } from "../types";
+import { BaseModel, SchemaKeyProjection, SchemaKeySort } from "../types";
 
 /**
  * Create a new cursor for this collection
  */
-export class Cursor<G extends { _id?: string }> {
-	private db: Datastore<G>;
+export class Cursor<G extends BaseModel, C extends typeof BaseModel> {
+	private db: Datastore<G, C>;
 	private query: { [key: string]: any };
 
 	private _limit: number | undefined;
@@ -15,7 +15,7 @@ export class Cursor<G extends { _id?: string }> {
 
 	private _projection: undefined | SchemaKeyProjection<G>;
 
-	constructor(db: Datastore<G>, query?: any) {
+	constructor(db: Datastore<G, C>, query?: any) {
 		this.db = db;
 		this.query = query || {};
 	}
