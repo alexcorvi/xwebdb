@@ -1,3 +1,5 @@
+import { BaseModel } from "../types";
+
 interface ModifierGroup {
 	[key: string]: (obj: keyedObjectG<any>, field: string, value: any) => void;
 }

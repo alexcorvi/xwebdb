@@ -54,6 +54,10 @@ export class Datastore<
 
 	model: C;
 
+	defer: number = 0;
+	deferredWrites: G[] = [];
+	deferredDeletes: string[] = [];
+
 	constructor(options: DataStoreOptions<C>) {
 		this.model = options.model || (BaseModel as any);
 		if (options.ref) {
@@ -69,11 +73,48 @@ export class Datastore<
 			corruptAlertThreshold: options.corruptAlertThreshold || 0,
 			syncToRemote: options.syncToRemote,
 			syncInterval: options.syncInterval,
-			devalidateHash: options.devalidateHash
+			devalidateHash: options.devalidateHash,
+			stripDefaults: options.stripDefaults,
 		});
 
-		if (options.timestampData) {
-			this.timestampData = true;
+		this.timestampData = !!options.timestampData;
+
+		if (options.defer) {
+			this.defer = options.defer || 0;
+			setInterval(async () => {
+				if (this.persistence.syncInProgress)
+					return; // should not process deferred while sync in progress
+				else this._processDeferred();
+			}, options.defer);
+		}
+	}
+
+	private async _processDeferred() {
+		if (this.deferredDeletes.length) {
+			try {
+				const done = await this.persistence.deleteData(
+					this.deferredDeletes
+				);
+				this.deferredDeletes = this.deferredDeletes.filter(
+					(_id) => done.indexOf(_id) === -1
+				);
+			} catch (e) {
+				console.error("XWebDB: processing deferred deletes error", e);
+				await this.loadDatabase();
+			}
+		}
+		if (this.deferredWrites.length) {
+			try {
+				const done = await this.persistence.writeNewData(
+					this.deferredWrites
+				);
+				this.deferredWrites = this.deferredWrites.filter(
+					(doc) => done.indexOf(doc._id || "") === -1
+				);
+			} catch (e) {
+				console.error("XWebDB: processing deferred writes error", e);
+				await this.loadDatabase();
+			}
 		}
 	}
 
@@ -387,9 +428,9 @@ export class Datastore<
 				e
 			);
 		}
-		await this.persistence.writeNewData(
-			Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc]
-		);
+		let w = Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc];
+		if (this.defer) this.deferredWrites.push(...w);
+		else await this.persistence.writeNewData(w);
 		return model.deepCopy(preparedDoc, this.model);
 	}
 
@@ -574,8 +615,8 @@ export class Datastore<
 					e
 				);
 			}
-			await this.persistence.writeNewData(updatedDocs);
-
+			if (this.defer) this.deferredWrites.push(...updatedDocs);
+			else await this.persistence.writeNewData(updatedDocs);
 			return {
 				number: updatedDocs.length,
 				docs: updatedDocs.map((x) => model.deepCopy(x, this.model)),
@@ -654,7 +695,9 @@ export class Datastore<
 				e
 			);
 		}
-		await this.persistence.deleteData(removedDocs.map(x=>x._id || ""));
+		let d = removedDocs.map((x) => x._id || "");
+		if (this.defer) this.deferredDeletes.push(...d);
+		else await this.persistence.deleteData(d);
 		return {
 			number: numRemoved,
 			docs: removedFullDoc,

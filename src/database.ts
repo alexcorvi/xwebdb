@@ -29,6 +29,8 @@ export interface DatabaseConfigurations<C extends typeof BaseModel> {
 		syncInterval?: number;
 		devalidateHash?: number;
 	};
+	deferPersistence?: number;
+	stripDefaults?: boolean;
 }
 
 export class Database<S extends BaseModel> {
@@ -54,6 +56,8 @@ export class Database<S extends BaseModel> {
 			devalidateHash: options.sync
 				? options.sync.devalidateHash
 				: undefined,
+			defer: options.deferPersistence || 0,
+			stripDefaults: options.stripDefaults || false,
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}
@@ -327,6 +331,10 @@ export class Database<S extends BaseModel> {
 		}
 		await this.reloadFirst();
 		return await this._datastore.persistence.sync.sync();
+	}
+
+	get syncInProgress() {
+		return this._datastore.persistence.syncInProgress;
 	}
 
 	/**

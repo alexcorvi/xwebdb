@@ -79,7 +79,7 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 		this._model = options.model;
 		this.db = options.db;
 		this.ref = this.db.ref;
-
+		this.stripDefaults = options.stripDefaults;
 		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
@@ -134,7 +134,7 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 	}
 
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
-		await this.writeData(
+		return await this.writeData(
 			newIndexes.map((x) => [
 				x.$$indexCreated.fieldName,
 				this.encode(model.serialize(x)),
@@ -143,7 +143,14 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 	}
 
 	async writeNewData(newDocs: G[]) {
-		await this.writeData(
+		if(this.stripDefaults && this._model) {
+			newDocs = model.deserialize(model.serialize({t:newDocs})).t // avoid triggering live queries;
+			for (let index = 0; index < newDocs.length; index++) {
+				newDocs[index] = this._model.stripDefaults(newDocs[index] as any)
+			}
+		}
+
+		return await this.writeData(
 			newDocs.map((x) => [x._id || "", this.encode(model.serialize(x))])
 		);
 	}
@@ -277,15 +284,18 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 		const all = await this.data.values();
 		for (let i = 0; i < all.length; i++) {
 			const line = all[i];
-			if ((!line.startsWith("$H")) && line !== "$deleted")
+			if (!line.startsWith("$H") && line !== "$deleted")
 				event.emit("readLine", line);
 		}
 		event.emit("end", "");
 	}
 
 	async deleteData(_ids: string[]) {
-		if (!this.RSA) return this.data.dels(_ids);
-		const keys = (await this.data.keys()) as string[];
+		if (!this.RSA) {
+			await this.data.dels(_ids);
+			return _ids;
+		}
+		const keys = await this.data.keys();
 		const oldIDRevs: string[] = [];
 		const newIDRevs: string[] = [];
 
@@ -304,10 +314,14 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
 		if (this.sync) await this.sync.setLocalHash(keys);
+		return _ids;
 	}
 	async writeData(input: [string, string][]) {
-		if (!this.RSA) return this.data.sets(input);
-		const keys = (await this.data.keys()) as string[];
+		if (!this.RSA) {
+			await this.data.sets(input);
+			return input.map((x) => x[0]);
+		}
+		const keys = await this.data.keys();
 		const oldIDRevs: string[] = [];
 		const newIDRevsData: [string, string][] = [];
 
@@ -328,6 +342,7 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevsData);
 		if (this.sync) await this.sync.setLocalHash(keys);
+		return input.map((x) => x[0]);
 	}
 	/**
 	 * Deletes all data

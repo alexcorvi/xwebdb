@@ -41,7 +41,11 @@ export class Sync {
 			diff: -1 | 0 | 1;
 		}>((resolve, reject) => {
 			let interval = setInterval(async () => {
-				if (!this.p.syncInProgress) {
+				if (
+					!this.p.syncInProgress || // should not sync when there's already a sync in progress
+					this.p.db.deferredDeletes.length +
+						this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
+				) {
 					clearInterval(interval);
 					this.p.syncInProgress = true;
 					let syncResult: {
