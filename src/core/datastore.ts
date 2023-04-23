@@ -80,23 +80,23 @@ export class Datastore<
 	/**
 	 * Load the database from indexedDB, and trigger the execution of buffered commands if any
 	 */
-	async loadDatabase() {
+	public async loadDatabase() {
 		return await this.persistence.loadDatabase();
 	}
 
 	/**
 	 * Get an array of all the data in the database
 	 */
-	getAllData() {
+	public getAllData() {
 		return this.indexes._id.getAll();
 	}
 
 	/**
 	 * Reset all currently defined indexes
 	 */
-	resetIndexes(alsoDelete: boolean = false) {
+	public resetIndexes(alsoDelete: boolean = false) {
 		Object.keys(this.indexes).forEach((i) => {
-			if(alsoDelete && i !== "_id") return delete this.indexes[i];
+			if (alsoDelete && i !== "_id") return delete this.indexes[i];
 			this.indexes[i].reset();
 		});
 	}
@@ -106,7 +106,7 @@ export class Datastore<
 	 * For now this function is synchronous, we need to test how much time it takes
 	 * We use an async API for consistency with the rest of the code
 	 */
-	async ensureIndex(
+	public async ensureIndex(
 		options: EnsureIndexOptions
 	): Promise<{ affectedIndex: string }> {
 		options = options || {};
@@ -147,7 +147,9 @@ export class Datastore<
 	/**
 	 * Remove an index
 	 */
-	async removeIndex(fieldName: string): Promise<{ affectedIndex: string }> {
+	public async removeIndex(
+		fieldName: string
+	): Promise<{ affectedIndex: string }> {
 		delete this.indexes[fieldName];
 		await this.persistence.deleteData([fieldName]);
 		return {
@@ -158,7 +160,7 @@ export class Datastore<
 	/**
 	 * Add one or several document(s) to all indexes
 	 */
-	addToIndexes<T extends G>(doc: T | T[]) {
+	public addToIndexes<T extends G>(doc: T | T[]) {
 		let failingIndex = -1;
 		let error;
 		const keys = Object.keys(this.indexes);
@@ -186,7 +188,7 @@ export class Datastore<
 	 * Remove one or several document(s) from all indexes
 	 */
 
-	removeFromIndexes<T extends G>(doc: T | T[]) {
+	public removeFromIndexes<T extends G>(doc: T | T[]) {
 		Object.keys(this.indexes).forEach((i) => {
 			this.indexes[i].remove(doc);
 		});
@@ -197,9 +199,11 @@ export class Datastore<
 	 * To update multiple documents, oldDoc must be an array of { oldDoc, newDoc } pairs
 	 * If one update violates a constraint, all changes are rolled back
 	 */
-	updateIndexes<T extends G>(oldDoc: T, newDoc: T): void;
-	updateIndexes<T extends G>(updates: Array<{ oldDoc: T; newDoc: T }>): void;
-	updateIndexes<T extends G>(
+	private updateIndexes<T extends G>(oldDoc: T, newDoc: T): void;
+	private updateIndexes<T extends G>(
+		updates: Array<{ oldDoc: T; newDoc: T }>
+	): void;
+	private updateIndexes<T extends G>(
 		oldDoc: T | Array<{ oldDoc: T; newDoc: T }>,
 		newDoc?: T
 	) {
@@ -340,7 +344,7 @@ export class Datastore<
 		const validDocs: G[] = [];
 		const ttlIndexesFieldNames = Object.keys(this.ttlIndexes);
 		if (!candidates) return [];
-		if(!Array.isArray(candidates)) candidates = [candidates]; 
+		if (!Array.isArray(candidates)) candidates = [candidates];
 		candidates.forEach((candidate) => {
 			let valid = true;
 			ttlIndexesFieldNames.forEach((field) => {
@@ -377,7 +381,7 @@ export class Datastore<
 		this._insertInCache(preparedDoc);
 		try {
 			liveUpdate();
-		} catch(e) {
+		} catch (e) {
 			console.error(
 				`XWebDB: Could not do live updates due to an error:`,
 				e
@@ -466,7 +470,7 @@ export class Datastore<
 		}
 	}
 
-	async insert(newDoc: G | G[]): Promise<types.Result<G>> {
+	public async insert(newDoc: G | G[]): Promise<types.Result<G>> {
 		const res = await this.q.add(() => this._insert(newDoc));
 		if (Array.isArray(res)) {
 			return {
@@ -484,16 +488,16 @@ export class Datastore<
 	/**
 	 * Count all documents matching the query
 	 */
-	async count(query: any) {
-		const cursor = new Cursor<G>(this, query);
+	public async count(query: any): Promise<number> {
+		const cursor = new Cursor(this, query);
 		return (await cursor.exec()).length;
 	}
 
 	/**
 	 * Find all documents matching the query
 	 */
-	async find(query: any): Promise<G[]> {
-		const cursor = new Cursor(this, query);
+	public async find(query: any): Promise<G[]> {
+		const cursor = new Cursor<G, C>(this, query);
 		const docs = await cursor.exec();
 		return docs;
 	}
@@ -564,7 +568,7 @@ export class Datastore<
 			const updatedDocs = modifications.map((x) => x.newDoc);
 			try {
 				liveUpdate();
-			} catch(e) {
+			} catch (e) {
 				console.error(
 					`XWebDB: Could not do live updates due to an error:`,
 					e
@@ -611,7 +615,11 @@ export class Datastore<
 		}
 	}
 
-	async update(query: any, updateQuery: any, options: UpdateOptions) {
+	async update(
+		query: any,
+		updateQuery: any,
+		options: UpdateOptions
+	): Promise<types.Result<G> & { upsert: boolean }> {
 		return await this.q.add(() =>
 			this._update(query, updateQuery, options)
 		);
@@ -640,7 +648,7 @@ export class Datastore<
 		});
 		try {
 			liveUpdate();
-		} catch(e) {
+		} catch (e) {
 			console.error(
 				`XWebDB: Could not do live updates due to an error:`,
 				e
