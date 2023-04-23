@@ -93,10 +93,10 @@ function checkKey(k, v) {
         !(k === "$$deleted" && v === true) &&
         !(k === "$$indexCreated") &&
         !(k === "$$indexRemoved")) {
-        throw new Error("Field names cannot begin with the $ character");
+        throw new Error("XWebDB: Field names cannot begin with the $ character");
     }
     if (k.indexOf(".") !== -1) {
-        throw new Error("Field names cannot contain a .");
+        throw new Error("XWebDB: Field names cannot contain a .");
     }
 }
 /**
@@ -319,7 +319,7 @@ const lastStepModifierFunctions = {
     $mul: function (obj, field, value) {
         let base = obj[field];
         if (typeof value !== "number" || typeof base !== "number") {
-            throw new Error("Multiply operator works only on numbers");
+            throw new Error("XWebDB: Multiply operator works only on numbers");
         }
         obj[field] = base * value;
     },
@@ -338,7 +338,7 @@ const lastStepModifierFunctions = {
             obj[field] = [];
         }
         if (!Array.isArray(obj[field])) {
-            throw new Error("Can't $push an element on non-array values");
+            throw new Error("XWebDB: Can't $push an element on non-array values");
         }
         if (value !== null &&
             typeof value === "object" &&
@@ -358,11 +358,11 @@ const lastStepModifierFunctions = {
                 if (allKeys.filter((x) => {
                     return (["$each", "$slice", "$position", "$sort"].indexOf(x) === -1);
                 }).length) {
-                    throw new Error("Can only use the modifiers $slice, $position and $sort in conjunction with $each when $push to array");
+                    throw new Error("XWebDB: Can only use the modifiers $slice, $position and $sort in conjunction with $each when $push to array");
                 }
             }
             if (!Array.isArray(eachVal)) {
-                throw new Error("$each requires an array value");
+                throw new Error("XWebDB: $each requires an array value");
             }
             if (posVal) {
                 for (let i = 0; i < eachVal.length; i++) {
@@ -405,7 +405,7 @@ const lastStepModifierFunctions = {
                 return;
             }
             if (sliceVal !== undefined && typeof sliceVal !== "number") {
-                throw new Error("$slice requires a number value");
+                throw new Error("XWebDB: $slice requires a number value");
             }
             if (sliceVal === 0) {
                 obj[field] = [];
@@ -440,15 +440,15 @@ const lastStepModifierFunctions = {
             obj[field] = [];
         }
         if (!Array.isArray(obj[field])) {
-            throw new Error("Can't $addToSet an element on non-array values");
+            throw new Error("XWebDB: Can't $addToSet an element on non-array values");
         }
         const eachVal = value["$each"];
         if (value !== null && typeof value === "object" && eachVal) {
             if (Object.keys(value).length > 1) {
-                throw new Error("Can't use another field in conjunction with $each on $addToSet modifier");
+                throw new Error("XWebDB: Can't use another field in conjunction with $each on $addToSet modifier");
             }
             if (!Array.isArray(eachVal)) {
-                throw new Error("$each requires an array value");
+                throw new Error("XWebDB: $each requires an array value");
             }
             eachVal.forEach((v) => lastStepModifierFunctions.$addToSet(obj, field, v));
         }
@@ -471,10 +471,11 @@ const lastStepModifierFunctions = {
      */
     $pop: function (obj, field, value) {
         if (!Array.isArray(obj[field])) {
-            throw new Error("Can't $pop an element from non-array values");
+            throw new Error("XWebDB: Can't $pop an element from non-array values");
         }
         if (typeof value !== "number") {
-            throw new Error(value + " isn't an integer, can't use it with $pop");
+            throw new Error("XWebDB: " +
+                value + " isn't an integer, can't use it with $pop");
         }
         if (value === 0) {
             return;
@@ -491,7 +492,7 @@ const lastStepModifierFunctions = {
      */
     $pull: function (obj, field, value) {
         if (!Array.isArray(obj[field])) {
-            throw new Error("Can't $pull an element from non-array values");
+            throw new Error("XWebDB: Can't $pull an element from non-array values");
         }
         let arr = obj[field];
         for (let i = arr.length - 1; i >= 0; i -= 1) {
@@ -505,7 +506,7 @@ const lastStepModifierFunctions = {
      */
     $pullAll: function (obj, field, value) {
         if (!Array.isArray(obj[field])) {
-            throw new Error("Can't $pull an element from non-array values");
+            throw new Error("XWebDB: Can't $pull an element from non-array values");
         }
         let arr = obj[field];
         for (let i = arr.length - 1; i >= 0; i -= 1) {
@@ -521,14 +522,14 @@ const lastStepModifierFunctions = {
      */
     $inc: function (obj, field, value) {
         if (typeof value !== "number") {
-            throw new Error(value + " must be a number");
+            throw new Error("XWebDB: " + value + " must be a number");
         }
         if (typeof obj[field] !== "number") {
             if (!obj.hasOwnProperty(field)) {
                 obj[field] = value;
             }
             else {
-                throw new Error("Can't use the $inc modifier on non-number fields");
+                throw new Error("XWebDB: Can't use the $inc modifier on non-number fields");
             }
         }
         else {
@@ -610,11 +611,11 @@ function modify(obj, updateQuery, model) {
     let dollarFirstChars = firstChars.filter((x) => x === "$");
     if (keys.indexOf("_id") !== -1 &&
         updateQuery["_id"] !== obj._id) {
-        throw new Error("You cannot change a document's _id");
+        throw new Error("XWebDB: You cannot change a document's _id");
     }
     if (dollarFirstChars.length !== 0 &&
         dollarFirstChars.length !== firstChars.length) {
-        throw new Error("You cannot mix modifiers and normal fields");
+        throw new Error("XWebDB: You cannot mix modifiers and normal fields");
     }
     let newDoc;
     if (dollarFirstChars.length === 0) {
@@ -629,12 +630,12 @@ function modify(obj, updateQuery, model) {
         modifiers.forEach(function (modifier) {
             let modArgument = updateQuery[modifier];
             if (!modifierFunctions[modifier]) {
-                throw new Error("Unknown modifier " + modifier);
+                throw new Error("XWebDB: Unknown modifier " + modifier);
             }
             // Can't rely on Object.keys throwing on non objects since ES6
             // Not 100% satisfying as non objects can be interpreted as objects but no false negatives so we can live with it
             if (typeof modArgument !== "object") {
-                throw new Error("Modifier " + modifier + "'s argument must be an object");
+                throw new Error("XWebDB: Modifier " + modifier + "'s argument must be an object");
             }
             let keys = Object.keys(modArgument);
             keys.forEach(function (k) {
@@ -645,7 +646,7 @@ function modify(obj, updateQuery, model) {
     // Check result is valid and return it
     checkObject(newDoc);
     if (obj._id !== newDoc._id) {
-        throw new Error("You can't change a document's _id");
+        throw new Error("XWebDB: You can't change a document's _id");
     }
     return newDoc;
 }
@@ -801,10 +802,10 @@ comparisonFunctions.$gte = function (a, b) {
 };
 comparisonFunctions.$mod = function (a, b) {
     if (!Array.isArray(b)) {
-        throw new Error("malformed mod, must be supplied with an array");
+        throw new Error("XWebDB: malformed mod, must be supplied with an array");
     }
     if (b.length !== 2) {
-        throw new Error("malformed mod, array length must be exactly two, a divisor and a remainder");
+        throw new Error("XWebDB: malformed mod, array length must be exactly two, a divisor and a remainder");
     }
     return a % b[0] === b[1];
 };
@@ -817,7 +818,7 @@ comparisonFunctions.$ne = function (a, b) {
 comparisonFunctions.$in = function (a, b) {
     var i;
     if (!Array.isArray(b)) {
-        throw new Error("$in operator called with a non-array");
+        throw new Error("XWebDB: $in operator called with a non-array");
     }
     for (i = 0; i < b.length; i += 1) {
         if (areThingsEqual(a, b[i])) {
@@ -828,13 +829,13 @@ comparisonFunctions.$in = function (a, b) {
 };
 comparisonFunctions.$nin = function (a, b) {
     if (!Array.isArray(b)) {
-        throw new Error("$nin operator called with a non-array");
+        throw new Error("XWebDB: $nin operator called with a non-array");
     }
     return !comparisonFunctions.$in(a, b);
 };
 comparisonFunctions.$regex = function (a, b) {
     if (!(b instanceof RegExp)) {
-        throw new Error("$regex operator called with non regular expression");
+        throw new Error("XWebDB: $regex operator called with non regular expression");
     }
     if (typeof a !== "string") {
         return false;
@@ -864,7 +865,7 @@ comparisonFunctions.$size = function (obj, value) {
         return false;
     }
     if (value % 1 !== 0) {
-        throw new Error("$size operator called without an integer");
+        throw new Error("XWebDB: $size operator called without an integer");
     }
     return obj.length === value;
 };
@@ -885,10 +886,10 @@ comparisonFunctions.$elemMatch = function (obj, value) {
 };
 comparisonFunctions.$all = function (a, b) {
     if (!Array.isArray(a)) {
-        throw new Error("$all must be applied on fields of type array");
+        throw new Error("XWebDB: $all must be applied on fields of type array");
     }
     if (!Array.isArray(b)) {
-        throw new Error("$all must be supplied with argument of type array");
+        throw new Error("XWebDB: $all must be supplied with argument of type array");
     }
     for (let i = 0; i < b.length; i++) {
         const elementInArgument = b[i];
@@ -909,7 +910,7 @@ const logicalOperators = {};
 logicalOperators.$or = function (obj, query) {
     var i;
     if (!Array.isArray(query)) {
-        throw new Error("$or operator used without an array");
+        throw new Error("XWebDB: $or operator used without an array");
     }
     for (i = 0; i < query.length; i += 1) {
         if (match(obj, query[i])) {
@@ -923,7 +924,7 @@ logicalOperators.$or = function (obj, query) {
  */
 logicalOperators.$and = function (obj, query) {
     if (!Array.isArray(query)) {
-        throw new Error("$and operator used without an array");
+        throw new Error("XWebDB: $and operator used without an array");
     }
     for (let i = 0; i < query.length; i += 1) {
         if (!match(obj, query[i])) {
@@ -937,7 +938,7 @@ logicalOperators.$and = function (obj, query) {
  */
 logicalOperators.$nor = function (obj, query) {
     if (!Array.isArray(query)) {
-        throw new Error("$nor operator used without an array");
+        throw new Error("XWebDB: $nor operator used without an array");
     }
     for (let i = 0; i < query.length; i += 1) {
         if (match(obj, query[i])) {
@@ -952,11 +953,11 @@ logicalOperators.$nor = function (obj, query) {
 logicalOperators.$where = function (obj, fn) {
     var result;
     if (typeof fn !== "function") {
-        throw new Error("$where operator used without a function");
+        throw new Error("XWebDB: $where operator used without a function");
     }
     result = fn.call(obj);
     if (typeof result !== "boolean") {
-        throw new Error("$where function must return boolean");
+        throw new Error("XWebDB: $where function must return boolean");
     }
     return result;
 };
@@ -977,7 +978,7 @@ function match(obj, query) {
         let queryValue = query[queryKey];
         if (queryKey[0] === "$") {
             if (!logicalOperators[queryKey]) {
-                throw new Error("Unknown logical operator " + queryKey);
+                throw new Error("XWebDB: Unknown logical operator " + queryKey);
             }
             if (!logicalOperators[queryKey](obj, queryValue)) {
                 return false;
@@ -1045,13 +1046,13 @@ function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
         let dollarFirstChars = firstChars.filter((c) => c === "$");
         if (dollarFirstChars.length !== 0 &&
             dollarFirstChars.length !== firstChars.length) {
-            throw new Error("You cannot mix operators and normal fields");
+            throw new Error("XWebDB: You cannot mix operators and normal fields");
         }
         // queryValue is an object of this form: { $comparisonOperator1: value1, ... }
         if (dollarFirstChars.length > 0) {
             for (let i = 0; i < keys.length; i += 1) {
                 if (!comparisonFunctions[keys[i]]) {
-                    throw new Error("Unknown comparison function " + keys[i]);
+                    throw new Error("XWebDB: Unknown comparison function " + keys[i]);
                 }
                 if (!comparisonFunctions[keys[i]](objValue, queryValue[keys[i]])) {
                     return false;
@@ -1163,7 +1164,7 @@ class Cursor {
         // either all are 0, or all are -1
         let actions = keys.map((k) => this._projection[k]).sort();
         if (actions[0] !== actions[actions.length - 1]) {
-            throw new Error("Can't both keep and omit fields except for _id");
+            throw new Error("XWebDB: Can't both keep and omit fields except for _id");
         }
         let action = actions[0];
         // Do the actual projection
@@ -1519,7 +1520,7 @@ class AvlTree {
             if (this.size > 0) {
                 this._size--;
             }
-            const err = new Error(`Can't insert key ${key}, it violates the unique constraint`);
+            const err = new Error(`XWebDB: Can't insert key ${key}, it violates the unique constraint`);
             err.key = key;
             err.prop = this.fieldName;
             err.errorType = "uniqueViolated";
@@ -2151,6 +2152,39 @@ class IDB {
     }
 }
 
+const liveQueries = [];
+function hash(res) {
+    return xxh(JSON.stringify(res));
+}
+function addLive(q) {
+    q.id = uid();
+    liveQueries.push(q);
+    return q.id;
+}
+function liveUpdate() {
+    return __awaiter(this, void 0, void 0, function* () {
+        for (let index = 0; index < liveQueries.length; index++) {
+            const q = liveQueries[index];
+            const newRes = yield q.database.read(q.queryFilter, q.queryOptions);
+            const newHash = hash(newRes);
+            const oldHash = hash(q.observable.observable);
+            if (newHash === oldHash)
+                continue;
+            let u = yield q.observable.unobserve(q.toDBObserver);
+            q.observable.observable.splice(0);
+            q.observable.observable.push(...newRes);
+            if (u.length)
+                q.observable.observe(q.toDBObserver);
+        }
+    });
+}
+function kill(uid) {
+    const index = liveQueries.findIndex((q) => q.id === uid);
+    if (index > -1) {
+        liveQueries.splice(index, 1);
+    }
+}
+
 const asc = (a, b) => (a > b ? 1 : -1);
 class Sync {
     constructor(persistence, rdata) {
@@ -2179,7 +2213,10 @@ class Sync {
     sync() {
         return new Promise((resolve, reject) => {
             let interval = setInterval(() => __awaiter(this, void 0, void 0, function* () {
-                if (!this.p.syncInProgress) {
+                if (!this.p.syncInProgress || // should not sync when there's already a sync in progress
+                    this.p.db.deferredDeletes.length +
+                        this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
+                ) {
                     clearInterval(interval);
                     this.p.syncInProgress = true;
                     let syncResult = { sent: 0, received: 0, diff: -1 };
@@ -2360,6 +2397,12 @@ class Sync {
             yield this.rdata.setItems(upSet);
             yield this.setRemoteHash();
             yield this.p.loadDatabase();
+            try {
+                liveUpdate();
+            }
+            catch (e) {
+                console.error(`XWebDB: Could not do live updates due to an error:`, e);
+            }
             return {
                 sent: localDiffs.length,
                 received: remoteDiffs.length,
@@ -2406,9 +2449,11 @@ class Persistence {
         this.corruptAlertThreshold = 0.1;
         this.encode = (s) => s;
         this.decode = (s) => s;
+        this.stripDefaults = false;
         this._model = options.model;
         this.db = options.db;
         this.ref = this.db.ref;
+        this.stripDefaults = options.stripDefaults;
         this.data = new IDB(this.ref);
         this.RSA = options.syncToRemote;
         this.devalidateHash = options.devalidateHash || 0;
@@ -2440,21 +2485,21 @@ class Persistence {
                 : 0.1;
         // encode and decode hooks with some basic sanity checks
         if (options.encode && !options.decode) {
-            throw new Error("encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
+            throw new Error("XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
         }
         if (!options.encode && options.decode) {
-            throw new Error("decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
+            throw new Error("XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
         }
         this.encode = options.encode || this.encode;
         this.decode = options.decode || this.decode;
         let randomString$1 = randomString(113);
         if (this.decode(this.encode(randomString$1)) !== randomString$1) {
-            throw new Error("encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss");
+            throw new Error("XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss");
         }
     }
     writeNewIndex(newIndexes) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.writeData(newIndexes.map((x) => [
+            return yield this.writeData(newIndexes.map((x) => [
                 x.$$indexCreated.fieldName,
                 this.encode(serialize(x)),
             ]));
@@ -2462,7 +2507,13 @@ class Persistence {
     }
     writeNewData(newDocs) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.writeData(newDocs.map((x) => [x._id || "", this.encode(serialize(x))]));
+            if (this.stripDefaults && this._model) {
+                newDocs = deserialize(serialize({ t: newDocs })).t; // avoid triggering live queries;
+                for (let index = 0; index < newDocs.length; index++) {
+                    newDocs[index] = this._model.stripDefaults(newDocs[index]);
+                }
+            }
+            return yield this.writeData(newDocs.map((x) => [x._id || "", this.encode(serialize(x))]));
         });
     }
     treatSingleLine(line) {
@@ -2572,7 +2623,7 @@ class Persistence {
                 }
             }
             if (processed > 0 && corrupt / processed > this.corruptAlertThreshold) {
-                throw new Error(`More than ${Math.floor(100 * this.corruptAlertThreshold)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`);
+                throw new Error(`XWebDB: More than ${Math.floor(100 * this.corruptAlertThreshold)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`);
             }
             this.db.q.start();
             return true;
@@ -2583,7 +2634,7 @@ class Persistence {
             const all = yield this.data.values();
             for (let i = 0; i < all.length; i++) {
                 const line = all[i];
-                if ((!line.startsWith("$H")) && line !== "$deleted")
+                if (!line.startsWith("$H") && line !== "$deleted")
                     event.emit("readLine", line);
             }
             event.emit("end", "");
@@ -2591,9 +2642,11 @@ class Persistence {
     }
     deleteData(_ids) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.RSA)
-                return this.data.dels(_ids);
-            const keys = (yield this.data.keys());
+            if (!this.RSA) {
+                yield this.data.dels(_ids);
+                return _ids;
+            }
+            const keys = yield this.data.keys();
             const oldIDRevs = [];
             const newIDRevs = [];
             for (let index = 0; index < _ids.length; index++) {
@@ -2610,13 +2663,16 @@ class Persistence {
             yield this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
             if (this.sync)
                 yield this.sync.setLocalHash(keys);
+            return _ids;
         });
     }
     writeData(input) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.RSA)
-                return this.data.sets(input);
-            const keys = (yield this.data.keys());
+            if (!this.RSA) {
+                yield this.data.sets(input);
+                return input.map((x) => x[0]);
+            }
+            const keys = yield this.data.keys();
             const oldIDRevs = [];
             const newIDRevsData = [];
             for (let index = 0; index < input.length; index++) {
@@ -2633,6 +2689,7 @@ class Persistence {
             yield this.data.sets(newIDRevsData);
             if (this.sync)
                 yield this.sync.setLocalHash(keys);
+            return input.map((x) => x[0]);
         });
     }
     /**
@@ -2658,6 +2715,19 @@ class BaseModel {
             instance[key] = data[key];
         }
         return instance;
+    }
+    static stripDefaults(existingData) {
+        const defaultInstance = JSON.parse(JSON.stringify(new this()));
+        const keys = Object.keys(defaultInstance);
+        const newData = {};
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const defaultInstanceValue = JSON.parse(JSON.stringify({ t: defaultInstance[key] }));
+            const existingDataValue = JSON.parse(JSON.stringify({ t: existingData[key] }));
+            if (defaultInstanceValue !== existingDataValue)
+                newData[key] = existingData[key];
+        }
+        return newData;
     }
 }
 
@@ -2737,6 +2807,9 @@ class Datastore {
             _id: new Index({ fieldName: "_id", unique: true }),
         };
         this.ttlIndexes = {};
+        this.defer = 0;
+        this.deferredWrites = [];
+        this.deferredDeletes = [];
         this.model = options.model || BaseModel;
         if (options.ref) {
             this.ref = options.ref;
@@ -2750,14 +2823,46 @@ class Datastore {
             corruptAlertThreshold: options.corruptAlertThreshold || 0,
             syncToRemote: options.syncToRemote,
             syncInterval: options.syncInterval,
-            devalidateHash: options.devalidateHash
+            devalidateHash: options.devalidateHash,
+            stripDefaults: options.stripDefaults,
         });
-        if (options.timestampData) {
-            this.timestampData = true;
+        this.timestampData = !!options.timestampData;
+        if (options.defer) {
+            this.defer = options.defer || 0;
+            setInterval(() => __awaiter(this, void 0, void 0, function* () {
+                if (this.persistence.syncInProgress)
+                    return; // should not process deferred while sync in progress
+                else
+                    this._processDeferred();
+            }), options.defer);
         }
     }
+    _processDeferred() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.deferredDeletes.length) {
+                try {
+                    const done = yield this.persistence.deleteData(this.deferredDeletes);
+                    this.deferredDeletes = this.deferredDeletes.filter((_id) => done.indexOf(_id) === -1);
+                }
+                catch (e) {
+                    console.error("XWebDB: processing deferred deletes error", e);
+                    yield this.loadDatabase();
+                }
+            }
+            if (this.deferredWrites.length) {
+                try {
+                    const done = yield this.persistence.writeNewData(this.deferredWrites);
+                    this.deferredWrites = this.deferredWrites.filter((doc) => done.indexOf(doc._id || "") === -1);
+                }
+                catch (e) {
+                    console.error("XWebDB: processing deferred writes error", e);
+                    yield this.loadDatabase();
+                }
+            }
+        });
+    }
     /**
-     * Load the database from the datafile, and trigger the execution of buffered commands if any
+     * Load the database from indexedDB, and trigger the execution of buffered commands if any
      */
     loadDatabase() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -2789,7 +2894,7 @@ class Datastore {
         return __awaiter(this, void 0, void 0, function* () {
             options = options || {};
             if (!options.fieldName) {
-                let err = new Error("Cannot create an index without a fieldName");
+                let err = new Error("XWebDB: Cannot create an index without a fieldName");
                 err.missingFieldName = true;
                 throw err;
             }
@@ -3008,8 +3113,17 @@ class Datastore {
         return __awaiter(this, void 0, void 0, function* () {
             let preparedDoc = this.prepareDocumentForInsertion(newDoc);
             this._insertInCache(preparedDoc);
-            // LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
-            yield this.persistence.writeNewData(Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc]);
+            try {
+                liveUpdate();
+            }
+            catch (e) {
+                console.error(`XWebDB: Could not do live updates due to an error:`, e);
+            }
+            let w = Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc];
+            if (this.defer)
+                this.deferredWrites.push(...w);
+            else
+                yield this.persistence.writeNewData(w);
             return deepCopy(preparedDoc, this.model);
         });
     }
@@ -3169,8 +3283,16 @@ class Datastore {
                 this.updateIndexes(modifications);
                 // Update the datafile
                 const updatedDocs = modifications.map((x) => x.newDoc);
-                // LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
-                yield this.persistence.writeNewData(updatedDocs);
+                try {
+                    liveUpdate();
+                }
+                catch (e) {
+                    console.error(`XWebDB: Could not do live updates due to an error:`, e);
+                }
+                if (this.defer)
+                    this.deferredWrites.push(...updatedDocs);
+                else
+                    yield this.persistence.writeNewData(updatedDocs);
                 return {
                     number: updatedDocs.length,
                     docs: updatedDocs.map((x) => deepCopy(x, this.model)),
@@ -3179,7 +3301,7 @@ class Datastore {
             }
             else if (res.length === 0 && upsert) {
                 if (!updateQuery.$setOnInsert) {
-                    throw new Error("$setOnInsert modifier is required when upserting");
+                    throw new Error("XWebDB: $setOnInsert modifier is required when upserting");
                 }
                 let toBeInserted = deepCopy(updateQuery.$setOnInsert, this.model, true);
                 const newDoc = yield this._insert(toBeInserted);
@@ -3231,8 +3353,17 @@ class Datastore {
                     this.removeFromIndexes(d);
                 }
             });
-            // LQLQLQLQLQLQLQLQLQLQ CHECK LIVE QUERIES
-            yield this.persistence.deleteData(removedDocs.map(x => x._id || ""));
+            try {
+                liveUpdate();
+            }
+            catch (e) {
+                console.error(`XWebDB: Could not do live updates due to an error:`, e);
+            }
+            let d = removedDocs.map((x) => x._id || "");
+            if (this.defer)
+                this.deferredDeletes.push(...d);
+            else
+                yield this.persistence.deleteData(d);
             return {
                 number: numRemoved,
                 docs: removedFullDoc,
@@ -3323,7 +3454,7 @@ class Namespace {
                 if (typeof res === "string" ||
                     !res.success ||
                     !Array.isArray(res.result)) {
-                    throw new Error("Error while listing namespaces: " + JSON.stringify(res));
+                    throw new Error("XWebDB: Error while listing namespaces: " + JSON.stringify(res));
                 }
                 else {
                     const resNamespaces = res.result;
@@ -3344,7 +3475,7 @@ class Namespace {
             if (typeof res === "string" ||
                 !res.success ||
                 Array.isArray(res.result)) {
-                throw new Error("Error while creating namespace: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while creating namespace: " + JSON.stringify(res));
             }
             else {
                 return res.result.id;
@@ -3357,7 +3488,7 @@ class Namespace {
                 yield this.connect();
             const res = yield kvRequest(this, "DELETE", this.id);
             if (typeof res === "string" || !res.success) {
-                throw new Error("Error while deleting namespace: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while deleting namespace: " + JSON.stringify(res));
             }
             else {
                 return true;
@@ -3370,7 +3501,7 @@ class Namespace {
                 yield this.connect();
             const res = yield kvRequest(this, "DELETE", `${this.id}/values/${itemID}`);
             if (typeof res === "string" || !res.success) {
-                throw new Error("Error while deleting item: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
             }
             else {
                 return true;
@@ -3383,7 +3514,7 @@ class Namespace {
                 yield this.connect();
             const res = yield kvRequest(this, "PUT", `${this.id}/values/${itemID}`, itemData);
             if (typeof res === "string" || !res.success) {
-                throw new Error("Error while setting item: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while setting item: " + JSON.stringify(res));
             }
             else {
                 return true;
@@ -3396,7 +3527,7 @@ class Namespace {
                 yield this.connect();
             const res = yield kvRequest(this, "GET", `${this.id}/values/${itemID}`, undefined, false);
             if (typeof res !== "string") {
-                throw new Error("Error while getting item: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while getting item: " + JSON.stringify(res));
             }
             else {
                 return res;
@@ -3414,7 +3545,7 @@ class Namespace {
                 if (typeof res === "string" ||
                     !res.success ||
                     !Array.isArray(res.result)) {
-                    throw new Error("Error while listing keys: " + JSON.stringify(res));
+                    throw new Error("XWebDB: Error while listing keys: " + JSON.stringify(res));
                 }
                 else {
                     const arr = res.result;
@@ -3445,7 +3576,7 @@ class Namespace {
                 const batch = dividedItems[index];
                 const res = yield kvRequest(this, "DELETE", `${this.id}/bulk`, JSON.stringify(batch));
                 if (typeof res === "string" || !res.success) {
-                    throw new Error("Error while deleting item: " + JSON.stringify(res));
+                    throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
                 }
                 else {
                     results.push(true);
@@ -3471,7 +3602,7 @@ class Namespace {
                 const batch = dividedItems[index];
                 const res = yield kvRequest(this, "PUT", `${this.id}/bulk`, JSON.stringify(batch));
                 if (typeof res === "string" || !res.success) {
-                    throw new Error("Error while deleting item: " + JSON.stringify(res));
+                    throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
                 }
                 else {
                     results.push(true);
@@ -3548,7 +3679,7 @@ function callObserverSafe(listener, changes) {
         listener(changes);
     }
     catch (e) {
-        console.error(`failed to notify listener ${listener} with ${changes}`, e);
+        console.error(`XWebDB: Failed to notify listener ${listener} with ${changes}`, e);
     }
 }
 function callObserversFromMT() {
@@ -3979,12 +4110,14 @@ function observable(target) {
             parent: null,
         }).proxy;
     function unobserve(observers) {
-        if (!observers)
-            return __unobserve(o);
-        else if (Array.isArray(observers))
-            return __unobserve(o, ...observers);
-        else
-            return __unobserve(o, observers);
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!observers)
+                return yield __unobserve(o);
+            else if (Array.isArray(observers))
+                return yield __unobserve(o, observers);
+            else
+                return yield __unobserve(o, [observers]);
+        });
     }
     function observe(observer) {
         __observe(o, observer);
@@ -4012,7 +4145,7 @@ function __observe(observable, observer) {
         observers.push(observer);
     }
 }
-function __unobserve(observable, ...observers) {
+function __unobserve(observable, observers) {
     return __awaiter(this, void 0, void 0, function* () {
         if (observable instanceof Promise)
             observable = yield Promise.resolve(observable);
@@ -4021,14 +4154,15 @@ function __unobserve(observable, ...observers) {
         if (!length) {
             return [];
         }
-        if (!observers.length) {
+        if (!observers) {
             return existingObs.splice(0);
         }
         let spliced = [];
-        while (length) {
-            let i = observers.indexOf(existingObs[--length]);
-            if (i >= 0) {
-                spliced.concat(existingObs.splice(length, 1));
+        for (let index = 0; index < observers.length; index++) {
+            const observer = observers[index];
+            const i = existingObs.indexOf(observer);
+            if (i > -1) {
+                spliced.push(existingObs.splice(i, 1)[0]);
             }
         }
         return spliced;
@@ -4073,9 +4207,7 @@ class Database {
          * Create an index specified by options
          */
         this.ensureIndex = this.createIndex;
-        this.model =
-            options.model ||
-                BaseModel;
+        this.model = options.model || BaseModel;
         this.ref = options.ref;
         this.reloadBeforeOperations = !!options.reloadBeforeOperations;
         this._datastore = new Datastore({
@@ -4090,6 +4222,8 @@ class Database {
             devalidateHash: options.sync
                 ? options.sync.devalidateHash
                 : undefined,
+            defer: options.deferPersistence || 0,
+            stripDefaults: options.stripDefaults || false,
         });
         this.loaded = this._datastore.loadDatabase();
     }
@@ -4114,39 +4248,76 @@ class Database {
         return __awaiter(this, arguments, void 0, function* () {
             const res = yield this.read(...arguments);
             const ob = observable(res);
+            let toDBObserver = () => undefined;
+            let fromDBuid = "";
             if (toDB) {
-                ob.observe((changes) => {
-                    let operations = [];
+                toDBObserver = (changes) => {
+                    let operations = {};
                     for (let i = 0; i < changes.length; i++) {
                         const change = changes[i];
-                        if (change.path.length > 1 || change.type === "update") {
-                            // updating
+                        if (change.path.length === 0 ||
+                            change.type === "shuffle" ||
+                            change.type === "reverse") {
+                            continue;
+                        }
+                        else if (change.path.length === 1 &&
+                            change.type === "update") {
+                            let doc = change.snapshot[change.path[0]];
+                            let _id = change.oldValue._id;
+                            operations[_id] = () => this.update({ _id: _id }, {
+                                $set: doc,
+                            });
+                        }
+                        else if (change.path.length > 1 ||
+                            change.type === "update") {
+                            // updating specific field in document
                             let doc = change.snapshot[change.path[0]];
                             let _id = doc._id;
-                            operations.push(this.update({ _id: _id }, {
+                            operations[_id] = () => this.upsert({ _id: _id }, {
                                 $set: doc,
-                            }));
+                                $setOnInsert: doc,
+                            });
                         }
                         else if (change.type === "delete") {
                             // deleting
                             let doc = change.oldValue;
                             let _id = doc._id;
-                            operations.push(this.delete({ _id }));
+                            operations[_id] = () => this.delete({ _id });
                         }
                         else if (change.type === "insert") {
                             // inserting
                             let doc = change.value;
-                            doc._id;
-                            operations.push(this.insert(doc));
+                            let _id = doc._id;
+                            operations[_id] = () => this.insert(doc);
                         }
                     }
-                    Promise.all(operations).catch((e) => {
-                        console.error("Applying observable changes on the database failed with error");
-                        console.error(e);
+                    const results = Object.values(operations).map((operation) => operation());
+                    Promise.all(results).catch((e) => {
+                        liveUpdate();
+                        console.error(`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`, e);
                     });
+                };
+                ob.observe(toDBObserver);
+            }
+            if (fromDB) {
+                fromDBuid = addLive({
+                    queryFilter: filter,
+                    queryOptions: { skip, limit, project, sort },
+                    database: this,
+                    toDBObserver,
+                    observable: ob,
                 });
             }
-            return ob;
+            return Object.assign(Object.assign({}, ob), { kill(w) {
+                    return __awaiter(this, void 0, void 0, function* () {
+                        if (w === "toDB" || !w) {
+                            yield ob.unobserve(toDBObserver);
+                        }
+                        if (w === "fromDB" || !w) {
+                            kill(fromDBuid);
+                        }
+                    });
+                } });
         });
     }
     /**
@@ -4269,11 +4440,14 @@ class Database {
     sync() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._datastore.persistence.sync) {
-                throw new Error("Can not perform sync operation unless provided with remote DB adapter");
+                throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
             }
             yield this.reloadFirst();
             return yield this._datastore.persistence.sync.sync();
         });
+    }
+    get syncInProgress() {
+        return this._datastore.persistence.syncInProgress;
     }
 }
 function fixDeep(input) {

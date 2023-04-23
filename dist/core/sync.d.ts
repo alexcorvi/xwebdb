@@ -3,7 +3,7 @@ import { remoteStore } from "./adapters/type";
 export declare class Sync {
     private p;
     private rdata;
-    constructor(persistence: Persistence, rdata: remoteStore);
+    constructor(persistence: Persistence<any, any>, rdata: remoteStore);
     setLocalHash(keys?: string[]): Promise<void>;
     setRemoteHash(keys?: string[]): Promise<void>;
     private timeSignature;

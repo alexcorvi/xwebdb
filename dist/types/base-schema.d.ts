@@ -1,8 +1,9 @@
-export declare class BaseModel<T> {
+export declare class BaseModel {
     _id: string;
     updatedAt?: Date;
     createdAt?: Date;
-    static new<T>(this: new () => T, data: Partial<NFP<T>>): T;
+    static new<T extends object>(this: new () => T, data: Partial<NFP<T>>): T;
+    static stripDefaults<T extends object>(this: new () => T, existingData: T): T;
 }
 type NFPN<T> = {
     [K in keyof T]: T[K] extends Function ? never : K;

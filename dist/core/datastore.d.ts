@@ -2,6 +2,7 @@ import { Cursor } from "./cursor";
 import { Index } from "./indexes";
 import { Persistence } from "./persistence";
 import * as types from "../types";
+import { BaseModel } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 export interface EnsureIndexOptions {
@@ -10,7 +11,7 @@ export interface EnsureIndexOptions {
     sparse?: boolean;
     expireAfterSeconds?: number;
 }
-export interface DataStoreOptions<G> {
+export interface DataStoreOptions<G extends typeof BaseModel> {
     ref: string;
     encode?(line: string): string;
     decode?(line: string): string;
@@ -19,20 +20,20 @@ export interface DataStoreOptions<G> {
     syncToRemote?: (name: string) => remoteStore;
     syncInterval?: number;
     devalidateHash?: number;
-    model?: (new () => G) & {
-        new: (json: G) => G;
-    };
+    model?: G;
+    defer: number;
+    stripDefaults: boolean;
 }
 interface UpdateOptions {
     multi?: boolean;
     upsert?: boolean;
 }
-export declare class Datastore<G extends Partial<types.BaseModel<G>> & {
+export declare class Datastore<G extends types.BaseModel & {
     [key: string]: any;
-}> {
+}, C extends typeof BaseModel> {
     ref: string;
     timestampData: boolean;
-    persistence: Persistence<G>;
+    persistence: Persistence<G, C>;
     q: Q;
     indexes: {
         [key: string]: Index<string, G>;
@@ -40,12 +41,14 @@ export declare class Datastore<G extends Partial<types.BaseModel<G>> & {
     ttlIndexes: {
         [key: string]: number;
     };
-    model: (new () => G) & {
-        new: (json: G) => G;
-    };
-    constructor(options: DataStoreOptions<G>);
+    model: C;
+    defer: number;
+    deferredWrites: G[];
+    deferredDeletes: string[];
+    constructor(options: DataStoreOptions<C>);
+    private _processDeferred;
     /**
-     * Load the database from the datafile, and trigger the execution of buffered commands if any
+     * Load the database from indexedDB, and trigger the execution of buffered commands if any
      */
     loadDatabase(): Promise<boolean>;
     /**
@@ -83,11 +86,7 @@ export declare class Datastore<G extends Partial<types.BaseModel<G>> & {
      * To update multiple documents, oldDoc must be an array of { oldDoc, newDoc } pairs
      * If one update violates a constraint, all changes are rolled back
      */
-    updateIndexes<T extends G>(oldDoc: T, newDoc: T): void;
-    updateIndexes<T extends G>(updates: Array<{
-        oldDoc: T;
-        newDoc: T;
-    }>): void;
+    private updateIndexes;
     private _isBasicType;
     /**
      * This will return the least number of candidates,
@@ -139,7 +138,7 @@ export declare class Datastore<G extends Partial<types.BaseModel<G>> & {
     /**
      * Find all documents matching the query
      */
-    cursor(query: any): Cursor<G>;
+    cursor(query: any): Cursor<G, C>;
     /**
      * Update all docs matching query
      */

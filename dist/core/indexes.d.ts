@@ -4,7 +4,7 @@ interface Pair<Doc> {
     newDoc: Doc;
     oldDoc: Doc;
 }
-export declare class Index<Key, Doc extends Partial<BaseModel<Doc>>> {
+export declare class Index<Key, Doc extends BaseModel> {
     fieldName: string;
     unique: boolean;
     sparse: boolean;

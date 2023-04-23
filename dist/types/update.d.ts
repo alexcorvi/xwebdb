@@ -30,7 +30,7 @@ export interface UpsertOperators<S> extends UpdateOperators<S> {
      * { $setOnInsert: { <field1>: <value1>, ... } },
      *
      */
-    $setOnInsert: S;
+    $setOnInsert?: S;
 }
 export interface UpdateOperators<S> {
     /**

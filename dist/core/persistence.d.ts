@@ -19,23 +19,22 @@ export declare class PersistenceEvent {
     on(event: PersistenceEventEmits, cb: PersistenceEventCallback): void;
     emit(event: PersistenceEventEmits, data: string): Promise<void>;
 }
-interface PersistenceOptions<G extends Partial<BaseModel<G>>> {
-    db: Datastore<G>;
+interface PersistenceOptions<G extends BaseModel, C extends typeof BaseModel> {
+    db: Datastore<G, C>;
     encode?: (raw: string) => string;
     decode?: (encrypted: string) => string;
     corruptAlertThreshold?: number;
-    model?: (new () => G) & {
-        new: (json: G) => G;
-    };
+    model?: typeof BaseModel;
     syncInterval?: number;
     syncToRemote?: (name: string) => remoteStore;
     devalidateHash?: number;
+    stripDefaults: boolean;
 }
 /**
  * Create a new Persistence object for database options.db
  */
-export declare class Persistence<G extends Partial<BaseModel<G>> = any> {
-    db: Datastore<G>;
+export declare class Persistence<G extends BaseModel, C extends typeof BaseModel> {
+    db: Datastore<G, C>;
     ref: string;
     data: IDB<string>;
     RSA?: (name: string) => remoteStore;
@@ -46,12 +45,13 @@ export declare class Persistence<G extends Partial<BaseModel<G>> = any> {
     corruptAlertThreshold: number;
     encode: (s: string) => string;
     decode: (s: string) => string;
+    stripDefaults: boolean;
     private _model;
-    constructor(options: PersistenceOptions<G>);
+    constructor(options: PersistenceOptions<G, C>);
     writeNewIndex(newIndexes: {
         $$indexCreated: EnsureIndexOptions;
-    }[]): Promise<void>;
-    writeNewData(newDocs: G[]): Promise<void>;
+    }[]): Promise<string[]>;
+    writeNewData(newDocs: G[]): Promise<string[]>;
     treatSingleLine(line: string): persistenceLine;
     /**
      * Load the database
@@ -60,8 +60,8 @@ export declare class Persistence<G extends Partial<BaseModel<G>> = any> {
      */
     loadDatabase(): Promise<boolean>;
     readData(event: PersistenceEvent): Promise<void>;
-    deleteData(_ids: string[]): Promise<void>;
-    writeData(input: [string, string][]): Promise<void>;
+    deleteData(_ids: string[]): Promise<string[]>;
+    writeData(input: [string, string][]): Promise<string[]>;
     /**
      * Deletes all data
      * deletions will not be syncable

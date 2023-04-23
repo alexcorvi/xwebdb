@@ -1,18 +1,16 @@
 import { Datastore } from "./datastore";
-import { SchemaKeyProjection, SchemaKeySort } from "../types";
+import { BaseModel, SchemaKeyProjection, SchemaKeySort } from "../types";
 /**
  * Create a new cursor for this collection
  */
-export declare class Cursor<G extends {
-    _id?: string;
-}> {
+export declare class Cursor<G extends BaseModel, C extends typeof BaseModel> {
     private db;
     private query;
     private _limit;
     private _skip;
     private _sort;
     private _projection;
-    constructor(db: Datastore<G>, query?: any);
+    constructor(db: Datastore<G, C>, query?: any);
     /**
      * Set a limit to the number of results
      */

@@ -1,11 +1,9 @@
 import { Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { NFP, BaseModel, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators } from "./types";
-export interface DatabaseConfigurations<S extends BaseModel<S>> {
+export interface DatabaseConfigurations<C extends typeof BaseModel> {
     ref: string;
-    model?: (new () => S) & {
-        new: (json: S) => S;
-    };
+    model?: C;
     encode?(line: string): string;
     decode?(line: string): string;
     corruptAlertThreshold?: number;
@@ -16,14 +14,16 @@ export interface DatabaseConfigurations<S extends BaseModel<S>> {
         syncInterval?: number;
         devalidateHash?: number;
     };
+    deferPersistence?: number;
+    stripDefaults?: boolean;
 }
-export declare class Database<S extends BaseModel<S>> {
+export declare class Database<S extends BaseModel> {
     private ref;
     private reloadBeforeOperations;
     private model;
-    _datastore: Datastore<S>;
+    _datastore: Datastore<S, typeof BaseModel>;
     loaded: Promise<boolean>;
-    constructor(options: DatabaseConfigurations<S>);
+    constructor(options: DatabaseConfigurations<typeof BaseModel>);
     private reloadFirst;
     /**
      * insert documents
@@ -39,7 +39,9 @@ export declare class Database<S extends BaseModel<S>> {
         project?: SchemaKeyProjection<NFP<S>>;
         toDB?: boolean;
         fromDB?: boolean;
-    }): Promise<o.ObservableArray<S[]>>;
+    }): Promise<o.ObservableArray<S[]> & {
+        kill: (w?: "toDB" | "fromDB") => Promise<void>;
+    }>;
     /**
      * Find document(s) that meets a specified criteria
      */
@@ -100,6 +102,7 @@ export declare class Database<S extends BaseModel<S>> {
         received: number;
         diff: 0 | 1 | -1;
     }>;
+    get syncInProgress(): boolean;
     /**
      * Create document
      */
