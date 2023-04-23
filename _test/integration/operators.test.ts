@@ -24,7 +24,7 @@ interface Child {
 	age: number;
 }
 
-class Employee extends BaseModel<Employee> {
+class Employee extends BaseModel {
 	name: string = "";
 	rooms: string[] = [];
 	events: number[] = [];

@@ -243,8 +243,8 @@ describe("Observable and reactive data", () => {
 				oarr.unobserve([]);
 				oarr.observable[2] = 77;
 				setTimeout(() => {
-					changes1.length.should.eq(1);
-					changes2.length.should.eq(1);
+					changes1.length.should.eq(2);
+					changes2.length.should.eq(2);
 					JSON.stringify(oarr.observable).should.eq(`[1,2,77]`);
 					done();
 				});

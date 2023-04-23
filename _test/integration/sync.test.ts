@@ -2,7 +2,7 @@
 /// <reference path="../../dist/xwebdb.d.ts" />
 import xwebdb from "../../dist/xwebdb.js";
 const { Database, BaseModel } = xwebdb;
-class Kid extends BaseModel<Kid> {
+class Kid extends BaseModel {
 	name: string;
 	age: number;
 }

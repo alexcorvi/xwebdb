@@ -25,12 +25,16 @@ async function rejected(f: () => Promise<any>) {
 
 const reloadTimeUpperBound = 80; // In ms, an upper bound for the reload time used to check createdAt and updatedAt
 describe("Database", function () {
-	let d = new Datastore({
+	let d: InstanceType<typeof Datastore> & { insert: any } = new Datastore({
 		ref: testDb,
+		defer: 0,
+		stripDefaults: false,
 	});
 	beforeEach(async () => {
 		d = new Datastore({
 			ref: testDb,
+			defer: 0,
+			stripDefaults: false,
 		});
 		d.ref.should.equal(testDb);
 		await d.loadDatabase();
@@ -45,7 +49,7 @@ describe("Database", function () {
 			const length = (await d.find({})).length;
 			length.should.equal(0);
 
-			await d.insert({ somedata: "ok" });
+			await d.insert({ somedata: "ok" } as any);
 
 			// The data was correctly updated
 			const docs: any[] = await d.find({});
@@ -67,9 +71,9 @@ describe("Database", function () {
 		it("Can insert multiple documents in the database", async () => {
 			const length = (await d.find({})).length;
 			length.should.equal(0);
-			await d.insert({ somedata: "ok" });
-			await d.insert({ somedata: "another" });
-			await d.insert({ somedata: "again" });
+			await d.insert({ somedata: "ok" } as any);
+			await d.insert({ somedata: "another" } as any);
+			await d.insert({ somedata: "again" } as any);
 			const docs = await d.find({});
 			docs.length.should.equal(3);
 			_.pluck(docs, "somedata").should.contain("ok");
@@ -86,7 +90,7 @@ describe("Database", function () {
 					b: "c",
 				},
 			};
-			await d.insert(obj);
+			await d.insert(obj as any);
 			const doc: any = (await d.find({}))[0];
 			doc.a.length.should.equal(3);
 			doc.a[0].should.equal("ee");
@@ -97,7 +101,7 @@ describe("Database", function () {
 			doc.subobj.b.should.equal("c");
 		});
 		it("If an object returned from the DB is modified and refetched, the original value should be found", async () => {
-			await d.insert({ a: "something" });
+			await d.insert({ a: "something" } as any);
 			{
 				const doc: any = (await d.find({}))[0];
 				doc.a.should.equal("something");
@@ -118,7 +122,7 @@ describe("Database", function () {
 		it("Cannot insert a doc that has a field beginning with a $ sign", async () => {
 			let inserted = 0;
 			try {
-				await d.insert({ $something: "atest" });
+				await d.insert({ $something: "atest" } as any);
 				inserted = 1;
 			} catch (e) {
 				inserted = -1;
@@ -153,7 +157,7 @@ describe("Database", function () {
 			d.insert({
 				a: 2,
 				hello: "world",
-			})
+			} as any)
 				.then((newDoc) => {
 					newDoc.docs[0].hello = "changed";
 					return d.find({ a: 2 });
@@ -221,8 +225,10 @@ describe("Database", function () {
 		it("CreatedAt field is added and persisted", async () => {
 			{
 				const newDoc = { hello: "world" };
-				d = new Datastore<any>({
+				d = new Datastore<any, any>({
 					ref: testDb,
+					defer: 0,
+					stripDefaults: false,
 					timestampData: true,
 				});
 				const beginning = Date.now();
@@ -240,10 +246,7 @@ describe("Database", function () {
 				insertedDoc.createdAt!.should.equal(insertedDoc.updatedAt);
 				assert.isDefined(insertedDoc._id);
 				Object.keys(insertedDoc).length.should.equal(4);
-				assert.isBelow(
-					Math.abs(insertedDoc.createdAt!.getTime() - beginning),
-					reloadTimeUpperBound
-				);
+				assert.isBelow(Math.abs(insertedDoc.createdAt!.getTime() - beginning), reloadTimeUpperBound);
 				// No more than 30ms should have elapsed (worst case, if there is a flush)
 				// Modifying results of insert doesn't change the cache
 				insertedDoc.bloup = "another";
@@ -285,8 +288,10 @@ describe("Database", function () {
 			};
 
 			const beginning = Date.now();
-			d = new Datastore<any>({
+			d = new Datastore<any, any>({
 				ref: testDb,
+				defer: 0,
+				stripDefaults: false,
 				timestampData: true,
 			});
 
@@ -297,10 +302,7 @@ describe("Database", function () {
 			Object.keys(insertedDoc).length.should.equal(4);
 			insertedDoc.createdAt!.getTime().should.equal(234);
 			// Not modified
-			assert.isBelow(
-				insertedDoc.updatedAt!.getTime() - beginning,
-				reloadTimeUpperBound
-			);
+			assert.isBelow(insertedDoc.updatedAt!.getTime() - beginning, reloadTimeUpperBound);
 			// Created
 			const docs = await d.find({});
 
@@ -319,8 +321,10 @@ describe("Database", function () {
 			};
 
 			const beginning = Date.now();
-			d = new Datastore<any>({
+			d = new Datastore<any, any>({
 				ref: testDb,
+				defer: 0,
+				stripDefaults: false,
 				timestampData: true,
 			});
 			await d.loadDatabase();
@@ -328,10 +332,7 @@ describe("Database", function () {
 			Object.keys(insertedDoc).length.should.equal(4);
 			insertedDoc.updatedAt!.getTime().should.equal(9);
 			// Not modified
-			assert.isBelow(
-				insertedDoc.createdAt!.getTime() - beginning,
-				reloadTimeUpperBound
-			);
+			assert.isBelow(insertedDoc.createdAt!.getTime() - beginning, reloadTimeUpperBound);
 			// Created
 			const docs = await d.find({});
 			assert.deepEqual(insertedDoc, docs[0]);
@@ -560,13 +561,13 @@ describe("Database", function () {
 							assert.isUndefined(doc);
 							// no more mention of the document, correctly removed
 							await d.loadDatabase();
-							let persistedDoc = await d.persistence.data.get(
-								"id1"
-							);
+							let persistedDoc = await d.persistence.data.get("id1");
 							expect(!!persistedDoc).eq(false);
 							// New datastore on same datafile is empty
-							var d2 = new Datastore<any>({
+							var d2 = new Datastore<any, any>({
 								ref: testDb,
+								defer: 0,
+								stripDefaults: false,
 							});
 							await d2.loadDatabase();
 							d2.find({}).then(function (docs) {
@@ -618,12 +619,11 @@ describe("Database", function () {
 				});
 		});
 		it("Document where indexed field is absent or not a date are ignored", async () => {
-
-		 function wait(ms: number) {
-				return new Promise<void>(resolve=>{
-					setTimeout(()=>resolve(),ms);
+			function wait(ms: number) {
+				return new Promise<void>((resolve) => {
+					setTimeout(() => resolve(), ms);
 				});
-			} 
+			}
 
 			await d.ensureIndex({
 				fieldName: "exp",
@@ -644,7 +644,7 @@ describe("Database", function () {
 
 			const docs1 = await d.find({});
 			docs1.length.should.equal(3);
-			await wait(500)
+			await wait(500);
 			const docs2 = await d.find({});
 			docs2.length.should.equal(2);
 			(docs2[0] as any).hello.should.not.equal("world1");
@@ -654,29 +654,26 @@ describe("Database", function () {
 
 	describe("Find", () => {
 		it("Can find all documents if an empty query is used", async () => {
-			await d.insert({ somedata: "ok" });
+			await d.insert({ somedata: "ok" } as any);
 			await d.insert({
 				somedata: "another",
 				plus: "additional data",
 			});
-			await d.insert({ somedata: "again" });
+			await d.insert({ somedata: "again" } as any);
 			const docs = await d.find({});
 			docs.length.should.equal(3);
 			_.pluck(docs, "somedata").should.contain("ok");
 			_.pluck(docs, "somedata").should.contain("another");
-			_.find(
-				docs,
-				({ somedata }) => somedata === "another"
-			).plus.should.equal("additional data");
+			_.find(docs, ({ somedata }) => somedata === "another").plus.should.equal("additional data");
 			_.pluck(docs, "somedata").should.contain("again");
 		});
 		it("Can find all documents matching a basic query", async () => {
-			await d.insert({ somedata: "ok" });
+			await d.insert({ somedata: "ok" } as any);
 			await d.insert({
 				somedata: "again",
 				plus: "additional data",
 			});
-			await d.insert({ somedata: "again" });
+			await d.insert({ somedata: "again" } as any);
 			const docs = await d.find({ somedata: "again" });
 			docs.length.should.equal(2);
 			_.pluck(docs, "somedata").should.not.contain("ok");
@@ -688,19 +685,19 @@ describe("Database", function () {
 			const date2 = new Date(9999);
 			d.insert({
 				now: date1,
-				sth: { name: "nedb" },
+				sth: { name: "xwebdb" },
 			})
 				.then(() => d.find({ now: date1 }))
 				.then((docs) => {
-					(docs[0] as any).sth.name.should.equal("nedb");
+					(docs[0] as any).sth.name.should.equal("xwebdb");
 					return d.find({ now: date2 });
 				})
 				.then((docs) => {
 					assert.isEmpty(docs);
-					return d.find({ sth: { name: "nedb" } });
+					return d.find({ sth: { name: "xwebdb" } });
 				})
 				.then((docs) => {
-					(docs[0] as any).sth.name.should.equal("nedb");
+					(docs[0] as any).sth.name.should.equal("xwebdb");
 					return d.find({ sth: { name: "other" } });
 				})
 				.then((docs) => {
@@ -813,9 +810,7 @@ describe("Database", function () {
 			(await d.count({ somedata: "ok" })).should.equal(1);
 			(await d.count({ somedata: "x" })).should.equal(0);
 			(await d.count({ somedata: { $eq: "again" } })).should.equal(2);
-			(
-				await d.count({ somedata: { $in: ["again", "ok"] } })
-			).should.equal(3);
+			(await d.count({ somedata: { $in: ["again", "ok"] } })).should.equal(3);
 		});
 		it("Array fields match if any element matches", (done) => {
 			d.insert({
@@ -862,11 +857,7 @@ describe("Database", function () {
 				plus: "additional data",
 			});
 			await d.insert({ somedata: "again" });
-			const n = await d.update(
-				{ somedata: "nope" },
-				{ newDoc: "yes" },
-				{ multi: true }
-			);
+			const n = await d.update({ somedata: "nope" }, { newDoc: "yes" }, { multi: true });
 			n.docs.length.should.equal(0);
 
 			const docs = await d.find({});
@@ -891,56 +882,34 @@ describe("Database", function () {
 		});
 		it("Update the updatedAt field", (done) => {
 			const beginning = Date.now();
-			d = new Datastore<any>({
+			d = new Datastore<any, any>({
 				ref: testDb,
+				defer: 0,
+				stripDefaults: false,
 				timestampData: true,
 			});
 			d.loadDatabase()
 				.then(() => d.insert({ hello: "world" }))
 				.then((res) => {
 					const insertedDoc = res.docs[0];
-					assert.isBelow(
-						insertedDoc.updatedAt!.getTime() - beginning,
-						reloadTimeUpperBound
-					);
-					assert.isBelow(
-						insertedDoc.createdAt!.getTime() - beginning,
-						reloadTimeUpperBound
-					);
+					assert.isBelow(insertedDoc.updatedAt!.getTime() - beginning, reloadTimeUpperBound);
+					assert.isBelow(insertedDoc.createdAt!.getTime() - beginning, reloadTimeUpperBound);
 					Object.keys(insertedDoc).length.should.equal(4);
 					// Wait 100ms before performing the update
 					setTimeout(() => {
 						const step1 = Date.now();
 						return d
-							.update(
-								{ _id: insertedDoc._id },
-								{ $set: { hello: "mars" } },
-								{}
-							)
+							.update({ _id: insertedDoc._id }, { $set: { hello: "mars" } }, {})
 							.then(() => d.find({ _id: insertedDoc._id }))
 							.then((docs) => {
 								docs.length.should.equal(1);
-								Object.keys(docs[0] as any).length.should.equal(
-									4
-								);
-								(docs[0] as any)._id.should.equal(
-									insertedDoc._id
-								);
-								(docs[0] as any).createdAt.should.equal(
-									insertedDoc.createdAt
-								);
+								Object.keys(docs[0] as any).length.should.equal(4);
+								(docs[0] as any)._id.should.equal(insertedDoc._id);
+								(docs[0] as any).createdAt.should.equal(insertedDoc.createdAt);
 								(docs[0] as any).hello.should.equal("mars");
-								assert.isAbove(
-									(docs[0] as any).updatedAt.getTime() -
-										beginning,
-									99
-								);
+								assert.isAbove((docs[0] as any).updatedAt.getTime() - beginning, 99);
 								// updatedAt modified
-								assert.isBelow(
-									(docs[0] as any).updatedAt.getTime() -
-										step1,
-									reloadTimeUpperBound
-								);
+								assert.isBelow((docs[0] as any).updatedAt.getTime() - step1, reloadTimeUpperBound);
 								// updatedAt modified
 								done();
 							});
@@ -958,11 +927,7 @@ describe("Database", function () {
 			(await d.count({ a: 0 })).should.equal(3);
 			(await d.count({ c: "n" })).should.equal(0);
 			(await d.count({ b: 2 })).should.equal(3);
-			await d.update(
-				{ a: 0 },
-				{ $set: { c: "n", b: 10 } },
-				{ multi: true }
-			);
+			await d.update({ a: 0 }, { $set: { c: "n", b: 10 } }, { multi: true });
 			(await d.count({ a: 0 })).should.equal(3);
 			(await d.count({ c: "n" })).should.equal(3);
 			(await d.count({ b: 2 })).should.equal(0);
@@ -982,11 +947,7 @@ describe("Database", function () {
 					assert.isEmpty(u.docs);
 				}
 				{
-					const update = await d.update(
-						{},
-						{ a: "x", $setOnInsert: { a: "x" } },
-						{ upsert: true }
-					);
+					const update = await d.update({}, { a: "x", $setOnInsert: { a: "x" } }, { upsert: true });
 					update.upsert.should.equal(true);
 					update.number.should.equal(1);
 					assert.isNotEmpty(update.docs);
@@ -1052,12 +1013,7 @@ describe("Database", function () {
 			it("Performing upsert without $setOnInsert yields a standard error not an exception", async () => {
 				expect(
 					await rejected(
-						async () =>
-							await d.update(
-								{ _id: "1234" },
-								{ $set: { $$badfield: 5 } },
-								{ upsert: true }
-							)
+						async () => await d.update({ _id: "1234" }, { $set: { $$badfield: 5 } }, { upsert: true })
 					)
 				).to.eq(true);
 			});
@@ -1066,26 +1022,12 @@ describe("Database", function () {
 		it("Cannot perform update if the update query is not either registered-modifiers-only or copy-only, or contain badly formatted fields", async () => {
 			await d.insert({ something: "yup" });
 
-			expect(
-				await rejected(
-					async () =>
-						await d.update(
-							{},
-							{ boom: { $badfield: 5 } },
-							{ multi: false }
-						)
-				)
-			).to.eq(true);
+			expect(await rejected(async () => await d.update({}, { boom: { $badfield: 5 } }, { multi: false }))).to.eq(
+				true
+			);
 
 			expect(
-				await rejected(
-					async () =>
-						await d.update(
-							{},
-							{ boom: { "bad.field": 5 } },
-							{ multi: false }
-						)
-				)
+				await rejected(async () => await d.update({}, { boom: { "bad.field": 5 } }, { multi: false }))
 			).to.eq(true);
 
 			expect(
@@ -1103,14 +1045,7 @@ describe("Database", function () {
 			).to.eq(true);
 
 			expect(
-				await rejected(
-					async () =>
-						await d.update(
-							{},
-							{ $inexistent: { test: 5 } },
-							{ multi: false }
-						)
-				)
+				await rejected(async () => await d.update({}, { $inexistent: { test: 5 } }, { multi: false }))
 			).to.eq(true);
 		});
 		it("Can update documents using multiple modifiers", async () => {
@@ -1172,20 +1107,13 @@ describe("Database", function () {
 		it("Returns an error if the query is not well formed", async () => {
 			await d.insert({ hello: "world" });
 
-			expect(
-				await rejected(
-					async () =>
-						await d.update(
-							{ $or: { hello: "world" } },
-							{ a: 1 },
-							{}
-						)
-				)
-			).to.eq(true);
+			expect(await rejected(async () => await d.update({ $or: { hello: "world" } }, { a: 1 }, {}))).to.eq(true);
 		});
 		it("If an error is thrown by a modifier, the database state is not changed", async () => {
-			const db = new Datastore<any>({
+			const db = new Datastore<any, any>({
 				ref: testDb,
+				defer: 0,
+				stripDefaults: false,
 				timestampData: true,
 			});
 			db.loadDatabase();
@@ -1193,11 +1121,7 @@ describe("Database", function () {
 			const res = await db.insert({ hello: "world" });
 			const updatedAt = res.docs[0].updatedAt;
 			const _id = res.docs[0]._id;
-			expect(
-				await rejected(
-					async () => await db.update({}, { $inc: { hello: 4 } }, {})
-				)
-			).to.eq(true);
+			expect(await rejected(async () => await db.update({}, { $inc: { hello: 4 } }, {}))).to.eq(true);
 			const doc2 = (await db.find({}))[0];
 			assert.isDefined(doc2);
 			doc2.updatedAt.should.equal(updatedAt);
@@ -1221,12 +1145,7 @@ describe("Database", function () {
 				)
 			).to.eq(true);
 
-			expect(
-				await rejected(
-					async () =>
-						await d.update({ a: 2 }, { $set: { _id: "nope" } }, {})
-				)
-			).to.eq(true);
+			expect(await rejected(async () => await d.update({ a: 2 }, { $set: { _id: "nope" } }, {}))).to.eq(true);
 
 			const doc: any = (await d.find({}))[0];
 			doc._id.should.equal(_id);
@@ -1362,8 +1281,10 @@ describe("Database", function () {
 			b3.docs[0].b.should.equal(1);
 		});
 		it("createdAt property is unchanged and updatedAt correct after an update, even a complete document replacement", async () => {
-			const d2 = new Datastore<any>({
+			const d2 = new Datastore<any, any>({
 				ref: testDb,
+				defer: 0,
+				stripDefaults: false,
 				timestampData: true,
 			});
 			await d2.loadDatabase();
@@ -1400,9 +1321,7 @@ describe("Database", function () {
 			await d.insert({ a: 10 });
 
 			(await d.find({})).length.should.equal(10);
-			(
-				await d.remove({ a: { $lte: 5 } }, { multi: true })
-			).number.should.equal(5);
+			(await d.remove({ a: { $lte: 5 } }, { multi: true })).number.should.equal(5);
 			(await d.find({})).length.should.equal(5);
 			(await d.find({ a: { $lte: 5 } })).length.should.equal(0);
 			(await d.find({ a: 1 })).length.should.equal(0);
@@ -1416,9 +1335,7 @@ describe("Database", function () {
 			(await d.find({ a: 8 })).length.should.equal(1);
 			(await d.find({ a: 9 })).length.should.equal(1);
 			(await d.find({ a: 10 })).length.should.equal(1);
-			(
-				await d.remove({ a: { $gt: 5 } }, { multi: true })
-			).number.should.equal(5);
+			(await d.remove({ a: { $gt: 5 } }, { multi: true })).number.should.equal(5);
 			(await d.find({})).length.should.equal(0);
 			(await d.find({ a: { $lte: 5 } })).length.should.equal(0);
 			(await d.find({ a: 1 })).length.should.equal(0);
@@ -1466,15 +1383,9 @@ describe("Database", function () {
 		});
 		it("Returns an error if the query is not well formed", async () => {
 			await d.insert({ hello: "world" });
-			expect(
-				await rejected(
-					async () =>
-						await d.remove(
-							{ $or: { hello: "world" } },
-							{ multi: true }
-						)
-				)
-			).to.eq(true);
+			expect(await rejected(async () => await d.remove({ $or: { hello: "world" } }, { multi: true }))).to.eq(
+				true
+			);
 		});
 		it("Non-multi removes are persistent", async () => {
 			await d.insert({ a: "x" });
@@ -1542,15 +1453,9 @@ describe("Database", function () {
 				d.indexes.z.unique.should.equal(false);
 				d.indexes.z.sparse.should.equal(false);
 				d.indexes.z.tree.numberOfKeys.should.equal(3);
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(
-					d.getAllData()[0]
-				);
-				(d.indexes.z.tree.get("2")[0] as any).should.equal(
-					d.getAllData()[1]
-				);
-				(d.indexes.z.tree.get("3")[0] as any).should.equal(
-					d.getAllData()[2]
-				);
+				(d.indexes.z.tree.get("1")[0] as any).should.equal(d.getAllData()[0]);
+				(d.indexes.z.tree.get("2")[0] as any).should.equal(d.getAllData()[1]);
+				(d.indexes.z.tree.get("3")[0] as any).should.equal(d.getAllData()[2]);
 			});
 			it("ensureIndex can be called twice on the same field, the second call will ahve no effect", (done) => {
 				Object.keys(d.indexes).length.should.equal(1);
@@ -1562,30 +1467,16 @@ describe("Database", function () {
 							d.ensureIndex({ fieldName: "planet" }).then(() => {
 								Object.keys(d.indexes).length.should.equal(2);
 								Object.keys(d.indexes)[0].should.equal("_id");
-								Object.keys(d.indexes)[1].should.equal(
-									"planet"
-								);
-								d.indexes.planet
-									.getAll()
-									.length.should.equal(2);
+								Object.keys(d.indexes)[1].should.equal("planet");
+								d.indexes.planet.getAll().length.should.equal(2);
 								// This second call has no effect, documents don't get inserted twice in the index
-								d.ensureIndex({ fieldName: "planet" }).then(
-									() => {
-										Object.keys(
-											d.indexes
-										).length.should.equal(2);
-										Object.keys(d.indexes)[0].should.equal(
-											"_id"
-										);
-										Object.keys(d.indexes)[1].should.equal(
-											"planet"
-										);
-										d.indexes.planet
-											.getAll()
-											.length.should.equal(2);
-										done();
-									}
-								);
+								d.ensureIndex({ fieldName: "planet" }).then(() => {
+									Object.keys(d.indexes).length.should.equal(2);
+									Object.keys(d.indexes)[0].should.equal("_id");
+									Object.keys(d.indexes)[1].should.equal("planet");
+									d.indexes.planet.getAll().length.should.equal(2);
+									done();
+								});
 							});
 						});
 					});
@@ -1632,15 +1523,9 @@ describe("Database", function () {
 				d.indexes.z.sparse.should.equal(false);
 				d.indexes.z.tree.numberOfKeys.should.equal(3);
 				// The pointers in the _id and z indexes are the same
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(
-					d.indexes._id.getMatching("aaa")[0]
-				);
-				(d.indexes.z.tree.get("12")[0] as any).should.equal(
-					d.indexes._id.getMatching(newDoc1._id!)[0]
-				);
-				(d.indexes.z.tree.get("14")[0] as any).should.equal(
-					d.indexes._id.getMatching(newDoc2._id!)[0]
-				);
+				(d.indexes.z.tree.get("1")[0] as any).should.equal(d.indexes._id.getMatching("aaa")[0]);
+				(d.indexes.z.tree.get("12")[0] as any).should.equal(d.indexes._id.getMatching(newDoc1._id!)[0]);
+				(d.indexes.z.tree.get("14")[0] as any).should.equal(d.indexes._id.getMatching(newDoc2._id!)[0]);
 				// The data in the z index is correct
 				const docs = await d.find({});
 				var doc0 = _.find(docs, function (doc) {
@@ -1738,10 +1623,7 @@ describe("Database", function () {
 
 				for (let index = 0; index < rawData.length; index++) {
 					const element = rawData[index];
-					await d.persistence.writeData(
-						[[model.deserialize(element)._id,
-						element]]
-					);
+					await d.persistence.writeData([[model.deserialize(element)._id, element]]);
 				}
 				d.getAllData().length.should.equal(0);
 
@@ -1761,13 +1643,9 @@ describe("Database", function () {
 				(d.indexes.z.tree.get("2")[0] as any).should.equal(doc2);
 				(d.indexes.z.tree.get("3")[0] as any).should.equal(doc3);
 				d.indexes.a.tree.numberOfKeys.should.equal(3);
-				(d.indexes.a.tree.get(2 as any)[0] as any).should.equal(
-					doc1
-				);
+				(d.indexes.a.tree.get(2 as any)[0] as any).should.equal(doc1);
 				(d.indexes.a.tree.get("world")[0] as any).should.equal(doc2);
-				(
-					d.indexes.a.tree.get({ today: now } as any)[0] as any
-				).should.equal(doc3);
+				(d.indexes.a.tree.get({ today: now } as any)[0] as any).should.equal(doc3);
 			});
 			it("If a unique constraint is not respected, database loading will throw but the valid data will be still be usable", async () => {
 				const now = new Date();
@@ -1797,9 +1675,7 @@ describe("Database", function () {
 				});
 
 				d.indexes.z.tree.numberOfKeys.should.equal(0);
-				expect(await rejected(async () => await d.loadDatabase())).eq(
-					true
-				);
+				expect(await rejected(async () => await d.loadDatabase())).eq(true);
 				d.getAllData().length.should.equal(2);
 				d.indexes.z.tree.numberOfKeys.should.equal(2);
 			});
@@ -1851,10 +1727,7 @@ describe("Database", function () {
 				})
 					.then((newDoc) => {
 						d.indexes.z.tree.numberOfKeys.should.equal(1);
-						assert.deepEqual(
-							d.indexes.z.getMatching("yes"),
-							newDoc.docs
-						);
+						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 						return d.insert({
 							a: 5,
 							z: "nope",
@@ -1862,10 +1735,7 @@ describe("Database", function () {
 					})
 					.then((newDoc) => {
 						d.indexes.z.tree.numberOfKeys.should.equal(2);
-						assert.deepEqual(
-							d.indexes.z.getMatching("nope"),
-							newDoc.docs
-						);
+						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc.docs);
 						done();
 					});
 			});
@@ -1881,14 +1751,8 @@ describe("Database", function () {
 					.then((newDoc) => {
 						d.indexes.z.tree.numberOfKeys.should.equal(1);
 						d.indexes.ya.tree.numberOfKeys.should.equal(1);
-						assert.deepEqual(
-							d.indexes.z.getMatching("yes"),
-							newDoc.docs
-						);
-						assert.deepEqual(
-							d.indexes.ya.getMatching("indeed"),
-							newDoc.docs
-						);
+						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
+						assert.deepEqual(d.indexes.ya.getMatching("indeed"), newDoc.docs);
 						return d.insert({
 							a: 5,
 							z: "nope",
@@ -1898,14 +1762,8 @@ describe("Database", function () {
 					.then((newDoc2) => {
 						d.indexes.z.tree.numberOfKeys.should.equal(2);
 						d.indexes.ya.tree.numberOfKeys.should.equal(2);
-						assert.deepEqual(
-							d.indexes.z.getMatching("nope"),
-							newDoc2.docs
-						);
-						assert.deepEqual(
-							d.indexes.ya.getMatching("sure"),
-							newDoc2.docs
-						);
+						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc2.docs);
+						assert.deepEqual(d.indexes.ya.getMatching("sure"), newDoc2.docs);
 						done();
 					});
 			});
@@ -1917,19 +1775,13 @@ describe("Database", function () {
 					z: "yes",
 				}).then((newDoc) => {
 					d.indexes.z.tree.numberOfKeys.should.equal(1);
-					assert.deepEqual(
-						d.indexes.z.getMatching("yes"),
-						newDoc.docs
-					);
+					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 					d.insert({
 						a: 5,
 						z: "yes",
 					}).then((newDoc2) => {
 						d.indexes.z.tree.numberOfKeys.should.equal(1);
-						assert.deepEqual(d.indexes.z.getMatching("yes"), [
-							newDoc.docs[0],
-							newDoc2.docs[0],
-						]);
+						assert.deepEqual(d.indexes.z.getMatching("yes"), [newDoc.docs[0], newDoc2.docs[0]]);
 						done();
 					});
 				});
@@ -1945,10 +1797,7 @@ describe("Database", function () {
 					z: "yes",
 				}).then((newDoc) => {
 					d.indexes.z.tree.numberOfKeys.should.equal(1);
-					assert.deepEqual(
-						d.indexes.z.getMatching("yes"),
-						newDoc.docs
-					);
+					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 					rejected(() =>
 						d.insert({
 							a: 5,
@@ -1958,10 +1807,7 @@ describe("Database", function () {
 						expect(res).eq(true);
 						// Index didn't change
 						d.indexes.z.tree.numberOfKeys.should.equal(1);
-						assert.deepEqual(
-							d.indexes.z.getMatching("yes"),
-							newDoc.docs
-						);
+						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 						// Data didn't change
 						assert.deepEqual(d.getAllData(), newDoc.docs);
 						d.loadDatabase().then(() => {
@@ -2001,18 +1847,9 @@ describe("Database", function () {
 				d.indexes.nonu1.tree.numberOfKeys.should.equal(1);
 				d.indexes.uni.tree.numberOfKeys.should.equal(1);
 				d.indexes.nonu2.tree.numberOfKeys.should.equal(1);
-				assert.deepEqual(
-					d.indexes.nonu1.getMatching("yes"),
-					newDoc.docs
-				);
-				assert.deepEqual(
-					d.indexes.uni.getMatching("willfail"),
-					newDoc.docs
-				);
-				assert.deepEqual(
-					d.indexes.nonu2.getMatching("yes2"),
-					newDoc.docs
-				);
+				assert.deepEqual(d.indexes.nonu1.getMatching("yes"), newDoc.docs);
+				assert.deepEqual(d.indexes.uni.getMatching("willfail"), newDoc.docs);
+				assert.deepEqual(d.indexes.nonu2.getMatching("yes2"), newDoc.docs);
 			});
 			it("Unique indexes prevent you from inserting two docs where the field is undefined except if they're sparse", async () => {
 				await d.ensureIndex({
@@ -2025,10 +1862,7 @@ describe("Database", function () {
 					z: "yes",
 				});
 				d.indexes.zzz.tree.numberOfKeys.should.equal(1);
-				assert.deepEqual(
-					d.indexes.zzz.getMatching(undefined as any),
-					newDoc.docs
-				);
+				assert.deepEqual(d.indexes.zzz.getMatching(undefined as any), newDoc.docs);
 				expect(
 					await rejected(() =>
 						d.insert({
@@ -2093,26 +1927,14 @@ describe("Database", function () {
 						d.find({}).then(function (docs) {
 							docs.length.should.equal(2);
 							d.getAllData().length.should.equal(2);
-							d.indexes._id
-								.getMatching(doc1._id!)
-								.length.should.equal(1);
-							d.indexes.a
-								.getMatching(1 as any)
-								.length.should.equal(1);
-							(
-								d.indexes._id.getMatching(doc1._id!)[0] as any
-							).should.equal(
+							d.indexes._id.getMatching(doc1._id!).length.should.equal(1);
+							d.indexes.a.getMatching(1 as any).length.should.equal(1);
+							(d.indexes._id.getMatching(doc1._id!)[0] as any).should.equal(
 								d.indexes.a.getMatching(1 as any)[0]
 							);
-							d.indexes._id
-								.getMatching(doc2._id!)
-								.length.should.equal(1);
-							d.indexes.a
-								.getMatching(2 as any)
-								.length.should.equal(1);
-							(
-								d.indexes._id.getMatching(doc2._id!)[0] as any
-							).should.equal(
+							d.indexes._id.getMatching(doc2._id!).length.should.equal(1);
+							d.indexes.a.getMatching(2 as any).length.should.equal(1);
+							(d.indexes._id.getMatching(doc2._id!)[0] as any).should.equal(
 								d.indexes.a.getMatching(2 as any)[0]
 							);
 							done();
@@ -2143,9 +1965,7 @@ describe("Database", function () {
 				d.getAllData().length.should.equal(1);
 				d.indexes._id.getMatching(_id).length.should.equal(1);
 				d.indexes.a.getMatching(1 as any).length.should.equal(1);
-				(d.indexes._id.getMatching(_id)[0] as any).should.equal(
-					d.indexes.a.getMatching(1 as any)[0]
-				);
+				(d.indexes._id.getMatching(_id)[0] as any).should.equal(d.indexes.a.getMatching(1 as any)[0]);
 				d.indexes.a.getMatching(2 as any).length.should.equal(0);
 			});
 		});
@@ -2253,56 +2073,26 @@ describe("Database", function () {
 						)
 							.then(function (nr) {
 								nr.number.should.equal(1);
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(2);
-								(
-									d.indexes.a.getMatching(
-										456 as any
-									)[0] as any
-								)._id.should.equal(doc1._id);
-								(
-									d.indexes.a.getMatching(2 as any)[0] as any
-								)._id.should.equal(doc2._id);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(2);
-								(
-									d.indexes.b.getMatching("no")[0] as any
-								)._id.should.equal(doc1._id);
-								(
-									d.indexes.b.getMatching("si")[0] as any
-								)._id.should.equal(doc2._id);
+								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								(d.indexes.a.getMatching(456 as any)[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
+								d.indexes.b.tree.numberOfKeys.should.equal(2);
+								(d.indexes.b.getMatching("no")[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
 								// The same pointers are shared between all indexes
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(2);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(2);
-								d.indexes._id.tree
-									.numberOfKeys
-									.should.equal(2);
-								(
-									d.indexes.a.getMatching(
-										456 as any
-									)[0] as any
-								).should.equal(
+								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								d.indexes.b.tree.numberOfKeys.should.equal(2);
+								d.indexes._id.tree.numberOfKeys.should.equal(2);
+								(d.indexes.a.getMatching(456 as any)[0] as any).should.equal(
 									d.indexes._id.getMatching(doc1._id!)[0]
 								);
-								(
-									d.indexes.b.getMatching("no")[0] as any
-								).should.equal(
+								(d.indexes.b.getMatching("no")[0] as any).should.equal(
 									d.indexes._id.getMatching(doc1._id!)[0]
 								);
-								(
-									d.indexes.a.getMatching(2 as any)[0] as any
-								).should.equal(
+								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(
 									d.indexes._id.getMatching(doc2._id!)[0]
 								);
-								(
-									d.indexes.b.getMatching("si")[0] as any
-								).should.equal(
+								(d.indexes.b.getMatching("si")[0] as any).should.equal(
 									d.indexes._id.getMatching(doc2._id!)[0]
 								);
 								return d.update(
@@ -2316,52 +2106,22 @@ describe("Database", function () {
 							})
 							.then(function (nr) {
 								nr.number.should.equal(2);
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(2);
-								(
-									d.indexes.a.getMatching(
-										466 as any
-									)[0] as any
-								)._id.should.equal(doc1._id);
-								(
-									d.indexes.a.getMatching(12 as any)[0] as any
-								)._id.should.equal(doc2._id);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(1);
-								d.indexes.b
-									.getMatching("same")
-									.length.should.equal(2);
-								_.pluck(
-									d.indexes.b.getMatching("same"),
-									"_id"
-								).should.contain(doc1._id);
-								_.pluck(
-									d.indexes.b.getMatching("same"),
-									"_id"
-								).should.contain(doc2._id);
+								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								(d.indexes.a.getMatching(466 as any)[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.a.getMatching(12 as any)[0] as any)._id.should.equal(doc2._id);
+								d.indexes.b.tree.numberOfKeys.should.equal(1);
+								d.indexes.b.getMatching("same").length.should.equal(2);
+								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc1._id);
+								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc2._id);
 								// The same pointers are shared between all indexes
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(2);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(1);
+								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								d.indexes.b.tree.numberOfKeys.should.equal(1);
 								d.indexes.b.getAll().length.should.equal(2);
-								d.indexes._id.tree
-									.numberOfKeys
-									.should.equal(2);
-								(
-									d.indexes.a.getMatching(
-										466 as any
-									)[0] as any
-								).should.equal(
+								d.indexes._id.tree.numberOfKeys.should.equal(2);
+								(d.indexes.a.getMatching(466 as any)[0] as any).should.equal(
 									d.indexes._id.getMatching(doc1._id!)[0]
 								);
-								(
-									d.indexes.a.getMatching(12 as any)[0] as any
-								).should.equal(
+								(d.indexes.a.getMatching(12 as any)[0] as any).should.equal(
 									d.indexes._id.getMatching(doc2._id!)[0]
 								);
 								// Can't test the pointers in b as their order is randomized, but it is the same as with a
@@ -2447,48 +2207,18 @@ describe("Database", function () {
 									_id: _doc3._id,
 								});
 								// All indexes left unchanged and pointing to the same docs
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.a.getMatching(1 as any)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.a.getMatching(2 as any)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.a.getMatching(3 as any)[0] as any
-								).should.equal(doc3);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.b.getMatching(10 as any)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.b.getMatching(20 as any)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.b.getMatching(30 as any)[0] as any
-								).should.equal(doc3);
-								d.indexes.c.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.c.getMatching(
-										100 as any
-									)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.c.getMatching(
-										200 as any
-									)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.c.getMatching(
-										300 as any
-									)[0] as any
-								).should.equal(doc3);
+								d.indexes.a.tree.numberOfKeys.should.equal(3);
+								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
+								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
+								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
+								d.indexes.b.tree.numberOfKeys.should.equal(3);
+								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
+								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
+								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
+								d.indexes.c.tree.numberOfKeys.should.equal(3);
+								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
+								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
+								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
 								done();
 							});
 						});
@@ -2576,48 +2306,18 @@ describe("Database", function () {
 									_id: _doc3._id,
 								});
 								// All indexes left unchanged and pointing to the same docs
-								d.indexes.a.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.a.getMatching(1 as any)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.a.getMatching(2 as any)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.a.getMatching(3 as any)[0] as any
-								).should.equal(doc3);
-								d.indexes.b.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.b.getMatching(10 as any)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.b.getMatching(20 as any)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.b.getMatching(30 as any)[0] as any
-								).should.equal(doc3);
-								d.indexes.c.tree
-									.numberOfKeys
-									.should.equal(3);
-								(
-									d.indexes.c.getMatching(
-										100 as any
-									)[0] as any
-								).should.equal(doc1);
-								(
-									d.indexes.c.getMatching(
-										200 as any
-									)[0] as any
-								).should.equal(doc2);
-								(
-									d.indexes.c.getMatching(
-										300 as any
-									)[0] as any
-								).should.equal(doc3);
+								d.indexes.a.tree.numberOfKeys.should.equal(3);
+								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
+								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
+								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
+								d.indexes.b.tree.numberOfKeys.should.equal(3);
+								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
+								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
+								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
+								d.indexes.c.tree.numberOfKeys.should.equal(3);
+								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
+								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
+								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
 								done();
 							});
 						});
@@ -2711,79 +2411,35 @@ describe("Database", function () {
 							d.remove({ a: 1 })
 								.then(function (nr) {
 									nr.number.should.equal(1);
-									d.indexes.a.tree
-										.numberOfKeys
-										.should.equal(2);
-									(
-										d.indexes.a.getMatching(
-											2 as any
-										)[0] as any
-									)._id.should.equal(doc2._id);
-									(
-										d.indexes.a.getMatching(
-											3 as any
-										)[0] as any
-									)._id.should.equal(doc3._id);
-									d.indexes.b.tree
-										.numberOfKeys
-										.should.equal(2);
-									(
-										d.indexes.b.getMatching("si")[0] as any
-									)._id.should.equal(doc2._id);
-									(
-										d.indexes.b.getMatching(
-											"coin"
-										)[0] as any
-									)._id.should.equal(doc3._id);
+									d.indexes.a.tree.numberOfKeys.should.equal(2);
+									(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
+									(d.indexes.a.getMatching(3 as any)[0] as any)._id.should.equal(doc3._id);
+									d.indexes.b.tree.numberOfKeys.should.equal(2);
+									(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
+									(d.indexes.b.getMatching("coin")[0] as any)._id.should.equal(doc3._id);
 									// The same pointers are shared between all indexes
-									d.indexes.a.tree
-										.numberOfKeys
-										.should.equal(2);
-									d.indexes.b.tree
-										.numberOfKeys
-										.should.equal(2);
-									d.indexes._id.tree
-										.numberOfKeys
-										.should.equal(2);
-									(
-										d.indexes.a.getMatching(
-											2 as any
-										)[0] as any
-									).should.equal(
+									d.indexes.a.tree.numberOfKeys.should.equal(2);
+									d.indexes.b.tree.numberOfKeys.should.equal(2);
+									d.indexes._id.tree.numberOfKeys.should.equal(2);
+									(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(
 										d.indexes._id.getMatching(doc2._id!)[0]
 									);
-									(
-										d.indexes.b.getMatching("si")[0] as any
-									).should.equal(
+									(d.indexes.b.getMatching("si")[0] as any).should.equal(
 										d.indexes._id.getMatching(doc2._id!)[0]
 									);
-									(
-										d.indexes.a.getMatching(
-											3 as any
-										)[0] as any
-									).should.equal(
+									(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(
 										d.indexes._id.getMatching(doc3._id!)[0]
 									);
-									(
-										d.indexes.b.getMatching(
-											"coin"
-										)[0] as any
-									).should.equal(
+									(d.indexes.b.getMatching("coin")[0] as any).should.equal(
 										d.indexes._id.getMatching(doc3._id!)[0]
 									);
 									return d.remove({}, { multi: true });
 								})
 								.then(function (nr) {
 									nr.number.should.equal(2);
-									d.indexes.a.tree
-										.numberOfKeys
-										.should.equal(0);
-									d.indexes.b.tree
-										.numberOfKeys
-										.should.equal(0);
-									d.indexes._id.tree
-										.numberOfKeys
-										.should.equal(0);
+									d.indexes.a.tree.numberOfKeys.should.equal(0);
+									d.indexes.b.tree.numberOfKeys.should.equal(0);
+									d.indexes._id.tree.numberOfKeys.should.equal(0);
 									done();
 								});
 						});
@@ -2793,85 +2449,53 @@ describe("Database", function () {
 		describe("Persisting indexes", function () {
 			it("Indexes are persisted to a separate file and recreated upon reload", function (done) {
 				var persDb = testDb;
-				let db = new Datastore<any>({
+				let db = new Datastore<any, any>({
 					ref: persDb,
+					defer: 0,
+					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
 					Object.keys(db.indexes)[0].should.equal("_id");
 					db.insert({ planet: "Earth" }).then(function () {
 						db.insert({ planet: "Mars" }).then(function () {
-							db.ensureIndex({ fieldName: "planet" }).then(
-								function () {
-									Object.keys(db.indexes).length.should.equal(
-										2
-									);
-									Object.keys(db.indexes)[0].should.equal(
-										"_id"
-									);
-									Object.keys(db.indexes)[1].should.equal(
-										"planet"
-									);
-									db.indexes._id
-										.getAll()
-										.length.should.equal(2);
-									db.indexes.planet
-										.getAll()
-										.length.should.equal(2);
-									db.indexes.planet.fieldName.should.equal(
-										"planet"
-									);
-									// After a reload the indexes are recreated
-									db = new Datastore<any>({
+							db.ensureIndex({ fieldName: "planet" }).then(function () {
+								Object.keys(db.indexes).length.should.equal(2);
+								Object.keys(db.indexes)[0].should.equal("_id");
+								Object.keys(db.indexes)[1].should.equal("planet");
+								db.indexes._id.getAll().length.should.equal(2);
+								db.indexes.planet.getAll().length.should.equal(2);
+								db.indexes.planet.fieldName.should.equal("planet");
+								// After a reload the indexes are recreated
+								db = new Datastore<any, any>({
+									ref: persDb,
+									defer: 0,
+									stripDefaults: false,
+								});
+								db.loadDatabase().then(function () {
+									Object.keys(db.indexes).length.should.equal(2);
+									Object.keys(db.indexes)[0].should.equal("_id");
+									Object.keys(db.indexes)[1].should.equal("planet");
+									db.indexes._id.getAll().length.should.equal(2);
+									db.indexes.planet.getAll().length.should.equal(2);
+									db.indexes.planet.fieldName.should.equal("planet");
+									// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
+									db = new Datastore({
 										ref: persDb,
+										defer: 0,
+										stripDefaults: false,
 									});
 									db.loadDatabase().then(function () {
-										Object.keys(
-											db.indexes
-										).length.should.equal(2);
-										Object.keys(db.indexes)[0].should.equal(
-											"_id"
-										);
-										Object.keys(db.indexes)[1].should.equal(
-											"planet"
-										);
-										db.indexes._id
-											.getAll()
-											.length.should.equal(2);
-										db.indexes.planet
-											.getAll()
-											.length.should.equal(2);
-										db.indexes.planet.fieldName.should.equal(
-											"planet"
-										);
-										// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
-										db = new Datastore({
-											ref: persDb,
-										});
-										db.loadDatabase().then(function () {
-											Object.keys(
-												db.indexes
-											).length.should.equal(2);
-											Object.keys(
-												db.indexes
-											)[0].should.equal("_id");
-											Object.keys(
-												db.indexes
-											)[1].should.equal("planet");
-											db.indexes._id
-												.getAll()
-												.length.should.equal(2);
-											db.indexes.planet
-												.getAll()
-												.length.should.equal(2);
-											db.indexes.planet.fieldName.should.equal(
-												"planet"
-											);
-											done();
-										});
+										Object.keys(db.indexes).length.should.equal(2);
+										Object.keys(db.indexes)[0].should.equal("_id");
+										Object.keys(db.indexes)[1].should.equal("planet");
+										db.indexes._id.getAll().length.should.equal(2);
+										db.indexes.planet.getAll().length.should.equal(2);
+										db.indexes.planet.fieldName.should.equal("planet");
+										done();
 									});
-								}
-							);
+								});
+							});
 						});
 					});
 				});
@@ -2880,12 +2504,14 @@ describe("Database", function () {
 				var persDb = testDb;
 				let db = new Datastore({
 					ref: persDb,
+					defer: 0,
+					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
 					Object.keys(db.indexes)[0].should.equal("_id");
-					db.insert({ planet: "Earth" }).then(function () {
-						db.insert({ planet: "Mars" }).then(function () {
+					db.insert({ planet: "Earth" } as any).then(function () {
+						db.insert({ planet: "Mars" } as any).then(function () {
 							db.ensureIndex({
 								fieldName: "planet",
 								unique: true,
@@ -2893,141 +2519,65 @@ describe("Database", function () {
 							}).then(function () {
 								Object.keys(db.indexes).length.should.equal(2);
 								Object.keys(db.indexes)[0].should.equal("_id");
-								Object.keys(db.indexes)[1].should.equal(
-									"planet"
-								);
+								Object.keys(db.indexes)[1].should.equal("planet");
 								db.indexes._id.getAll().length.should.equal(2);
-								db.indexes.planet
-									.getAll()
-									.length.should.equal(2);
+								db.indexes.planet.getAll().length.should.equal(2);
 								db.indexes.planet.unique.should.equal(true);
 								db.indexes.planet.sparse.should.equal(false);
-								db.insert({ planet: "Jupiter" }).then(
-									function () {
-										// After a reload the indexes are recreated
-										db = new Datastore({
-											ref: persDb,
-										});
-										db.loadDatabase().then(function () {
-											Object.keys(
-												db.indexes
-											).length.should.equal(2);
-											Object.keys(
-												db.indexes
-											)[0].should.equal("_id");
-											Object.keys(
-												db.indexes
-											)[1].should.equal("planet");
-											db.indexes._id
-												.getAll()
-												.length.should.equal(3);
-											db.indexes.planet
-												.getAll()
-												.length.should.equal(3);
-											db.indexes.planet.unique.should.equal(
-												true
-											);
-											db.indexes.planet.sparse.should.equal(
-												false
-											);
-											db.ensureIndex({
-												fieldName: "bloup",
-												unique: false,
-												sparse: true,
-											}).then(function (err) {
-												Object.keys(
-													db.indexes
-												).length.should.equal(3);
-												Object.keys(
-													db.indexes
-												)[0].should.equal("_id");
-												Object.keys(
-													db.indexes
-												)[1].should.equal("planet");
-												Object.keys(
-													db.indexes
-												)[2].should.equal("bloup");
-												db.indexes._id
-													.getAll()
-													.length.should.equal(3);
-												db.indexes.planet
-													.getAll()
-													.length.should.equal(3);
-												db.indexes.bloup
-													.getAll()
-													.length.should.equal(0);
-												db.indexes.planet.unique.should.equal(
-													true
-												);
-												db.indexes.planet.sparse.should.equal(
-													false
-												);
-												db.indexes.bloup.unique.should.equal(
-													false
-												);
-												db.indexes.bloup.sparse.should.equal(
-													true
-												);
-												// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
-												db = new Datastore({
-													ref: persDb,
-												});
-												db.loadDatabase().then(
-													function () {
-														Object.keys(
-															db.indexes
-														).length.should.equal(
-															3
-														);
-														Object.keys(
-															db.indexes
-														)[0].should.equal(
-															"_id"
-														);
-														Object.keys(
-															db.indexes
-														)[1].should.equal(
-															"bloup"
-														);
-														Object.keys(
-															db.indexes
-														)[2].should.equal(
-															"planet"
-														);
-														db.indexes._id
-															.getAll()
-															.length.should.equal(
-																3
-															);
-														db.indexes.planet
-															.getAll()
-															.length.should.equal(
-																3
-															);
-														db.indexes.bloup
-															.getAll()
-															.length.should.equal(
-																0
-															);
-														db.indexes.planet.unique.should.equal(
-															true
-														);
-														db.indexes.planet.sparse.should.equal(
-															false
-														);
-														db.indexes.bloup.unique.should.equal(
-															false
-														);
-														db.indexes.bloup.sparse.should.equal(
-															true
-														);
-														done();
-													}
-												);
+								db.insert({ planet: "Jupiter" } as any).then(function () {
+									// After a reload the indexes are recreated
+									db = new Datastore({
+										ref: persDb,
+										defer: 0,
+										stripDefaults: false,
+									});
+									db.loadDatabase().then(function () {
+										Object.keys(db.indexes).length.should.equal(2);
+										Object.keys(db.indexes)[0].should.equal("_id");
+										Object.keys(db.indexes)[1].should.equal("planet");
+										db.indexes._id.getAll().length.should.equal(3);
+										db.indexes.planet.getAll().length.should.equal(3);
+										db.indexes.planet.unique.should.equal(true);
+										db.indexes.planet.sparse.should.equal(false);
+										db.ensureIndex({
+											fieldName: "bloup",
+											unique: false,
+											sparse: true,
+										}).then(function (err) {
+											Object.keys(db.indexes).length.should.equal(3);
+											Object.keys(db.indexes)[0].should.equal("_id");
+											Object.keys(db.indexes)[1].should.equal("planet");
+											Object.keys(db.indexes)[2].should.equal("bloup");
+											db.indexes._id.getAll().length.should.equal(3);
+											db.indexes.planet.getAll().length.should.equal(3);
+											db.indexes.bloup.getAll().length.should.equal(0);
+											db.indexes.planet.unique.should.equal(true);
+											db.indexes.planet.sparse.should.equal(false);
+											db.indexes.bloup.unique.should.equal(false);
+											db.indexes.bloup.sparse.should.equal(true);
+											// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
+											db = new Datastore({
+												ref: persDb,
+												defer: 0,
+												stripDefaults: false,
+											});
+											db.loadDatabase().then(function () {
+												Object.keys(db.indexes).length.should.equal(3);
+												Object.keys(db.indexes)[0].should.equal("_id");
+												Object.keys(db.indexes)[1].should.equal("bloup");
+												Object.keys(db.indexes)[2].should.equal("planet");
+												db.indexes._id.getAll().length.should.equal(3);
+												db.indexes.planet.getAll().length.should.equal(3);
+												db.indexes.bloup.getAll().length.should.equal(0);
+												db.indexes.planet.unique.should.equal(true);
+												db.indexes.planet.sparse.should.equal(false);
+												db.indexes.bloup.unique.should.equal(false);
+												db.indexes.bloup.sparse.should.equal(true);
+												done();
 											});
 										});
-									}
-								);
+									});
+								});
 							});
 						});
 					});
@@ -3037,144 +2587,74 @@ describe("Database", function () {
 				var persDb = testDb;
 				let db = new Datastore({
 					ref: persDb,
+					defer: 0,
+					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
 					Object.keys(db.indexes)[0].should.equal("_id");
-					db.insert({ planet: "Earth" }).then(function () {
-						db.insert({ planet: "Mars" }).then(function () {
-							db.ensureIndex({ fieldName: "planet" }).then(
-								function () {
-									db.ensureIndex({
-										fieldName: "another",
-									}).then(function () {
-										Object.keys(
-											db.indexes
-										).length.should.equal(3);
-										Object.keys(db.indexes)[0].should.equal(
-											"_id"
-										);
-										Object.keys(db.indexes)[1].should.equal(
-											"planet"
-										);
-										Object.keys(db.indexes)[2].should.equal(
-											"another"
-										);
-										db.indexes._id
-											.getAll()
-											.length.should.equal(2);
-										db.indexes.planet
-											.getAll()
-											.length.should.equal(2);
-										db.indexes.planet.fieldName.should.equal(
-											"planet"
-										);
-										// After a reload the indexes are recreated
-										db = new Datastore({
-											ref: persDb,
-										});
-										db.loadDatabase().then(function () {
-											Object.keys(
-												db.indexes
-											).length.should.equal(3);
-											Object.keys(
-												db.indexes
-											)[0].should.equal("_id");
-											Object.keys(
-												db.indexes
-											)[1].should.equal("another");
-											Object.keys(
-												db.indexes
-											)[2].should.equal("planet");
-											db.indexes._id
-												.getAll()
-												.length.should.equal(2);
-											db.indexes.planet
-												.getAll()
-												.length.should.equal(2);
-											db.indexes.planet.fieldName.should.equal(
-												"planet"
-											);
-											// Index is removed
-											db.removeIndex("planet").then(
-												function () {
-													Object.keys(
-														db.indexes
-													).length.should.equal(2);
-													Object.keys(
-														db.indexes
-													)[0].should.equal("_id");
-													Object.keys(
-														db.indexes
-													)[1].should.equal(
-														"another"
-													);
-													db.indexes._id
-														.getAll()
-														.length.should.equal(2);
-													// After a reload indexes are preserved
-													db = new Datastore({
-														ref: persDb,
-													});
-													db.loadDatabase().then(
-														function () {
-															Object.keys(
-																db.indexes
-															).length.should.equal(
-																2
-															);
-															Object.keys(
-																db.indexes
-															)[0].should.equal(
-																"_id"
-															);
-															Object.keys(
-																db.indexes
-															)[1].should.equal(
-																"another"
-															);
-															db.indexes._id
-																.getAll()
-																.length.should.equal(
-																	2
-																);
-															// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
-															db = new Datastore({
-																ref: persDb,
-															});
-															db.loadDatabase().then(
-																function () {
-																	Object.keys(
-																		db.indexes
-																	).length.should.equal(
-																		2
-																	);
-																	Object.keys(
-																		db.indexes
-																	)[0].should.equal(
-																		"_id"
-																	);
-																	Object.keys(
-																		db.indexes
-																	)[1].should.equal(
-																		"another"
-																	);
-																	db.indexes._id
-																		.getAll()
-																		.length.should.equal(
-																			2
-																		);
-																	done();
-																}
-															);
-														}
-													);
-												}
-											);
+					db.insert({ planet: "Earth" } as any).then(function () {
+						db.insert({ planet: "Mars" } as any).then(function () {
+							db.ensureIndex({ fieldName: "planet" }).then(function () {
+								db.ensureIndex({
+									fieldName: "another",
+								}).then(function () {
+									Object.keys(db.indexes).length.should.equal(3);
+									Object.keys(db.indexes)[0].should.equal("_id");
+									Object.keys(db.indexes)[1].should.equal("planet");
+									Object.keys(db.indexes)[2].should.equal("another");
+									db.indexes._id.getAll().length.should.equal(2);
+									db.indexes.planet.getAll().length.should.equal(2);
+									db.indexes.planet.fieldName.should.equal("planet");
+									// After a reload the indexes are recreated
+									db = new Datastore({
+										ref: persDb,
+										defer: 0,
+										stripDefaults: false,
+									});
+									db.loadDatabase().then(function () {
+										Object.keys(db.indexes).length.should.equal(3);
+										Object.keys(db.indexes)[0].should.equal("_id");
+										Object.keys(db.indexes)[1].should.equal("another");
+										Object.keys(db.indexes)[2].should.equal("planet");
+										db.indexes._id.getAll().length.should.equal(2);
+										db.indexes.planet.getAll().length.should.equal(2);
+										db.indexes.planet.fieldName.should.equal("planet");
+										// Index is removed
+										db.removeIndex("planet").then(function () {
+											Object.keys(db.indexes).length.should.equal(2);
+											Object.keys(db.indexes)[0].should.equal("_id");
+											Object.keys(db.indexes)[1].should.equal("another");
+											db.indexes._id.getAll().length.should.equal(2);
+											// After a reload indexes are preserved
+											db = new Datastore({
+												ref: persDb,
+												defer: 0,
+												stripDefaults: false,
+											});
+											db.loadDatabase().then(function () {
+												Object.keys(db.indexes).length.should.equal(2);
+												Object.keys(db.indexes)[0].should.equal("_id");
+												Object.keys(db.indexes)[1].should.equal("another");
+												db.indexes._id.getAll().length.should.equal(2);
+												// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
+												db = new Datastore({
+													ref: persDb,
+													defer: 0,
+													stripDefaults: false,
+												});
+												db.loadDatabase().then(function () {
+													Object.keys(db.indexes).length.should.equal(2);
+													Object.keys(db.indexes)[0].should.equal("_id");
+													Object.keys(db.indexes)[1].should.equal("another");
+													db.indexes._id.getAll().length.should.equal(2);
+													done();
+												});
+											});
 										});
 									});
-								}
-							);
+								});
+							});
 						});
 					});
 				});

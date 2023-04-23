@@ -3,9 +3,7 @@
 <title>Test Suite</title>
 <link rel="stylesheet" href="../node_modules/mocha/mocha.css">
 <body>
-  <div id="mocha"></div>
-  <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-  
+  <div id="mocha"></div>  
   <script src="../node_modules/mocha/mocha.js"></script>
   <script src="../node_modules/chai/chai.js"></script>
   
@@ -28,6 +26,7 @@
     await loadModule("./integration/actions.test.ts");
     await loadModule("./integration/operators.test.ts");
     await loadModule("./integration/sync.test.ts");
+    await loadModule("./integration/live.test.ts");
     mocha.run();
   </script>
 </body>

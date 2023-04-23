@@ -3,15 +3,8 @@
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
 import xwebdb from "../../dist/xwebdb.js";
-import underscore from "../../node_modules/underscore/underscore.js";
-
-const customUtils = xwebdb._internal.customUtils;
-const _: any = underscore;
-const idb: any = (window as any).localforage;
-const { Datastore, modelling: model } = xwebdb._internal;
 const BaseModel = xwebdb.BaseModel;
 const Database = xwebdb.Database;
-const assert = chai.assert;
 const expect = chai.expect;
 
 const testDb = "testdatabase";
@@ -36,7 +29,7 @@ interface Child {
 	toys: Toy[];
 }
 
-class Employee extends BaseModel<Employee> {
+class Employee extends BaseModel {
 	name: string = "";
 	age: number = 9;
 	male: boolean = false;
@@ -56,7 +49,7 @@ class Employee extends BaseModel<Employee> {
 	}
 }
 
-class Simple extends BaseModel<Simple> {
+class Simple extends BaseModel {
 	a: number = 1;
 }
 
