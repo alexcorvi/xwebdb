@@ -12,6 +12,18 @@ export class BaseModel {
 		}
 		return instance;
 	}
+	static stripDefaults<T extends object>(this: new () => T, existingData: T): T {
+		const defaultInstance = JSON.parse(JSON.stringify(new this()));
+		const keys = Object.keys(defaultInstance);
+		const newData: any = {};
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i] as keyof T;
+			const defaultInstanceValue = JSON.parse(JSON.stringify({t:defaultInstance[key]}));
+			const existingDataValue = JSON.parse(JSON.stringify({t:existingData[key]}));
+			if(defaultInstanceValue !== existingDataValue) newData[key] = existingData[key];
+		}
+		return newData;
+	}
 }
 
 type NFPN<T> = {
