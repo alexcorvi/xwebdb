@@ -30,10 +30,10 @@ function checkKey(k: string | number, v: Value) {
 		!(k === "$$indexCreated") &&
 		!(k === "$$indexRemoved")
 	) {
-		throw new Error("Field names cannot begin with the $ character");
+		throw new Error("XWebDB: Field names cannot begin with the $ character");
 	}
 	if (k.indexOf(".") !== -1) {
-		throw new Error("Field names cannot contain a .");
+		throw new Error("XWebDB: Field names cannot contain a .");
 	}
 }
 
@@ -315,7 +315,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 	$mul: function (obj: keyedObjectG<number>, field: string, value: Value) {
 		let base = obj[field];
 		if (typeof value !== "number" || typeof base !== "number") {
-			throw new Error("Multiply operator works only on numbers");
+			throw new Error("XWebDB: Multiply operator works only on numbers");
 		}
 		obj[field] = base * value;
 	},
@@ -337,7 +337,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 		}
 
 		if (!Array.isArray(obj[field])) {
-			throw new Error("Can't $push an element on non-array values");
+			throw new Error("XWebDB: Can't $push an element on non-array values");
 		}
 
 		if (
@@ -372,13 +372,13 @@ const lastStepModifierFunctions: ModifierGroup = {
 					}).length
 				) {
 					throw new Error(
-						"Can only use the modifiers $slice, $position and $sort in conjunction with $each when $push to array"
+						"XWebDB: Can only use the modifiers $slice, $position and $sort in conjunction with $each when $push to array"
 					);
 				}
 			}
 
 			if (!Array.isArray(eachVal)) {
-				throw new Error("$each requires an array value");
+				throw new Error("XWebDB: $each requires an array value");
 			}
 
 			if (posVal) {
@@ -419,7 +419,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 			}
 
 			if (sliceVal !== undefined && typeof sliceVal !== "number") {
-				throw new Error("$slice requires a number value");
+				throw new Error("XWebDB: $slice requires a number value");
 			}
 
 			if (sliceVal === 0) {
@@ -458,7 +458,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 		}
 
 		if (!Array.isArray(obj[field])) {
-			throw new Error("Can't $addToSet an element on non-array values");
+			throw new Error("XWebDB: Can't $addToSet an element on non-array values");
 		}
 
 		const eachVal = (value as unknown as keyedObject)["$each"];
@@ -466,11 +466,11 @@ const lastStepModifierFunctions: ModifierGroup = {
 		if (value !== null && typeof value === "object" && eachVal) {
 			if (Object.keys(value).length > 1) {
 				throw new Error(
-					"Can't use another field in conjunction with $each on $addToSet modifier"
+					"XWebDB: Can't use another field in conjunction with $each on $addToSet modifier"
 				);
 			}
 			if (!Array.isArray(eachVal)) {
-				throw new Error("$each requires an array value");
+				throw new Error("XWebDB: $each requires an array value");
 			}
 
 			eachVal.forEach((v) =>
@@ -496,10 +496,10 @@ const lastStepModifierFunctions: ModifierGroup = {
 	 */
 	$pop: function (obj: keyedObjectG<Value[]>, field: string, value: Value) {
 		if (!Array.isArray(obj[field])) {
-			throw new Error("Can't $pop an element from non-array values");
+			throw new Error("XWebDB: Can't $pop an element from non-array values");
 		}
 		if (typeof value !== "number") {
-			throw new Error(
+			throw new Error("XWebDB: " +
 				value + " isn't an integer, can't use it with $pop"
 			);
 		}
@@ -519,7 +519,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 	 */
 	$pull: function (obj: keyedObjectG<Value[]>, field: string, value: Value) {
 		if (!Array.isArray(obj[field])) {
-			throw new Error("Can't $pull an element from non-array values");
+			throw new Error("XWebDB: Can't $pull an element from non-array values");
 		}
 
 		let arr = obj[field];
@@ -539,7 +539,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 		value: Array<any>
 	) {
 		if (!Array.isArray(obj[field])) {
-			throw new Error("Can't $pull an element from non-array values");
+			throw new Error("XWebDB: Can't $pull an element from non-array values");
 		}
 
 		let arr = obj[field];
@@ -557,7 +557,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 	 */
 	$inc: function (obj: keyedObjectG<number>, field: string, value: Value) {
 		if (typeof value !== "number") {
-			throw new Error(value + " must be a number");
+			throw new Error("XWebDB: "+ value + " must be a number");
 		}
 
 		if (typeof obj[field] !== "number") {
@@ -565,7 +565,7 @@ const lastStepModifierFunctions: ModifierGroup = {
 				obj[field] = value;
 			} else {
 				throw new Error(
-					"Can't use the $inc modifier on non-number fields"
+					"XWebDB: Can't use the $inc modifier on non-number fields"
 				);
 			}
 		} else {
@@ -665,14 +665,14 @@ function modify<G extends { _id?: string }>(
 		keys.indexOf("_id") !== -1 &&
 		(updateQuery as keyedObject)["_id"] !== obj._id
 	) {
-		throw new Error("You cannot change a document's _id");
+		throw new Error("XWebDB: You cannot change a document's _id");
 	}
 
 	if (
 		dollarFirstChars.length !== 0 &&
 		dollarFirstChars.length !== firstChars.length
 	) {
-		throw new Error("You cannot mix modifiers and normal fields");
+		throw new Error("XWebDB: You cannot mix modifiers and normal fields");
 	}
 
 	let newDoc: G;
@@ -691,14 +691,14 @@ function modify<G extends { _id?: string }>(
 			];
 
 			if (!modifierFunctions[modifier]) {
-				throw new Error("Unknown modifier " + modifier);
+				throw new Error("XWebDB: Unknown modifier " + modifier);
 			}
 
 			// Can't rely on Object.keys throwing on non objects since ES6
 			// Not 100% satisfying as non objects can be interpreted as objects but no false negatives so we can live with it
 			if (typeof modArgument !== "object") {
 				throw new Error(
-					"Modifier " + modifier + "'s argument must be an object"
+					"XWebDB: Modifier " + modifier + "'s argument must be an object"
 				);
 			}
 
@@ -713,7 +713,7 @@ function modify<G extends { _id?: string }>(
 	checkObject(newDoc);
 
 	if (obj._id !== newDoc._id) {
-		throw new Error("You can't change a document's _id");
+		throw new Error("XWebDB: You can't change a document's _id");
 	}
 	return newDoc;
 }
@@ -911,11 +911,11 @@ comparisonFunctions.$gte = function (a, b) {
 
 comparisonFunctions.$mod = function (a: any, b: any) {
 	if (!Array.isArray(b)) {
-		throw new Error("malformed mod, must be supplied with an array");
+		throw new Error("XWebDB: malformed mod, must be supplied with an array");
 	}
 	if (b.length !== 2) {
 		throw new Error(
-			"malformed mod, array length must be exactly two, a divisor and a remainder"
+			"XWebDB: malformed mod, array length must be exactly two, a divisor and a remainder"
 		);
 	}
 	return a % b[0] === b[1];
@@ -932,7 +932,7 @@ comparisonFunctions.$in = function (a, b) {
 	var i;
 
 	if (!Array.isArray(b)) {
-		throw new Error("$in operator called with a non-array");
+		throw new Error("XWebDB: $in operator called with a non-array");
 	}
 
 	for (i = 0; i < b.length; i += 1) {
@@ -946,7 +946,7 @@ comparisonFunctions.$in = function (a, b) {
 
 comparisonFunctions.$nin = function (a, b) {
 	if (!Array.isArray(b)) {
-		throw new Error("$nin operator called with a non-array");
+		throw new Error("XWebDB: $nin operator called with a non-array");
 	}
 
 	return !comparisonFunctions.$in(a, b);
@@ -954,7 +954,7 @@ comparisonFunctions.$nin = function (a, b) {
 
 comparisonFunctions.$regex = function (a, b) {
 	if (!(b instanceof RegExp)) {
-		throw new Error("$regex operator called with non regular expression");
+		throw new Error("XWebDB: $regex operator called with non regular expression");
 	}
 
 	if (typeof a !== "string") {
@@ -985,7 +985,7 @@ comparisonFunctions.$size = function (obj, value) {
 		return false;
 	}
 	if ((value as unknown as number) % 1 !== 0) {
-		throw new Error("$size operator called without an integer");
+		throw new Error("XWebDB: $size operator called without an integer");
 	}
 
 	return (obj as unknown as any[]).length === (value as unknown as number);
@@ -1009,10 +1009,10 @@ comparisonFunctions.$elemMatch = function (obj, value) {
 
 comparisonFunctions.$all = function (a, b) {
 	if (!Array.isArray(a)) {
-		throw new Error("$all must be applied on fields of type array");
+		throw new Error("XWebDB: $all must be applied on fields of type array");
 	}
 	if (!Array.isArray(b)) {
-		throw new Error("$all must be supplied with argument of type array");
+		throw new Error("XWebDB: $all must be supplied with argument of type array");
 	}
 	for (let i = 0; i < b.length; i++) {
 		const elementInArgument = b[i];
@@ -1038,7 +1038,7 @@ logicalOperators.$or = function (obj, query) {
 	var i;
 
 	if (!Array.isArray(query)) {
-		throw new Error("$or operator used without an array");
+		throw new Error("XWebDB: $or operator used without an array");
 	}
 
 	for (i = 0; i < query.length; i += 1) {
@@ -1055,7 +1055,7 @@ logicalOperators.$or = function (obj, query) {
  */
 logicalOperators.$and = function (obj, query) {
 	if (!Array.isArray(query)) {
-		throw new Error("$and operator used without an array");
+		throw new Error("XWebDB: $and operator used without an array");
 	}
 
 	for (let i = 0; i < query.length; i += 1) {
@@ -1072,7 +1072,7 @@ logicalOperators.$and = function (obj, query) {
  */
 logicalOperators.$nor = function (obj, query) {
 	if (!Array.isArray(query)) {
-		throw new Error("$nor operator used without an array");
+		throw new Error("XWebDB: $nor operator used without an array");
 	}
 
 	for (let i = 0; i < query.length; i += 1) {
@@ -1091,12 +1091,12 @@ logicalOperators.$where = function (obj, fn) {
 	var result;
 
 	if (typeof fn !== "function") {
-		throw new Error("$where operator used without a function");
+		throw new Error("XWebDB: $where operator used without a function");
 	}
 
 	result = (fn as any).call(obj);
 	if (typeof result !== "boolean") {
-		throw new Error("$where function must return boolean");
+		throw new Error("XWebDB: $where function must return boolean");
 	}
 
 	return result;
@@ -1121,7 +1121,7 @@ function match(obj: any, query: any): boolean {
 
 		if (queryKey[0] === "$") {
 			if (!logicalOperators[queryKey]) {
-				throw new Error("Unknown logical operator " + queryKey);
+				throw new Error("XWebDB: Unknown logical operator " + queryKey);
 			}
 			if (!logicalOperators[queryKey](obj, queryValue as any)) {
 				return false;
@@ -1208,14 +1208,14 @@ function matchQueryPart(
 			dollarFirstChars.length !== 0 &&
 			dollarFirstChars.length !== firstChars.length
 		) {
-			throw new Error("You cannot mix operators and normal fields");
+			throw new Error("XWebDB: You cannot mix operators and normal fields");
 		}
 
 		// queryValue is an object of this form: { $comparisonOperator1: value1, ... }
 		if (dollarFirstChars.length > 0) {
 			for (let i = 0; i < keys.length; i += 1) {
 				if (!comparisonFunctions[keys[i]]) {
-					throw new Error("Unknown comparison function " + keys[i]);
+					throw new Error("XWebDB: Unknown comparison function " + keys[i]);
 				}
 				if (
 					!comparisonFunctions[keys[i]](objValue, queryValue[keys[i]])

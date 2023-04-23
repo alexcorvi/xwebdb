@@ -331,7 +331,7 @@ export class Database<S extends BaseModel> {
 	async sync() {
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
-				"Can not perform sync operation unless provided with remote DB adapter"
+				"XWebDB: Can not perform sync operation unless provided with remote DB adapter"
 			);
 		}
 		await this.reloadFirst();

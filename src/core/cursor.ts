@@ -74,7 +74,7 @@ export class Cursor<G extends { _id?: string }> {
 		// either all are 0, or all are -1
 		let actions = keys.map((k) => (this._projection as any)[k]).sort();
 		if (actions[0] !== actions[actions.length - 1]) {
-			throw new Error("Can't both keep and omit fields except for _id");
+			throw new Error("XWebDB: Can't both keep and omit fields except for _id");
 		}
 
 		let action = actions[0];

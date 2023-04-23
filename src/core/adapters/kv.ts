@@ -123,7 +123,7 @@ class Namespace implements remoteStore {
 				!Array.isArray(res.result)
 			) {
 				throw new Error(
-					"Error while listing namespaces: " + JSON.stringify(res)
+					"XWebDB: Error while listing namespaces: " + JSON.stringify(res)
 				);
 			} else {
 				const resNamespaces: { id: string; title: string }[] = (
@@ -153,7 +153,7 @@ class Namespace implements remoteStore {
 			Array.isArray(res.result)
 		) {
 			throw new Error(
-				"Error while creating namespace: " + JSON.stringify(res)
+				"XWebDB: Error while creating namespace: " + JSON.stringify(res)
 			);
 		} else {
 			return res.result.id;
@@ -165,7 +165,7 @@ class Namespace implements remoteStore {
 		const res = await kvRequest(this, "DELETE", this.id);
 		if (typeof res === "string" || !res.success) {
 			throw new Error(
-				"Error while deleting namespace: " + JSON.stringify(res)
+				"XWebDB: Error while deleting namespace: " + JSON.stringify(res)
 			);
 		} else {
 			return true;
@@ -180,7 +180,7 @@ class Namespace implements remoteStore {
 		);
 		if (typeof res === "string" || !res.success) {
 			throw new Error(
-				"Error while deleting item: " + JSON.stringify(res)
+				"XWebDB: Error while deleting item: " + JSON.stringify(res)
 			);
 		} else {
 			return true;
@@ -195,7 +195,7 @@ class Namespace implements remoteStore {
 			itemData
 		);
 		if (typeof res === "string" || !res.success) {
-			throw new Error("Error while setting item: " + JSON.stringify(res));
+			throw new Error("XWebDB: Error while setting item: " + JSON.stringify(res));
 		} else {
 			return true;
 		}
@@ -210,7 +210,7 @@ class Namespace implements remoteStore {
 			false
 		);
 		if (typeof res !== "string") {
-			throw new Error("Error while getting item: " + JSON.stringify(res));
+			throw new Error("XWebDB: Error while getting item: " + JSON.stringify(res));
 		} else {
 			return res;
 		}
@@ -231,7 +231,7 @@ class Namespace implements remoteStore {
 				!Array.isArray(res.result)
 			) {
 				throw new Error(
-					"Error while listing keys: " + JSON.stringify(res)
+					"XWebDB: Error while listing keys: " + JSON.stringify(res)
 				);
 			} else {
 				const arr: any[] = res.result;
@@ -267,7 +267,7 @@ class Namespace implements remoteStore {
 			);
 			if (typeof res === "string" || !res.success) {
 				throw new Error(
-					"Error while deleting item: " + JSON.stringify(res)
+					"XWebDB: Error while deleting item: " + JSON.stringify(res)
 				);
 			} else {
 				results.push(true);
@@ -301,7 +301,7 @@ class Namespace implements remoteStore {
 			);
 			if (typeof res === "string" || !res.success) {
 				throw new Error(
-					"Error while deleting item: " + JSON.stringify(res)
+					"XWebDB: Error while deleting item: " + JSON.stringify(res)
 				);
 			} else {
 				results.push(true);

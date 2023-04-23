@@ -103,7 +103,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 						err = e;
 					}
 					this.syncInProgress = false;
-					if(err) throw new Error(err as any)
+					if (err) throw new Error(err as any);
 				}
 			}, this.syncInterval);
 		}
@@ -116,12 +116,12 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 		// encode and decode hooks with some basic sanity checks
 		if (options.encode && !options.decode) {
 			throw new Error(
-				"encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
+				"XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
 			);
 		}
 		if (!options.encode && options.decode) {
 			throw new Error(
-				"decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
+				"XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
 			);
 		}
 		this.encode = options.encode || this.encode;
@@ -130,7 +130,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 		let randomString = u.randomString(113);
 		if (this.decode(this.encode(randomString)) !== randomString) {
 			throw new Error(
-				"encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
+				"XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
 			);
 		}
 	}
@@ -263,7 +263,7 @@ export class Persistence<G extends Partial<BaseModel> = any> {
 
 		if (processed > 0 && corrupt / processed > this.corruptAlertThreshold) {
 			throw new Error(
-				`More than ${Math.floor(
+				`XWebDB: More than ${Math.floor(
 					100 * this.corruptAlertThreshold
 				)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`
 			);

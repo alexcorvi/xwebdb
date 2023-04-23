@@ -114,7 +114,7 @@ export class Datastore<
 
 		if (!options.fieldName) {
 			let err: any = new Error(
-				"Cannot create an index without a fieldName"
+				"XWebDB: Cannot create an index without a fieldName"
 			);
 			err.missingFieldName = true;
 			throw err;
@@ -581,7 +581,7 @@ export class Datastore<
 		} else if (res.length === 0 && upsert) {
 			if (!updateQuery.$setOnInsert) {
 				throw new Error(
-					"$setOnInsert modifier is required when upserting"
+					"XWebDB: $setOnInsert modifier is required when upserting"
 				);
 			}
 			let toBeInserted = model.deepCopy(

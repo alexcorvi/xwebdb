@@ -278,7 +278,7 @@ export class AvlTree<K, V> {
 				this._size--;
 			}
 			const err = new Error(
-				`Can't insert key ${key}, it violates the unique constraint`
+				`XWebDB: Can't insert key ${key}, it violates the unique constraint`
 			) as any;
 			err.key = key;
 			err.prop = this.fieldName;
