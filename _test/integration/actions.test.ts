@@ -21,8 +21,9 @@ async function rejected(f: () => Promise<any>) {
 
 class Toy extends xwebdb.SubDoc {
 	name: string = "";
-	price: number = 1;
+	price: number = 0;
 	undef: number;
+	date: Date = new Date(0);
 	get priceInUSD() {
 		return this.price * 1.4;
 	}
@@ -30,7 +31,8 @@ class Toy extends xwebdb.SubDoc {
 
 class Child extends xwebdb.SubDoc {
 	fullName: string;
-	age: number = 1;
+	age: number = 0;
+	born: Date = new Date("2022");
 	toys: Toy[] = xwebdb.mapSubModel(Toy, []);
 	favoriteToy: Toy = xwebdb.mapSubModel(Toy, Toy.new({}));
 	get numberOfToys() {
@@ -51,7 +53,6 @@ class Employee extends Doc {
 			x: number;
 		};
 	};
-
 	isFemale() {
 		return !this.male;
 	}
@@ -498,10 +499,7 @@ describe("Actions", async () => {
 				]);
 			});
 			it("When the document is found", async () => {
-				const res = await db.upsert(
-					{ name: "alex" },
-					{ $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly" }) }
-				);
+				const res = await db.upsert({ name: "alex" }, { $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly" }) });
 				expect(res.upsert).eq(false);
 				expect(res.number).eq(1);
 				expect(res.docs.length).eq(1);
@@ -513,10 +511,7 @@ describe("Actions", async () => {
 				expect(findAll.length).eq(1); // no insertion occurred
 			});
 			it("When the document is not found", async () => {
-				const res = await db.upsert(
-					{ name: "david" },
-					{ $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly", age: 19 }) }
-				);
+				const res = await db.upsert({ name: "david" }, { $set: { name: "aly" }, $setOnInsert: Employee.new({ name: "aly", age: 19 }) });
 				expect(res.upsert).eq(true);
 				expect(res.number).eq(1);
 				expect(res.docs.length).eq(1);
@@ -690,8 +685,8 @@ describe("Actions", async () => {
 		it("Undefined values in new() get replaced by defaults", async () => {
 			const doc = (await db.find({}))[0];
 			doc.age.should.eq(9);
-			doc.children[0].age.should.eq(1);
-			doc.mainChild.age.should.eq(1);
+			doc.children[0].age.should.eq(0);
+			doc.mainChild.age.should.eq(0);
 		});
 		it("Defined values in new() gets set correctly", async () => {
 			const doc = (await db.find({}))[0];
@@ -769,36 +764,236 @@ describe("Actions", async () => {
 		});
 	});
 
-	describe("$deep", () => {
-		it("Query: flat", async () => {});
-		it("Query: bit deeper", async () => {});
-		it("Query: array element", async () => {});
-		it("Query: object inside array element", async () => {});
-		it("Query: mix deep with other queries", async () => {});
-		it("Query: using query operators", async () => {});
-		it("Query: using exact array match", async () => {});
-		it("Sort: flat", async () => {});
-		it("Sort: bit deeper", async () => {});
-		it("Sort: array element", async () => {});
-		it("Sort: object inside array element", async () => {});
-		it("Sort: mix deep with other queries", async () => {});
-		it("Project: flat", async () => {});
-		it("Project: bit deeper", async () => {});
-		it("Project: array element", async () => {});
-		it("Project: object inside array element", async () => {});
-		it("Project: mix deep with other queries", async () => {});
-		it("Update: Set", async () => {});
-		it("Update: Set on array element", async () => {});
-		it("Update: Unset", async () => {});
-		it("Update: Unset on array element", async () => {});
-		it("Update: min/max number", async () => {});
-		it("Update: min/max date", async () => {});
-		it("Update: current date (timestamp)", async () => {});
-		it("Update: current date (date object)", async () => {});
-		it("Update: inc/mul array object value", async () => {});
-		it("Update: inc/mul sub document", async () => {});
-		it("Update: rename deep object property", async () => {});
-		it("Update: rename array index", async () => {});
-		it("Update: rename array object property", async () => {});
+	describe("More on $deep", () => {
+		let dbName = testDb;
+
+		let db = new Database<Employee>({
+			ref: dbName,
+			model: Employee,
+		});
+
+		beforeEach(async () => {
+			await db.remove({}, true);
+			await db.reload();
+			(await db.count({})).should.equal(0);
+			await db.insert(
+				Employee.new({
+					name: "Ali",
+					male: true,
+					mainChild: Child.new({
+						fullName: "Keko",
+						age: 2,
+					}),
+					noDefault: 10,
+					children: [
+						Child.new({
+							fullName: "Alih",
+							toys: [
+								Toy.new({
+									name: "Batman",
+									price: 1,
+								}),
+								Toy.new({
+									undef: 0,
+								}),
+							],
+						}),
+					],
+				})
+			);
+			await db.insert(
+				Employee.new({
+					name: "Dina",
+					male: false,
+					mainChild: Child.new({
+						fullName: "Siko",
+						age: -0.3,
+					}),
+					noDefault: 10,
+					children: [
+						Child.new({
+							fullName: "Dinah",
+							toys: [
+								Toy.new({
+									name: "Barby",
+									price: 3,
+								}),
+								Toy.new({
+									undef: 0,
+								}),
+							],
+						}),
+					],
+				})
+			);
+		});
+
+		it("Query: flat", async () => {
+			const doc = (await db.find({ $deep: { female: true } }))[0];
+			doc.name.should.eq("Dina");
+
+			{
+				const doc = (await db.find({ $deep: { name: "Dina" } }))[0];
+				doc.female.should.eq(true);
+			}
+		});
+		it("Query: bit deeper", async () => {
+			const doc = (await db.find({ $deep: { mainChild: { fullName: "Keko" } } }))[0];
+			doc.name.should.eq("Ali");
+		});
+		it("Query: array elements", async () => {
+			const d1 = (await db.find({ $deep: { children: { 0: { fullName: "Dinah" } } } }))[0];
+			const d2 = (await db.find({ $deep: { children: { 0: { toys: { 0: { price: 3 } } } } } }))[0];
+			const a1 = (await db.find({ $deep: { children: { 0: { fullName: "Alih" } } } }))[0];
+			const a2 = (await db.find({ $deep: { children: { 0: { toys: { 0: { price: 1 } } } } } }))[0];
+			d1.name.should.eq("Dina");
+			d2.name.should.eq("Dina");
+			a1.name.should.eq("Ali");
+			a2.name.should.eq("Ali");
+		});
+		it("Query: multiple deeps", async () => {
+			const d1 = (await db.find({ $deep: { children: { 0: { fullName: "Dinah", toys: { 0: { price: 3 } } } } } }))[0];
+			const a1 = (await db.find({ $deep: { children: { 0: { fullName: "Alih", toys: { 0: { price: 1 } } } } } }))[0];
+			d1.name.should.eq("Dina");
+			a1.name.should.eq("Ali");
+		});
+		it("Query: mix deep with other queries", async () => {
+			const d1 = (await db.find({ male: false, $deep: { children: { 0: { fullName: "Dinah" } } } }))[0];
+			const d2 = (await db.find({ male: false, $deep: { children: { 0: { toys: { 0: { price: 3 } } } } } }))[0];
+			const a1 = (await db.find({ female: false, $deep: { children: { 0: { fullName: "Alih" } } } }))[0];
+			const a2 = (await db.find({ female: false, $deep: { children: { 0: { toys: { 0: { price: 1 } } } } } }))[0];
+			d1.name.should.eq("Dina");
+			d2.name.should.eq("Dina");
+			a1.name.should.eq("Ali");
+			a2.name.should.eq("Ali");
+		});
+		it("Query: using query operators", async () => {
+			const d1 = (await db.find({ male: false, $deep: { children: { 0: { fullName: { $in: ["Dinah"] } } } } }))[0];
+			const d2 = (await db.find({ male: false, $deep: { children: { 0: { toys: { 0: { price: { $lte: 3 } } } } } } }))[0];
+			const a1 = (await db.find({ female: false, $deep: { children: { 0: { fullName: { $in: ["Alih"] } } } } }))[0];
+			const a2 = (await db.find({ female: false, $deep: { children: { 0: { toys: { 0: { price: { $lte: 1 } } } } } } }))[0];
+			d1.name.should.eq("Dina");
+			d2.name.should.eq("Dina");
+			a1.name.should.eq("Ali");
+			a2.name.should.eq("Ali");
+		});
+		it("Query: using exact array match", async () => {
+			const d2 = (
+				await db.find({
+					male: false,
+					$deep: { children: { 0: { toys: [Toy.new({ name: "Barby", price: 3 }), Toy.new({ undef: 0 })] } } },
+				})
+			)[0];
+			const a2 = (
+				await db.find({
+					female: false,
+					$deep: {
+						children: { 0: { toys: [Toy.new({ name: "Batman", price: 1 }), Toy.new({ undef: 0 })] } },
+					},
+				})
+			)[0];
+			d2.name.should.eq("Dina");
+			a2.name.should.eq("Ali");
+		});
+		it("Update: Set", async () => {
+			await db.update({ name: "Ali" }, { $set: { $deep: { mainChild: { age: 99 } } } });
+			const res = await db.find({ name: "Ali" });
+			res.length.should.eq(1);
+			res[0].mainChild.age.should.eq(99);
+		});
+		it("Update: Set on array element", async () => {
+			await db.update({ name: "Ali" }, { $set: { $deep: { children: { 0: { toys: { 0: { price: 70 } } } } } } });
+			const res = await db.find({ name: "Ali" });
+			res.length.should.eq(1);
+			res[0].children[0].toys[0].price.should.eq(70);
+		});
+		it("Update: unSet", async () => {
+			await db.update({ name: "Ali" }, { $unset: { $deep: { mainChild: { age: "" } } } });
+			const res = await db.find({ name: "Ali" });
+			res.length.should.eq(1);
+			expect(res[0].mainChild.age).eq(0);
+		});
+		it("Update: unSet on array element", async () => {
+			await db.update({ name: "Ali" }, { $unset: { $deep: { children: { 0: { toys: { 0: { price: "" } } } } } } });
+			const res = await db.find({ name: "Ali" });
+			res.length.should.eq(1);
+			expect(res[0].children[0].toys[0].price).eq(0);
+		});
+		it.skip("Update: unSet on array index", async () => {
+			await db.update({ name: "Ali" }, { $unset: { $deep: { children: {0:  {toys: {0:""}}} } } });
+			const res = await db.find({ name: "Ali" });
+			res.length.should.eq(1);
+			expect(res[0].children[0].toys[0]).eq(undefined);
+			expect(res[0].children[0].toys.length).eq(2);
+			expect(res[0].children[0].toys.filter(x=>x !== undefined)).eq(1);
+		});
+		it("Update: min number", async () => {
+			await db.update({ name: "Ali" }, { $min: { $deep: { children: { 0: { toys: { 0: { price: -500 } } } } } } });
+			await db.update({ name: "Dina" }, { $min: { $deep: { children: { 0: { toys: { 0: { price: 500 } } } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].toys[0].price).eq(-500);
+			expect((await db.find({ name: "Dina" }))[0].children[0].toys[0].price).not.eq(500);
+		});
+		it("Update: max number", async () => {
+			await db.update({ name: "Ali" }, { $max: { $deep: { children: { 0: { toys: { 0: { price: -500 } } } } } } });
+			await db.update({ name: "Dina" }, { $max: { $deep: { children: { 0: { toys: { 0: { price: 500 } } } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].toys[0].price).not.eq(-500);
+			expect((await db.find({ name: "Dina" }))[0].children[0].toys[0].price).eq(500);
+		});
+		it("Update: min date", async () => {
+			await db.update({ name: "Ali" }, { $min: { $deep: { children: { 0: { born: new Date("1992") } } } } });
+			await db.update({ name: "Dina" }, { $min: { $deep: { children: { 0: { born: new Date("2023") } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].born).deep.eq(new Date("1992"));
+			expect((await db.find({ name: "Dina" }))[0].children[0].born).not.deep.eq(new Date("2023"));
+		});
+		it("Update: max date", async () => {
+			await db.update({ name: "Ali" }, { $max: { $deep: { children: { 0: { born: new Date("1992") } } } } });
+			await db.update({ name: "Dina" }, { $max: { $deep: { children: { 0: { born: new Date("2023") } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].born).not.deep.eq(new Date("1992"));
+			expect((await db.find({ name: "Dina" }))[0].children[0].born).deep.eq(new Date("2023"));
+		});
+		it("Update: current date (timestamp)", async () => {
+			await db.update({ name: "Ali" }, { $currentDate: { $deep: { children: { 0: { age: { $type: "timestamp" } } } } } });
+			await db.update({ name: "Dina" }, { $currentDate: { $deep: { children: { 0: { favoriteToy: { price: { $type: "timestamp" } } } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].age).gt(new Date("2023").getTime());
+			expect((await db.find({ name: "Dina" }))[0].children[0].favoriteToy.price).gt(new Date("2023").getTime());
+		});
+		it("Update: current date (date object)", async () => {
+			await db.update({ name: "Ali" }, { $currentDate: { $deep: { children: { 0: { born: { $type: "date" } } } } } });
+			await db.update({ name: "Dina" }, { $currentDate: { $deep: { children: { 0: { favoriteToy: { date: { $type: "date" } } } } } } });
+			expect((await db.find({ name: "Ali" }))[0].children[0].born).gt(new Date("2023"));
+			expect((await db.find({ name: "Dina" }))[0].children[0].favoriteToy.date).gt(new Date("2023"));
+		});
+		it("Update: inc array object value & sub-document", async () => {
+			await db.insert(Employee.new({ _id: "x", mainChild: { age: 2 } }));
+			await db.insert(Employee.new({ _id: "y", children: [Child.new({ toys: [Toy.new({ price: 2 })] })] }));
+			await db.update({_id:"x"},{$inc: { $deep: { mainChild: { age: 10 } } }});
+			await db.update({_id:"y"},{$inc: { $deep: { children: { 0: { toys: { 0: { price: 10 } } } }  } }});
+			expect((await db.find({_id: "x"}))[0].mainChild.age).eq(12);
+			expect((await db.find({_id: "y"}))[0].children[0].toys[0].price).eq(12);
+		});
+		it("Update: mul array object value & sub-document", async () => {
+			await db.insert(Employee.new({ _id: "x", mainChild: { age: 2 } }));
+			await db.insert(Employee.new({ _id: "y", children: [Child.new({ toys: [Toy.new({ price: 2 })] })] }));
+			await db.update({_id:"x"},{$mul: { $deep: { mainChild: { age: 10 } } }});
+			await db.update({_id:"y"},{$mul: { $deep: { children: { 0: { toys: { 0: { price: 10 } } } }  } }});
+			expect((await db.find({_id: "x"}))[0].mainChild.age).eq(20);
+			expect((await db.find({_id: "y"}))[0].children[0].toys[0].price).eq(20);
+		});
+		it("Update: rename deep object property", async () => {
+			await db.insert(Employee.new({ _id: "x", mainChild: { age: 2 } }));
+			await db.update({_id:"x"},{$rename: { $deep: { mainChild: { age: "Age" } } }});
+			await db.insert(Employee.new({ _id: "y", children: [Child.new({ toys: [Toy.new({ price: 2 })] })] }));
+			await db.update({_id:"y"},{$rename: { $deep: { children: { 0: { toys: { 0: { price: "Price" } } } }  } }});
+
+			expect((await db.find({_id: "x"}))[0].mainChild.age).eq(0); // replaced by default
+			expect(((await db.find({_id: "x"}))[0].mainChild as any).Age).eq(2);
+			expect((await db.find({_id: "y"}))[0].children[0].toys[0].price).eq(0); // replaced by default
+			expect(((await db.find({_id: "y"}))[0].children[0].toys[0] as any).Price).eq(2);
+		});
+		it.skip("Update: rename array index", async () => {
+			await db.update({name: "Ali"},{$rename: { $deep: { children: { 0:"2" } } }});
+			expect((await db.find({name: "Ali"}))[0].children["2"]).to.not.eq(undefined);
+			expect((await db.find({name: "Ali"}))[0].children[0]).to.eq(undefined);
+		});
 	});
 });
