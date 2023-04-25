@@ -100,8 +100,10 @@ type $DeepCurrentDate<Main> = {
 };
 
 type $DeepPop<S> = {
-	[P in keyof S]?: S[P] extends Array<any>
-		? { [index: number]: $DeepPop<S[P][0]> } | (1 | -1)
+	[P in keyof S]?: S[P] extends Array<infer U>
+		? U extends object
+			? { [index: number]: $DeepPop<S[P][0]> } | (1 | -1)
+			: 1 | -1
 		: S[P] extends object
 		? $DeepPop<S[P]>
 		: never;
@@ -109,7 +111,9 @@ type $DeepPop<S> = {
 
 type $DeepAddToSet<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
-		? { [index: number]: $DeepAddToSet<S[P][0]> } | (U | { $each: U[] })
+		? U extends object
+			? { [index: number]: $DeepAddToSet<S[P][0]> } | { $each: U[] }
+			: { $each: U[] }
 		: S[P] extends object
 		? $DeepAddToSet<S[P]>
 		: never;
@@ -117,9 +121,9 @@ type $DeepAddToSet<S> = {
 
 type $DeepPull<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
-		?
-				| { [index: number]: $DeepPull<S[P][0]> }
-				| (Partial<U> | FieldLevelQueryOperators<U>)
+		? U extends object
+			? { [index: number]: $DeepPull<U> } | FieldLevelQueryOperators<U>
+			: FieldLevelQueryOperators<U>
 		: S[P] extends object
 		? $DeepPull<S[P]>
 		: never;
@@ -127,7 +131,9 @@ type $DeepPull<S> = {
 
 type $DeepPullAll<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
-		? { [index: number]: $DeepPullAll<S[P][0]> } | U[]
+		? U extends object
+			? { [index: number]: $DeepPullAll<S[P][0]> } | U[]
+			: U[]
 		: S[P] extends object
 		? $DeepPullAll<S[P]>
 		: never;
@@ -135,9 +141,11 @@ type $DeepPullAll<S> = {
 
 type $DeepPush<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
-		? { [index: number]: $DeepPullAll<S[P][0]> } | (U | PushModifiers<U>)
+		? U extends object
+			? { [index: number]: $DeepPush<S[P][0]> } | PushModifiers<U>
+			: PushModifiers<U>
 		: S[P] extends object
-		? $DeepPullAll<S[P]>
+		? $DeepPush<S[P]>
 		: never;
 };
 
