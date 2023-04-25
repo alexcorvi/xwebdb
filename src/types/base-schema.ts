@@ -14,11 +14,11 @@ class BaseModel {
 			let dataVal = (data as any)[key];
 			if (insVal && insVal["_$SHOULD_MAP$_"]) {
 				if (dataVal === undefined) {
-					instance[key] = insVal["_$DEFAULT_VALUE$_"];
+					instance[key] = insVal["def"];
 				} else if (Array.isArray(dataVal)) {
-					(instance[key] as any) = dataVal.map((x) => insVal.new(x));
+					(instance[key] as any) = dataVal.map((x) => insVal.ctr.new(x));
 				} else {
-					instance[key] = insVal.new(dataVal);
+					instance[key] = insVal.ctr.new(dataVal);
 				}
 			} else {
 				instance[key] = dataVal === undefined ? insVal : dataVal;
@@ -51,12 +51,14 @@ export class Doc extends BaseModel {
 }
 export class SubDoc extends BaseModel {}
 
-function mapSubModel<M extends typeof SubDoc>(c: M, defaultValue: InstanceType<M>): InstanceType<M>;
-function mapSubModel<T extends typeof SubDoc>(c: T, defaultValue: Array<InstanceType<T>>): Array<InstanceType<T>>;
-function mapSubModel<M extends typeof SubDoc>(c: M, defaultValue: InstanceType<M> | Array<InstanceType<M>>): InstanceType<M> | Array<InstanceType<M>> {
-  (c as any)['_$SHOULD_MAP$_'] = true;
-  (c as any)['_$DEFAULT_VALUE$_'] = defaultValue;
-  return c as any;
+function mapSubModel<T extends typeof SubDoc>(ctr: T, def: InstanceType<T>): InstanceType<T>;
+function mapSubModel<T extends typeof SubDoc>(ctr: T, def: Array<InstanceType<T>>): Array<InstanceType<T>>;
+function mapSubModel<T extends typeof SubDoc>(ctr: T, def: InstanceType<T> | Array<InstanceType<T>>): InstanceType<T> | Array<InstanceType<T>> {
+  return {
+	_$SHOULD_MAP$_: true,
+	def,
+	ctr,
+  } as any
 }
 
 export { mapSubModel };
