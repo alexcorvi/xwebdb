@@ -81,13 +81,21 @@ type $DeepMinMax<Main> = {
 
 type $DeepCurrentDate<Main> = {
 	[Key in keyof Main]?: Main[Key] extends Array<any>
-		? { [index: number]: $DeepCurrentDate<Main[Key][0]> }
+		? {
+				[index: number]: $DeepCurrentDate<Main[Key][0]>;
+		  }
+		: Main[Key] extends Date
+		?
+				| true
+				| {
+						$type: "date";
+				  }
 		: Main[Key] extends object
 		? $DeepCurrentDate<Main[Key]>
 		: Main[Key] extends number
-		? { $type: "timestamp" }
-		: Main[Key] extends Date
-		? true | { $type: "date" }
+		? {
+				$type: "timestamp";
+		  }
 		: never;
 };
 
