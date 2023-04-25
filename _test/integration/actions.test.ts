@@ -769,4 +769,36 @@ describe("Actions", async () => {
 		});
 	});
 
+	describe("$deep", () => {
+		it("Query: flat", async () => {});
+		it("Query: bit deeper", async () => {});
+		it("Query: array element", async () => {});
+		it("Query: object inside array element", async () => {});
+		it("Query: mix deep with other queries", async () => {});
+		it("Query: using query operators", async () => {});
+		it("Query: using exact array match", async () => {});
+		it("Sort: flat", async () => {});
+		it("Sort: bit deeper", async () => {});
+		it("Sort: array element", async () => {});
+		it("Sort: object inside array element", async () => {});
+		it("Sort: mix deep with other queries", async () => {});
+		it("Project: flat", async () => {});
+		it("Project: bit deeper", async () => {});
+		it("Project: array element", async () => {});
+		it("Project: object inside array element", async () => {});
+		it("Project: mix deep with other queries", async () => {});
+		it("Update: Set", async () => {});
+		it("Update: Set on array element", async () => {});
+		it("Update: Unset", async () => {});
+		it("Update: Unset on array element", async () => {});
+		it("Update: min/max number", async () => {});
+		it("Update: min/max date", async () => {});
+		it("Update: current date (timestamp)", async () => {});
+		it("Update: current date (date object)", async () => {});
+		it("Update: inc/mul array object value", async () => {});
+		it("Update: inc/mul sub document", async () => {});
+		it("Update: rename deep object property", async () => {});
+		it("Update: rename array index", async () => {});
+		it("Update: rename array object property", async () => {});
+	});
 });
