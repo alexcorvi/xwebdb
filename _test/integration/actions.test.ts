@@ -628,4 +628,145 @@ describe("Actions", async () => {
 			});
 		});
 	});
+
+	describe("Object mapping", () => {
+		let dbName = testDb;
+
+		let db = new Database<Employee>({
+			ref: dbName,
+			model: Employee,
+		});
+
+		beforeEach(async () => {
+			await db.remove({}, true);
+			await db.reload();
+			(await db.count({})).should.equal(0);
+			await db.insert(
+				Employee.new({
+					name: "Ali",
+					male: true,
+					mainChild: Child.new({
+						fullName: "Keko",
+					}),
+					noDefault: 10,
+					children: [
+						Child.new({
+							fullName: "Keko",
+							toys: [
+								Toy.new({
+									name: "Batman",
+									price: 2000,
+								}),
+								Toy.new({
+									undef: 0,
+								}),
+							],
+						}),
+					],
+				})
+			);
+		});
+		afterEach(async () => {
+			await db.delete({}, true);
+		});
+
+		it("main document maps correctly", async () => {
+			const doc = (await db.find({}))[0];
+			expect(doc instanceof Employee).eq(true);
+		});
+
+		it("child document maps correctly", async () => {
+			const doc = (await db.find({}))[0];
+			expect(doc.mainChild instanceof Child).eq(true);
+		});
+		it("child document maps correctly even in arrays", async () => {
+			const doc = (await db.find({}))[0];
+			expect(doc.children[0] instanceof Child).eq(true);
+		});
+		it("grand child document maps correctly even in arrays", async () => {
+			const doc = (await db.find({}))[0];
+			expect(doc.children[0] instanceof Child).eq(true);
+		});
+		it("Undefined values in new() get replaced by defaults", async () => {
+			const doc = (await db.find({}))[0];
+			doc.age.should.eq(9);
+			doc.children[0].age.should.eq(1);
+			doc.mainChild.age.should.eq(1);
+		});
+		it("Defined values in new() gets set correctly", async () => {
+			const doc = (await db.find({}))[0];
+			doc.name.should.eq("Ali");
+			doc.mainChild.fullName.should.eq("Keko");
+		});
+		it("Using getters in query", async () => {
+			await db.insert(
+				Employee.new({
+					name: "Dina",
+					male: false,
+				})
+			);
+			const docs = await db.find({ female: true });
+			const doc = docs[0];
+			docs.length.should.eq(1);
+			doc.name.should.eq("Dina");
+			doc.male.should.eq(false);
+
+			const docs2 = await db.find({ female: false });
+			const doc2 = docs2[0];
+			docs2.length.should.eq(1);
+			doc2.name.should.eq("Ali");
+			doc2.male.should.eq(true);
+		});
+
+		it("Using getters in query (sub document)", async () => {
+			await db.insert(
+				Employee.new({
+					name: "doc1",
+					mainChild: {
+						toys: [Toy.new({}), Toy.new({}), Toy.new({})],
+					},
+				})
+			);
+			await db.insert(
+				Employee.new({
+					name: "doc2",
+					mainChild: {
+						toys: [Toy.new({}), Toy.new({}), Toy.new({}), Toy.new({})],
+					},
+				})
+			);
+
+			const docs = await db.find({ $deep: { mainChild: { numberOfToys: 3 } } });
+			const doc = docs[0];
+			docs.length.should.eq(1);
+			doc.name.should.eq("doc1");
+
+			const docs2 = await db.find({ $deep: { mainChild: { numberOfToys: 4 } } });
+			const doc2 = docs2[0];
+			docs2.length.should.eq(1);
+			doc2.name.should.eq("doc2");
+		});
+
+		it("values that do not have defaults in model takes it from passed data", async () => {
+			const doc = (await db.find({ name: "Ali" }))[0];
+			doc.noDefault.should.eq(10);
+		});
+		it("values that do not have defaults in model takes it from passed data even if undefined", async () => {
+			const doc = (await db.find({ name: "Ali" }))[0];
+			expect(doc.children[0].toys[0].undef).eq(undefined);
+		});
+		it("values that do not have defaults in model takes it from passed data even if 0", async () => {
+			const doc = (await db.find({ name: "Ali" }))[0];
+			doc.children[0].toys[1].undef.should.eq(0);
+		});
+		it("Setting getters throws", async () => {
+			expect(() =>
+				Employee.new({
+					name: "sg1",
+					female: false,
+				} as any)
+			).to.throw();
+		});
+	});
+
 });
