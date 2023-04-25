@@ -306,7 +306,7 @@ function compareThings<V>(
  * the nested documents if needed, then apply the "last step modifier"
  */
 
-const lastStepModifierFunctions: ModifierGroup = {
+export const lastStepModifierFunctions: ModifierGroup = {
 	$set: function (obj: keyedObject, field: string, value: Value) {
 		if (!obj) {
 			return;

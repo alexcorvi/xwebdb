@@ -6,6 +6,7 @@ import {
 } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
+import { lastStepModifierFunctions } from "./core/model";
 import {
 	Doc,
 	Filter,
@@ -16,7 +17,7 @@ import {
 	NFP,
 } from "./types"; // for some reason using @types will disable some type checks
 
-let deepOperators: (keyof UpdateOperators<{}>)[] = ["$set", "$unset", "$inc", "$mul", "$rename", "$min", "$max", "$currentDate", "$addToSet"];
+let deepOperators = Object.keys(lastStepModifierFunctions) as (keyof UpdateOperators<{}>)[];
 
 export interface DatabaseConfigurations<C extends typeof Doc> {
 	ref: string;
@@ -236,8 +237,8 @@ export class Database<S extends Doc> {
 		filter = fixDeep(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
-			if(update[operator]) {
-				update[operator] = fixDeep(update[operator]!) as any
+			if (update[operator]) {
+				update[operator] = fixDeep(update[operator]!) as any;
 			}
 		}
 		await this.reloadFirst();
@@ -260,8 +261,8 @@ export class Database<S extends Doc> {
 		filter = fixDeep(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
-			if(update[operator]) {
-				update[operator] = fixDeep(update[operator]!) as any
+			if (update[operator]) {
+				update[operator] = fixDeep(update[operator]!) as any;
 			}
 		}
 		await this.reloadFirst();
