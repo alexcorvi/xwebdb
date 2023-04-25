@@ -1,4 +1,4 @@
-import { Keys, Partial } from "./common";
+import { Keys, Partial, NFP, RecursivePartial } from "./common";
 
 export interface AnyFieldOperators<V> {
 	$type?:

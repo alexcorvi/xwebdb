@@ -13,7 +13,7 @@ import {
 	observable,
 } from "./core";
 import { Database } from "./database";
-import { BaseModel } from "./types/base-schema";
+import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
 
 const _internal = {
 	avl: { AvlTree, Node },
@@ -28,4 +28,4 @@ const _internal = {
 	PersistenceEvent,
 };
 
-export { Database, BaseModel, adapters, _internal };
+export { Database, Doc, SubDoc, mapSubModel, adapters, _internal };

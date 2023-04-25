@@ -1,6 +1,6 @@
 import { Database } from "../database";
 import {
-	BaseModel,
+	Doc,
 	Filter,
 	NFP,
 	SchemaKeyProjection,
@@ -9,14 +9,14 @@ import {
 import { xxh, uid } from "./customUtils";
 import { ObservableArray, Change } from "./observable";
 
-interface LiveQuery<S extends BaseModel> {
+interface LiveQuery<S extends Doc> {
 	database: Database<S>;
-	queryFilter: Filter<NFP<S>>;
+	queryFilter: Filter<S>;
 	queryOptions: {
 		skip?: number;
 		limit?: number;
-		sort?: SchemaKeySort<NFP<S>>;
-		project?: SchemaKeyProjection<NFP<S>>;
+		sort?: SchemaKeySort<S>;
+		project?: SchemaKeyProjection<S>;
 	};
 	observable: ObservableArray<Array<S>>;
 	toDBObserver: (changes: Change<S[]>[]) => void;
@@ -29,7 +29,7 @@ function hash<T extends { _id: string }>(res: T[]) {
 	return xxh(JSON.stringify(res));
 }
 
-export function addLive<S extends BaseModel>(q: LiveQuery<S>) {
+export function addLive<S extends Doc>(q: LiveQuery<S>) {
 	q.id = uid();
 	liveQueries.push(q);
 	return q.id;

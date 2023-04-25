@@ -7,16 +7,16 @@ import {
 import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
 import {
-	NFP,
-	BaseModel,
+	Doc,
 	Filter,
 	SchemaKeyProjection,
 	SchemaKeySort,
 	UpdateOperators,
 	UpsertOperators,
+	NFP,
 } from "./types"; // for some reason using @types will disable some type checks
 
-export interface DatabaseConfigurations<C extends typeof BaseModel> {
+export interface DatabaseConfigurations<C extends typeof Doc> {
 	ref: string;
 	model?: C;
 	encode?(line: string): string;
@@ -33,15 +33,15 @@ export interface DatabaseConfigurations<C extends typeof BaseModel> {
 	stripDefaults?: boolean;
 }
 
-export class Database<S extends BaseModel> {
+export class Database<S extends Doc> {
 	private ref: string;
 	private reloadBeforeOperations: boolean = false;
-	private model: typeof BaseModel;
-	public _datastore: Datastore<S, typeof BaseModel>;
+	private model: typeof Doc;
+	public _datastore: Datastore<S, typeof Doc>;
 	public loaded: Promise<boolean>;
 
-	constructor(options: DatabaseConfigurations<typeof BaseModel>) {
-		this.model = options.model || BaseModel;
+	constructor(options: DatabaseConfigurations<typeof Doc>) {
+		this.model = options.model || Doc;
 		this.ref = options.ref;
 		this.reloadBeforeOperations = !!options.reloadBeforeOperations;
 		this._datastore = new Datastore({
@@ -76,7 +76,7 @@ export class Database<S extends BaseModel> {
 	}
 
 	public async live(
-		filter: Filter<NFP<S>> = {},
+		filter: Filter<S> = {},
 		{
 			skip = 0,
 			limit = 0,
@@ -87,8 +87,8 @@ export class Database<S extends BaseModel> {
 		}: {
 			skip?: number;
 			limit?: number;
-			sort?: SchemaKeySort<NFP<S>>;
-			project?: SchemaKeyProjection<NFP<S>>;
+			sort?: SchemaKeySort<S>;
+			project?: SchemaKeyProjection<S>;
 			toDB?: boolean;
 			fromDB?: boolean;
 		} = {}
@@ -189,7 +189,7 @@ export class Database<S extends BaseModel> {
 	 * Find document(s) that meets a specified criteria
 	 */
 	public async read(
-		filter: Filter<NFP<S>> = {},
+		filter: Filter<S> = {},
 		{
 			skip = 0,
 			limit = 0,
@@ -198,8 +198,8 @@ export class Database<S extends BaseModel> {
 		}: {
 			skip?: number;
 			limit?: number;
-			sort?: SchemaKeySort<NFP<S>>;
-			project?: SchemaKeyProjection<NFP<S>>;
+			sort?: SchemaKeySort<S>;
+			project?: SchemaKeyProjection<S>;
 		} = {}
 	): Promise<S[]> {
 		filter = fixDeep(filter);
@@ -227,8 +227,8 @@ export class Database<S extends BaseModel> {
 	 * Update document(s) that meets the specified criteria
 	 */
 	public async update(
-		filter: Filter<NFP<S>>,
-		update: UpdateOperators<NFP<S>>,
+		filter: Filter<S>,
+		update: UpdateOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
 		filter = fixDeep(filter || {});
@@ -251,8 +251,8 @@ export class Database<S extends BaseModel> {
 	 * and do an insertion if no documents are matched
 	 */
 	public async upsert(
-		filter: Filter<NFP<S>>,
-		update: UpsertOperators<NFP<S>>,
+		filter: Filter<S>,
+		update: UpsertOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number; upsert: boolean }> {
 		filter = fixDeep(filter || {});
@@ -273,7 +273,7 @@ export class Database<S extends BaseModel> {
 	/**
 	 * Count documents that meets the specified criteria
 	 */
-	public async count(filter: Filter<NFP<S>> = {}): Promise<number> {
+	public async count(filter: Filter<S> = {}): Promise<number> {
 		filter = fixDeep(filter || {});
 		await this.reloadFirst();
 		return await this._datastore.count(filter);
@@ -284,7 +284,7 @@ export class Database<S extends BaseModel> {
 	 *
 	 */
 	public async delete(
-		filter: Filter<NFP<S>>,
+		filter: Filter<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
 		filter = fixDeep(filter || {});

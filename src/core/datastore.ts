@@ -4,7 +4,7 @@ import { Index } from "./indexes";
 import * as model from "./model";
 import { Persistence } from "./persistence";
 import * as types from "../types";
-import { BaseModel } from "../types/base-schema";
+import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 import { liveUpdate } from "./live";
@@ -16,7 +16,7 @@ export interface EnsureIndexOptions {
 	expireAfterSeconds?: number;
 }
 
-export interface DataStoreOptions<G extends typeof BaseModel> {
+export interface DataStoreOptions<G extends typeof Doc> {
 	ref: string;
 	encode?(line: string): string;
 	decode?(line: string): string;
@@ -36,8 +36,8 @@ interface UpdateOptions {
 }
 
 export class Datastore<
-	G extends types.BaseModel & { [key: string]: any },
-	C extends typeof BaseModel
+	G extends types.Doc & { [key: string]: any },
+	C extends typeof Doc
 > {
 	ref: string = "db";
 	timestampData = false;
@@ -59,7 +59,7 @@ export class Datastore<
 	deferredDeletes: string[] = [];
 
 	constructor(options: DataStoreOptions<C>) {
-		this.model = options.model || (BaseModel as any);
+		this.model = options.model || (Doc as any);
 		if (options.ref) {
 			this.ref = options.ref;
 		}

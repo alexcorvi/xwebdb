@@ -2,7 +2,7 @@ import * as u from "./customUtils";
 import { Datastore, EnsureIndexOptions } from "./datastore";
 import { Index } from "./indexes";
 import * as model from "./model";
-import { BaseModel } from "../types";
+import { Doc } from "../types";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";
 import { Sync } from "./sync";
@@ -44,12 +44,12 @@ export class PersistenceEvent {
 	}
 }
 
-interface PersistenceOptions<G extends BaseModel, C extends typeof BaseModel> {
+interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
 	encode?: (raw: string) => string;
 	decode?: (encrypted: string) => string;
 	corruptAlertThreshold?: number;
-	model?: typeof BaseModel;
+	model?: typeof Doc;
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
 	devalidateHash?: number;
@@ -59,7 +59,7 @@ interface PersistenceOptions<G extends BaseModel, C extends typeof BaseModel> {
 /**
  * Create a new Persistence object for database options.db
  */
-export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
+export class Persistence<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
 	ref: string = "";
 	data: IDB<string>;
@@ -73,7 +73,7 @@ export class Persistence<G extends BaseModel, C extends typeof BaseModel> {
 	decode = (s: string) => s;
 	stripDefaults: boolean = false;
 	private _model:
-		| typeof BaseModel
+		| typeof Doc
 		| undefined;
 	constructor(options: PersistenceOptions<G, C>) {
 		this._model = options.model;

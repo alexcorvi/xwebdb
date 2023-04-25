@@ -1,6 +1,6 @@
 import { AvlTree } from "./avl";
 import * as model from "./model";
-import { BaseModel } from "../types";
+import { Doc } from "../types";
 
 interface Pair<Doc> {
 	newDoc: Doc;
@@ -47,12 +47,12 @@ function uniqueProjectedKeys<Key>(key: Key[]): (Key | string)[] {
 	);
 }
 
-export class Index<Key, Doc extends BaseModel> {
+export class Index<Key, S extends Doc> {
 	fieldName: string = "";
 	unique: boolean = false;
 	sparse: boolean = false;
 
-	tree: AvlTree<Key, Doc>;
+	tree: AvlTree<Key, S>;
 
 	constructor({
 		fieldName,
@@ -93,7 +93,7 @@ export class Index<Key, Doc extends BaseModel> {
 	 * If an array is passed, we insert all its elements (if one insertion fails the index is not modified)
 	 * O(log(n))
 	 */
-	insert(doc: Doc | Doc[]) {
+	insert(doc: S | S[]) {
 		if (Array.isArray(doc)) {
 			this.insertMultipleDocs(doc);
 			return;
@@ -139,7 +139,7 @@ export class Index<Key, Doc extends BaseModel> {
 	 * If a constraint is violated, the changes should be rolled back and an error thrown
 	 *
 	 */
-	private insertMultipleDocs(docs: Doc[]) {
+	private insertMultipleDocs(docs: S[]) {
 		let error;
 		let failingI = -1;
 
@@ -168,7 +168,7 @@ export class Index<Key, Doc extends BaseModel> {
 	 * The remove operation is safe with regards to the 'unique' constraint
 	 * O(log(n))
 	 */
-	remove(doc: Doc | Doc[]) {
+	remove(doc: S | S[]) {
 		if (Array.isArray(doc)) {
 			doc.forEach((d) => this.remove(d));
 			return;
@@ -194,7 +194,7 @@ export class Index<Key, Doc extends BaseModel> {
 	 * If a constraint is violated, changes are rolled back and an error thrown
 	 * Naive implementation, still in O(log(n))
 	 */
-	update(oldDoc: Doc | Array<Pair<Doc>>, newDoc?: Doc) {
+	update(oldDoc: S | Array<Pair<S>>, newDoc?: S) {
 		if (Array.isArray(oldDoc)) {
 			this.updateMultipleDocs(oldDoc);
 			return;
@@ -214,7 +214,7 @@ export class Index<Key, Doc extends BaseModel> {
 	 * If a constraint is violated, the changes need to be rolled back
 	 * and an error thrown
 	 */
-	private updateMultipleDocs(pairs: Pair<Doc>[]) {
+	private updateMultipleDocs(pairs: Pair<S>[]) {
 		let failingI = -1;
 		let error;
 
@@ -249,8 +249,8 @@ export class Index<Key, Doc extends BaseModel> {
 	/**
 	 * Revert an update
 	 */
-	revertUpdate(oldDoc: Doc | Array<Pair<Doc>>, newDoc?: Doc) {
-		var revert: { newDoc: Doc; oldDoc: Doc }[] = [];
+	revertUpdate(oldDoc: S | Array<Pair<S>>, newDoc?: S) {
+		var revert: { newDoc: S; oldDoc: S }[] = [];
 
 		if (!Array.isArray(oldDoc) && newDoc) {
 			this.update(newDoc, oldDoc);
@@ -265,11 +265,11 @@ export class Index<Key, Doc extends BaseModel> {
 	/**
 	 * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
 	 */
-	getMatching(input: Key | Key[]): Doc[] {
+	getMatching(input: Key | Key[]): S[] {
 		if (!Array.isArray(input)) {
 			return this.tree.get(input);
 		} else {
-			let res: Doc[] = [];
+			let res: S[] = [];
 			input.forEach((item) => {
 				this.tree.get(item).forEach((singleRes) => {
 					if (!singleRes || !singleRes._id) {
@@ -283,7 +283,7 @@ export class Index<Key, Doc extends BaseModel> {
 	}
 
 	getAll() {
-		let data: Doc[] = [];
+		let data: S[] = [];
 		this.tree.executeOnEveryNode(function (node) {
 			data = data.concat(node.value);
 		});

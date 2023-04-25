@@ -1,4 +1,4 @@
-import { BaseModel } from "../types";
+import { Doc } from "../types";
 
 interface ModifierGroup {
 	[key: string]: (obj: keyedObjectG<any>, field: string, value: any) => void;
@@ -13,7 +13,7 @@ interface keyedObjectG<G> {
 }
 
 type PrimitiveValue = number | string | boolean | undefined | null | Date;
-type Value = BaseModel | keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
+type Value = Doc | keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
 
 /**
  * Check a key throw an error if the key is non valid
@@ -652,7 +652,7 @@ Object.keys(lastStepModifierFunctions).forEach(function (modifier) {
 /**
  * Modify a DB object according to an update query
  */
-function modify<G extends BaseModel, C extends typeof BaseModel>(
+function modify<G extends Doc, C extends typeof Doc>(
 	obj: G,
 	updateQuery: any,
 	model: C

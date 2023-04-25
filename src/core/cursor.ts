@@ -1,11 +1,11 @@
 import { Datastore } from "./datastore";
 import * as model from "./model";
-import { BaseModel, SchemaKeyProjection, SchemaKeySort } from "../types";
+import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
 
 /**
  * Create a new cursor for this collection
  */
-export class Cursor<G extends BaseModel, C extends typeof BaseModel> {
+export class Cursor<G extends Doc, C extends typeof Doc> {
 	private db: Datastore<G, C>;
 	private query: { [key: string]: any };
 
