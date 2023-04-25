@@ -1,7 +1,7 @@
 import { Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { NFP, BaseModel, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators } from "./types";
-export interface DatabaseConfigurations<C extends typeof BaseModel> {
+import { Doc, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators, NFP } from "./types";
+export interface DatabaseConfigurations<C extends typeof Doc> {
     ref: string;
     model?: C;
     encode?(line: string): string;
@@ -17,13 +17,13 @@ export interface DatabaseConfigurations<C extends typeof BaseModel> {
     deferPersistence?: number;
     stripDefaults?: boolean;
 }
-export declare class Database<S extends BaseModel> {
+export declare class Database<S extends Doc> {
     private ref;
     private reloadBeforeOperations;
     private model;
-    _datastore: Datastore<S, typeof BaseModel>;
+    _datastore: Datastore<S, typeof Doc>;
     loaded: Promise<boolean>;
-    constructor(options: DatabaseConfigurations<typeof BaseModel>);
+    constructor(options: DatabaseConfigurations<typeof Doc>);
     private reloadFirst;
     /**
      * insert documents
@@ -32,11 +32,11 @@ export declare class Database<S extends BaseModel> {
         docs: S[];
         number: number;
     }>;
-    live(filter?: Filter<NFP<S>>, { skip, limit, project, sort, toDB, fromDB, }?: {
+    live(filter?: Filter<S>, { skip, limit, project, sort, toDB, fromDB, }?: {
         skip?: number;
         limit?: number;
-        sort?: SchemaKeySort<NFP<S>>;
-        project?: SchemaKeyProjection<NFP<S>>;
+        sort?: SchemaKeySort<S>;
+        project?: SchemaKeyProjection<S>;
         toDB?: boolean;
         fromDB?: boolean;
     }): Promise<o.ObservableArray<S[]> & {
@@ -45,16 +45,16 @@ export declare class Database<S extends BaseModel> {
     /**
      * Find document(s) that meets a specified criteria
      */
-    read(filter?: Filter<NFP<S>>, { skip, limit, project, sort, }?: {
+    read(filter?: Filter<S>, { skip, limit, project, sort, }?: {
         skip?: number;
         limit?: number;
-        sort?: SchemaKeySort<NFP<S>>;
-        project?: SchemaKeyProjection<NFP<S>>;
+        sort?: SchemaKeySort<S>;
+        project?: SchemaKeyProjection<S>;
     }): Promise<S[]>;
     /**
      * Update document(s) that meets the specified criteria
      */
-    update(filter: Filter<NFP<S>>, update: UpdateOperators<NFP<S>>, multi?: boolean): Promise<{
+    update(filter: Filter<S>, update: UpdateOperators<S>, multi?: boolean): Promise<{
         docs: S[];
         number: number;
     }>;
@@ -62,7 +62,7 @@ export declare class Database<S extends BaseModel> {
      * Update document(s) that meets the specified criteria,
      * and do an insertion if no documents are matched
      */
-    upsert(filter: Filter<NFP<S>>, update: UpsertOperators<NFP<S>>, multi?: boolean): Promise<{
+    upsert(filter: Filter<S>, update: UpsertOperators<S>, multi?: boolean): Promise<{
         docs: S[];
         number: number;
         upsert: boolean;
@@ -70,12 +70,12 @@ export declare class Database<S extends BaseModel> {
     /**
      * Count documents that meets the specified criteria
      */
-    count(filter?: Filter<NFP<S>>): Promise<number>;
+    count(filter?: Filter<S>): Promise<number>;
     /**
      * Delete document(s) that meets the specified criteria
      *
      */
-    delete(filter: Filter<NFP<S>>, multi?: boolean): Promise<{
+    delete(filter: Filter<S>, multi?: boolean): Promise<{
         docs: S[];
         number: number;
     }>;
@@ -113,28 +113,20 @@ export declare class Database<S extends BaseModel> {
     /**
      * Find documents that meets a specified criteria
      */
-    find: (filter?: Filter<NFP<S>>, { skip, limit, project, sort, }?: {
+    find: (filter?: Filter<S>, { skip, limit, project, sort, }?: {
         skip?: number | undefined;
         limit?: number | undefined;
-        sort?: import("./types/common").Partial<{ [key in { [K in keyof S]: S[K] extends Function ? never : K; }[keyof S]]: 1 | -1; } & {
-            $deep: {
-                [key: string]: 1 | -1;
-            };
-        }> | undefined;
-        project?: import("./types/common").Partial<{ [key_1 in { [K in keyof S]: S[K] extends Function ? never : K; }[keyof S]]: 0 | 1; } & {
-            $deep: {
-                [key: string]: 0 | 1;
-            };
-        }> | undefined;
+        sort?: SchemaKeySort<S> | undefined;
+        project?: SchemaKeyProjection<S> | undefined;
     }) => Promise<S[]>;
     /**
      * Count the documents matching the specified criteria
      */
-    number: (filter?: Filter<NFP<S>>) => Promise<number>;
+    number: (filter?: Filter<S>) => Promise<number>;
     /**
      * Delete document(s) that meets the specified criteria
      */
-    remove: (filter: Filter<NFP<S>>, multi?: boolean) => Promise<{
+    remove: (filter: Filter<S>, multi?: boolean) => Promise<{
         docs: S[];
         number: number;
     }>;

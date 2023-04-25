@@ -1,9 +1,9 @@
 import { Datastore } from "./datastore";
-import { BaseModel, SchemaKeyProjection, SchemaKeySort } from "../types";
+import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
 /**
  * Create a new cursor for this collection
  */
-export declare class Cursor<G extends BaseModel, C extends typeof BaseModel> {
+export declare class Cursor<G extends Doc, C extends typeof Doc> {
     private db;
     private query;
     private _limit;

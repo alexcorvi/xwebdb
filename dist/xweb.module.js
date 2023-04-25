@@ -2704,31 +2704,57 @@ class Persistence {
 }
 
 class BaseModel {
-    constructor() {
-        this._id = uid();
-    }
     static new(data) {
         const instance = new this();
-        const keys = Object.keys(data);
+        const keys = Object.keys(Object.assign(Object.assign({}, instance), data));
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            instance[key] = data[key];
+            let insVal = instance[key];
+            let dataVal = data[key];
+            if (insVal && insVal["_$SHOULD_MAP$_"]) {
+                if (dataVal === undefined) {
+                    instance[key] = insVal["_$DEFAULT_VALUE$_"];
+                }
+                else if (Array.isArray(dataVal)) {
+                    instance[key] = dataVal.map((x) => insVal.new(x));
+                }
+                else {
+                    instance[key] = insVal.new(dataVal);
+                }
+            }
+            else {
+                instance[key] = dataVal === undefined ? insVal : dataVal;
+            }
         }
         return instance;
     }
+}
+class Doc extends BaseModel {
+    constructor() {
+        super(...arguments);
+        this._id = uid();
+    }
+    // move strip defaults to BaseModel?
     static stripDefaults(existingData) {
-        const defaultInstance = JSON.parse(JSON.stringify(new this()));
-        const keys = Object.keys(defaultInstance);
+        const def = JSON.parse(JSON.stringify(new this()));
+        const keys = Object.keys(def);
         const newData = {};
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            const defaultInstanceValue = JSON.parse(JSON.stringify({ t: defaultInstance[key] }));
-            const existingDataValue = JSON.parse(JSON.stringify({ t: existingData[key] }));
-            if (defaultInstanceValue !== existingDataValue)
+            const defV = JSON.parse(JSON.stringify({ t: def[key] }));
+            const oldV = JSON.parse(JSON.stringify({ t: existingData[key] }));
+            if (defV !== oldV)
                 newData[key] = existingData[key];
         }
         return newData;
     }
+}
+class SubDoc extends BaseModel {
+}
+function mapSubModel(c, defaultValue) {
+    c['_$SHOULD_MAP$_'] = true;
+    c['_$DEFAULT_VALUE$_'] = defaultValue;
+    return c;
 }
 
 class Q {
@@ -2810,7 +2836,7 @@ class Datastore {
         this.defer = 0;
         this.deferredWrites = [];
         this.deferredDeletes = [];
-        this.model = options.model || BaseModel;
+        this.model = options.model || Doc;
         if (options.ref) {
             this.ref = options.ref;
         }
@@ -4168,14 +4194,6 @@ function __unobserve(observable, observers) {
         return spliced;
     });
 }
-// ========================
-// Vue: https://codesandbox.io/s/heuristic-hamilton-w7nu1m?file=/src/components/HelloWorld.vue
-// Still not reactive...
-// ========================
-// Agular: https://codesandbox.io/s/billowing-dream-872me1?file=/src/app/app.component.ts
-// ========================
-// REACT: https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js
-// ========================
 
 var observable$1 = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -4184,6 +4202,7 @@ var observable$1 = /*#__PURE__*/Object.freeze({
     Change: Change
 });
 
+let deepOperators = ["$set", "$unset", "$inc", "$mul", "$rename", "$min", "$max", "$currentDate", "$addToSet"];
 class Database {
     constructor(options) {
         this.reloadBeforeOperations = false;
@@ -4207,7 +4226,7 @@ class Database {
          * Create an index specified by options
          */
         this.ensureIndex = this.createIndex;
-        this.model = options.model || BaseModel;
+        this.model = options.model || Doc;
         this.ref = options.ref;
         this.reloadBeforeOperations = !!options.reloadBeforeOperations;
         this._datastore = new Datastore({
@@ -4351,11 +4370,11 @@ class Database {
     update(filter, update, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
             filter = fixDeep(filter || {});
-            if (update.$set) {
-                update.$set = fixDeep(update.$set);
-            }
-            if (update.$unset) {
-                update.$unset = fixDeep(update.$unset);
+            for (let index = 0; index < deepOperators.length; index++) {
+                const operator = deepOperators[index];
+                if (update[operator]) {
+                    update[operator] = fixDeep(update[operator]);
+                }
             }
             yield this.reloadFirst();
             const res = yield this._datastore.update(filter, update, {
@@ -4372,11 +4391,11 @@ class Database {
     upsert(filter, update, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
             filter = fixDeep(filter || {});
-            if (update.$set) {
-                update.$set = fixDeep(update.$set);
-            }
-            if (update.$unset) {
-                update.$unset = fixDeep(update.$unset);
+            for (let index = 0; index < deepOperators.length; index++) {
+                const operator = deepOperators[index];
+                if (update[operator]) {
+                    update[operator] = fixDeep(update[operator]);
+                }
             }
             yield this.reloadFirst();
             const res = yield this._datastore.update(filter, update, {
@@ -4451,7 +4470,26 @@ class Database {
     }
 }
 function fixDeep(input) {
-    const result = Object.assign(input, input.$deep);
+    const output = {};
+    function flattenObject(obj, prefix = "") {
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const nestedKey = prefix ? `${prefix}.${key}` : key;
+                const value = obj[key];
+                if (typeof value === "object" &&
+                    Object.keys(value).length && // empty objects and arrays excluded from recursion
+                    Object.keys(value).filter((x) => x[0] === "$").length === 0 // objects that have operators excluded from recursion
+                ) {
+                    flattenObject(value, nestedKey);
+                }
+                else {
+                    output[nestedKey] = value;
+                }
+            }
+        }
+    }
+    flattenObject(input.$deep);
+    const result = Object.assign(input, output);
     delete result.$deep;
     return result;
 }
@@ -4469,4 +4507,4 @@ const _internal = {
     PersistenceEvent,
 };
 
-export { BaseModel, Database, _internal, index as adapters };
+export { Database, Doc, SubDoc, _internal, index as adapters, mapSubModel };

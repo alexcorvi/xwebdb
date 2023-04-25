@@ -1,12 +1,15 @@
-export declare class BaseModel {
+import { RecursivePartial, NFGP } from "./common";
+declare class BaseModel {
+    static new<T extends object>(this: new () => T, data: RecursivePartial<NFGP<T>>): T;
+}
+export declare class Doc extends BaseModel {
     _id: string;
     updatedAt?: Date;
     createdAt?: Date;
-    static new<T extends object>(this: new () => T, data: Partial<NFP<T>>): T;
     static stripDefaults<T extends object>(this: new () => T, existingData: T): T;
 }
-type NFPN<T> = {
-    [K in keyof T]: T[K] extends Function ? never : K;
-}[keyof T];
-export type NFP<T> = Pick<T, NFPN<T>>;
-export {};
+export declare class SubDoc extends BaseModel {
+}
+declare function mapSubModel<M extends typeof SubDoc>(c: M, defaultValue: InstanceType<M>): InstanceType<M>;
+declare function mapSubModel<T extends typeof SubDoc>(c: T, defaultValue: Array<InstanceType<T>>): Array<InstanceType<T>>;
+export { mapSubModel };

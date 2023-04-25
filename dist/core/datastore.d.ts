@@ -2,7 +2,7 @@ import { Cursor } from "./cursor";
 import { Index } from "./indexes";
 import { Persistence } from "./persistence";
 import * as types from "../types";
-import { BaseModel } from "../types/base-schema";
+import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 export interface EnsureIndexOptions {
@@ -11,7 +11,7 @@ export interface EnsureIndexOptions {
     sparse?: boolean;
     expireAfterSeconds?: number;
 }
-export interface DataStoreOptions<G extends typeof BaseModel> {
+export interface DataStoreOptions<G extends typeof Doc> {
     ref: string;
     encode?(line: string): string;
     decode?(line: string): string;
@@ -28,9 +28,9 @@ interface UpdateOptions {
     multi?: boolean;
     upsert?: boolean;
 }
-export declare class Datastore<G extends types.BaseModel & {
+export declare class Datastore<G extends types.Doc & {
     [key: string]: any;
-}, C extends typeof BaseModel> {
+}, C extends typeof Doc> {
     ref: string;
     timestampData: boolean;
     persistence: Persistence<G, C>;

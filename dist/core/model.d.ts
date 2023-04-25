@@ -1,9 +1,9 @@
-import { BaseModel } from "../types";
+import { Doc } from "../types";
 interface keyedObject {
     [key: string]: Value;
 }
 type PrimitiveValue = number | string | boolean | undefined | null | Date;
-type Value = BaseModel | keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
+type Value = Doc | keyedObject | Array<PrimitiveValue | keyedObject> | PrimitiveValue;
 /**
  * Check a DB object and throw an error if it's not valid
  * Works by applying the above checkKey function to all fields recursively
@@ -56,7 +56,7 @@ declare function compareThings<V>(a: V, b: V, _compareStrings?: typeof compareNS
 /**
  * Modify a DB object according to an update query
  */
-declare function modify<G extends BaseModel, C extends typeof BaseModel>(obj: G, updateQuery: any, model: C): G;
+declare function modify<G extends Doc, C extends typeof Doc>(obj: G, updateQuery: any, model: C): G;
 /**
  * Get a value from object with dot notation
  */

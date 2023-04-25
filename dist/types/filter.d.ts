@@ -1,4 +1,4 @@
-import { Keys, Partial } from "./common";
+import { Keys, Partial, NFP } from "./common";
 export interface AnyFieldOperators<V> {
     $type?: "string" | "number" | "boolean" | "undefined" | "array" | "null" | "date" | "object";
     /**
@@ -105,29 +105,38 @@ export interface TopLevelQueryOperators<S> {
      */
     $where?: (this: S) => boolean;
     /**
-     * Use this operator when trying to apply filter on a deeply nested properties, like: "employee.address.street".
-     * {$deep: {"employee.address.street": {$eq: "Bedford Mount"}}}
+     * Use this operator when trying to apply filter on a deeply nested properties.
+     * `{$deep:{employee:{address:{ street: "St. Peters" }}}}`
      */
-    $deep?: {
-        [key: string]: SchemaKeyFilters<any>;
-    };
+    $deep?: $DeepFilter<S>;
 }
+type $DeepFilter<S> = {
+    [P in keyof S]?: S[P] extends Array<any> ? {
+        [index: number]: $DeepFilter<S[P][0]>;
+    } | ArrayOperators<S[P][0]> : S[P] extends object ? $DeepFilter<S[P]> : FieldLevelQueryOperators<S[P]> | S[P];
+};
 export type FieldLevelQueryOperators<V> = V extends Array<any> ? ArrayOperators<V[0]> : V extends Date ? NumberOperators<V> : V extends number ? NumberOperators<V> : V extends string ? StringOperators<V> : AnyFieldOperators<V>;
 export type SchemaKeyFilters<S> = Partial<{
     [key in Keys<S>]: FieldLevelQueryOperators<S[key]> | S[key];
 }>;
-export type Filter<S> = SchemaKeyFilters<S> | TopLevelQueryOperators<S>;
-export type SchemaKeySort<S> = Partial<{
+export type Filter<A, S = NFP<A>> = SchemaKeyFilters<S> | TopLevelQueryOperators<S>;
+export type SchemaKeySort<A, S = NFP<A>> = Partial<{
     [key in Keys<S>]: -1 | 1;
 } & {
-    $deep: {
-        [key: string]: -1 | 1;
-    };
-}>;
-export type SchemaKeyProjection<S> = Partial<{
+    $deep: $DeepSortAndProject<S, -1 | 1>;
+}> & {
+    _id?: -1 | 1;
+};
+export type SchemaKeyProjection<A, S = NFP<A>> = Partial<{
     [key in Keys<S>]: 0 | 1;
 } & {
-    $deep: {
-        [key: string]: 0 | 1;
-    };
-}>;
+    $deep: $DeepSortAndProject<S, 0 | 1>;
+}> & {
+    _id?: 0 | 1;
+};
+type $DeepSortAndProject<S, N> = {
+    [P in keyof S]?: S[P] extends Array<any> ? {
+        [index: number]: $DeepSortAndProject<S[P][0], N>;
+    } | N : S[P] extends object ? $DeepSortAndProject<S[P], N> : N;
+};
+export {};

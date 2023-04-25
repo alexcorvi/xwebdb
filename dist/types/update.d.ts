@@ -1,5 +1,6 @@
 import { Keys, Partial } from "./common";
 import { FieldLevelQueryOperators } from "./filter";
+import { NFGP, NFP } from "./common";
 export interface PushModifiers<V> {
     /**
      * Modifies the $push and $addToSet operators to append multiple items for array updates.
@@ -24,7 +25,7 @@ export interface PushModifiers<V> {
      */
     $position?: number;
 }
-export interface UpsertOperators<S> extends UpdateOperators<S> {
+export interface UpsertOperators<A, S = NFP<A>> extends UpdateOperators<A> {
     /**
      * If an update operation with upsert: true results in an insert of a document, then $setOnInsert assigns the specified values to the fields in the document. If the update operation does not result in an insert, $setOnInsert does nothing.
      * { $setOnInsert: { <field1>: <value1>, ... } },
@@ -32,34 +33,42 @@ export interface UpsertOperators<S> extends UpdateOperators<S> {
      */
     $setOnInsert?: S;
 }
-export interface UpdateOperators<S> {
-    /**
-     * Increments the value of the field by the specified amount.
-     * { $inc: { <field1>: <amount1>, <field2>: <amount2>, ... } }
-     */
-    $inc?: Partial<{
-        [Key in Keys<S>]: S[Key] extends number ? number : never;
-    }>;
-    /**
-     * Multiplies the value of the field by the specified amount.
-     * { $mul: { field: <number> } }
-     */
-    $mul?: Partial<{
-        [Key in Keys<S>]: S[Key] extends number ? number : never;
-    }>;
-    /**
-     * Renames a field.
-     * {$rename: { <field1>: <newName1>, <field2>: <newName2>, ... } }
-     */
-    $rename?: UpdateOperatorsOnSchema<S, string>;
+type $DeepSpecific<S, V> = {
+    [P in keyof S]?: S[P] extends Array<any> ? {
+        [index: number]: $DeepSpecific<S[P][0], V> | V;
+    } | V : S[P] extends object ? $DeepSpecific<S[P], V> | V : V;
+};
+type $DeepSet<S> = {
+    [P in keyof S]?: S[P] extends Array<any> ? {
+        [index: number]: $DeepSet<S[P][0]> | S[P][0];
+    } | S[P] : S[P] extends object ? $DeepSet<S[P]> | S[P] : S[P];
+};
+type $DeepNum<Main> = {
+    [Key in keyof Main]?: Main[Key] extends Array<any> ? {
+        [index: number]: $DeepNum<Main[Key][0]>;
+    } : Main[Key] extends object ? $DeepNum<Main[Key]> : Main[Key] extends number ? number : never;
+};
+type $DeepMinMax<Main> = {
+    [Key in keyof Main]?: Main[Key] extends Array<any> ? {
+        [index: number]: $DeepMinMax<Main[Key][0]>;
+    } : Main[Key] extends object ? $DeepMinMax<Main[Key]> : Main[Key] extends number ? Main[Key] : Main[Key] extends Date ? Main[Key] : never;
+};
+type $DeepCurrentDate<Main> = {
+    [Key in keyof Main]?: Main[Key] extends Array<any> ? {
+        [index: number]: $DeepCurrentDate<Main[Key][0]>;
+    } : Main[Key] extends object ? $DeepCurrentDate<Main[Key]> : Main[Key] extends number ? {
+        $type: "timestamp";
+    } : Main[Key] extends Date ? true | {
+        $type: "date";
+    } : never;
+};
+export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
     /**
      * Sets the value of a field in a document.
      * { $set: { <field1>: <value1>, ... } }
      */
     $set?: Partial<S & {
-        $deep: {
-            [key: string]: any;
-        };
+        $deep: $DeepSet<S>;
     }>;
     /**
      * Removes the specified field from a document.
@@ -68,9 +77,32 @@ export interface UpdateOperators<S> {
     $unset?: Partial<{
         [key in Keys<S>]: "";
     } & {
-        $deep: {
-            [key: string]: "";
-        };
+        $deep: $DeepSpecific<S, "">;
+    }>;
+    /**
+     * Increments the value of the field by the specified amount.
+     * { $inc: { <field1>: <amount1>, <field2>: <amount2>, ... } }
+     */
+    $inc?: Partial<{
+        [Key in Keys<S>]: S[Key] extends number ? number : never;
+    } & {
+        $deep: $DeepNum<S>;
+    }>;
+    /**
+     * Multiplies the value of the field by the specified amount.
+     * { $mul: { field: <number> } }
+     */
+    $mul?: Partial<{
+        [Key in Keys<S>]: S[Key] extends number ? number : never;
+    } & {
+        $deep: $DeepNum<S>;
+    }>;
+    /**
+     * Renames a field.
+     * {$rename: { <field1>: <newName1>, <field2>: <newName2>, ... } }
+     */
+    $rename?: Partial<UpdateOperatorsOnSchema<S, string> & {
+        $deep: $DeepSpecific<S, string>;
     }>;
     /**
      * Only updates the field if the specified value is less than the existing field value.
@@ -78,6 +110,8 @@ export interface UpdateOperators<S> {
      */
     $min?: Partial<{
         [Key in Keys<S>]: S[Key] extends number ? S[Key] : S[Key] extends Date ? S[Key] : never;
+    } & {
+        $deep: $DeepMinMax<S>;
     }>;
     /**
      * Only updates the field if the specified value is greater than the existing field value.
@@ -85,17 +119,21 @@ export interface UpdateOperators<S> {
      */
     $max?: Partial<{
         [Key in Keys<S>]: S[Key] extends number ? S[Key] : S[Key] extends Date ? S[Key] : never;
+    } & {
+        $deep: $DeepMinMax<S>;
     }>;
     /**
      * Sets the value of a field to current date, either as a Date or a Timestamp.
      * { $currentDate: { <field1>: <typeSpecification1>, ... } }
      */
     $currentDate?: Partial<{
-        [Key in Keys<S>]: S[Key] extends Date ? true | {
+        [Key in Keys<D>]: D[Key] extends Date ? true | {
             $type: "date";
-        } : S[Key] extends number ? {
+        } : D[Key] extends number ? {
             $type: "timestamp";
         } : never;
+    } & {
+        $deep: $DeepCurrentDate<D>;
     }>;
     /**
      * Adds elements to an array only if they do not already exist in the set.
@@ -138,3 +176,4 @@ export interface UpdateOperators<S> {
 export type UpdateOperatorsOnSchema<S, V> = Partial<{
     [key in Keys<S>]: V;
 }>;
+export {};

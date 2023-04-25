@@ -1,4 +1,5 @@
-export { BaseModel, NFP } from "./base-schema";
+export { Doc, SubDoc, mapSubModel } from "./base-schema";
 export { TopLevelQueryOperators, SchemaKeyFilters, Filter, SchemaKeySort, SchemaKeyProjection, } from "./filter";
 export { Result } from "./results";
 export { UpdateOperators, UpdateOperatorsOnSchema, UpsertOperators, } from "./update";
+export { NFP, NFGP, RecursivePartial } from "./common";
