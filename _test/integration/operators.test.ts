@@ -3,7 +3,7 @@
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
 import xwebdb from "../../dist/xwebdb.js";
-const BaseModel = xwebdb.BaseModel;
+const Doc = xwebdb.Doc;
 const Database = xwebdb.Database;
 const expect = chai.expect;
 
@@ -24,7 +24,7 @@ interface Child {
 	age: number;
 }
 
-class Employee extends BaseModel {
+class Employee extends Doc {
 	name: string = "";
 	rooms: string[] = [];
 	events: number[] = [];
@@ -117,7 +117,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $eq: 160 } } });
+					const res = await db.find({ $deep: { props: { h: { $eq: 160 } } } });
 					expect(res.length).eq(1);
 					expect(res[0].age).eq(35);
 				}
@@ -137,7 +137,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $ne: 160 } } });
+					const res = await db.find({ $deep: { props: { h: { $ne: 160 } } } });
 					expect(res.length).eq(2);
 					expect(res.findIndex((x) => x.age === 35)).eq(-1);
 				}
@@ -157,7 +157,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $gt: 160 } } });
+					const res = await db.find({ $deep: { props: { h: { $gt: 160 } } } });
 					expect(res.length).eq(2);
 					expect(res.findIndex((x) => x.age === 35)).eq(-1);
 				}
@@ -177,7 +177,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $lt: 165 } } });
+					const res = await db.find({ $deep: { props: { h: { $lt: 165 } } } });
 					expect(res.length).eq(1);
 					expect(res.findIndex((x) => x.age === 35)).eq(0);
 				}
@@ -197,7 +197,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $gte: 165 } } });
+					const res = await db.find({ $deep: { props: { h: { $gte: 165 } } } });
 					expect(res.length).eq(2);
 					expect(res.findIndex((x) => x.age === 35)).eq(-1);
 				}
@@ -217,7 +217,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $lte: 160 } } });
+					const res = await db.find({ $deep: { props: { h: { $lte: 160 } } } });
 					expect(res.length).eq(1);
 					expect(res.findIndex((x) => x.age === 35)).eq(0);
 				}
@@ -237,7 +237,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $in: [160] } } });
+					const res = await db.find({ $deep: { props: { h: { $in: [160] } } } });
 					expect(res.length).eq(1);
 					expect(res.findIndex((x) => x.age === 35)).eq(0);
 				}
@@ -257,7 +257,7 @@ describe("Operators tests", () => {
 				}
 				{
 					// deep
-					const res = await db.find({ $deep: { "props.h": { $nin: [165, 174] } } });
+					const res = await db.find({ $deep: { props: { h: { $nin: [165, 174] } } } });
 					expect(res.length).eq(1);
 					expect(res.findIndex((x) => x.age === 35)).eq(0);
 				}
@@ -418,13 +418,13 @@ describe("Operators tests", () => {
 				expect(((await db.find({ name: "john" })) as any)[0]._rooms.length).eq(4);
 			});
 			it("$set", async () => {
-				await db.update({ name: "john" }, { $set: { $deep: { "props.h": 192 } } });
+				await db.update({ name: "john" }, { $set: { $deep: { props: { h: 192 } } } });
 				expect((await db.find({ name: "john" }))[0].props.h).eq(192);
 				await db.update({ name: "john" }, { $set: { age: 90 } });
 				expect((await db.find({ name: "john" }))[0].age).eq(90);
 			});
 			it("$unset", async () => {
-				await db.update({ name: "john" }, { $unset: { $deep: { "props.h": "" } } });
+				await db.update({ name: "john" }, { $unset: { $deep: { props: { h: "" } } } });
 				expect((await db.find({ name: "john" }))[0].props.h).eq(undefined);
 				await db.update({ name: "john" }, { $unset: { additional: "" } });
 				expect((await db.find({ name: "john" }))[0].additional).eq(undefined);

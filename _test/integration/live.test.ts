@@ -2,8 +2,8 @@
 /// <reference path="../../dist/xwebdb.d.ts" />
 /// <reference path="../../dist/core/observable.d.ts"/>
 import xwebdb from "../../dist/xwebdb.js";
-const { Database, BaseModel } = xwebdb;
-class Kid extends BaseModel {
+const { Database, Doc } = xwebdb;
+class Kid extends Doc {
 	name: string;
 	age: number;
 }

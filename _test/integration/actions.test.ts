@@ -3,7 +3,7 @@
 /// <reference path="../../node_modules/@types/underscore/index.d.ts" />
 
 import xwebdb from "../../dist/xwebdb.js";
-const BaseModel = xwebdb.BaseModel;
+const Doc = xwebdb.Doc;
 const Database = xwebdb.Database;
 const expect = chai.expect;
 
@@ -19,22 +19,34 @@ async function rejected(f: () => Promise<any>) {
 	return rejected;
 }
 
-interface Toy {
-	name: string;
-	price: number;
+class Toy extends xwebdb.SubDoc {
+	name: string = "";
+	price: number = 1;
+	undef: number;
+	get priceInUSD() {
+		return this.price * 1.4;
+	}
 }
 
-interface Child {
+class Child extends xwebdb.SubDoc {
 	fullName: string;
-	toys: Toy[];
+	age: number = 1;
+	toys: Toy[] = xwebdb.mapSubModel(Toy, []);
+	favoriteToy: Toy = xwebdb.mapSubModel(Toy, Toy.new({}));
+	get numberOfToys() {
+		return this.toys.length;
+	}
 }
 
-class Employee extends BaseModel {
+class Employee extends Doc {
 	name: string = "";
 	age: number = 9;
 	male: boolean = false;
-	arr: Child[] = [];
-	d?: {
+	sArr: string[] = [];
+	noDefault: number;
+	mainChild: Child = xwebdb.mapSubModel(Child, Child.new({}));
+	children: Child[] = xwebdb.mapSubModel(Child, []);
+	d: {
 		a: {
 			x: number;
 		};
@@ -49,14 +61,14 @@ class Employee extends BaseModel {
 	}
 }
 
-class Simple extends BaseModel {
+class Simple extends Doc {
 	a: number = 1;
 }
 
 describe("Actions", async () => {
 	describe("Connection", () => {
 		it("Connection with an object param", (done) => {
-			const db = new Database<Simple>({ ref: "ref", model: Simple });
+			const db = new Database<Simple>({ ref: "testdatabase", model: Simple });
 			db.loaded
 				.then(() => done())
 				.catch((e) => {
@@ -64,8 +76,8 @@ describe("Actions", async () => {
 				});
 		});
 		it("Connection with an already created DB", (done) => {
-			const db1 = new Database({ ref: "ref", model: Simple });
-			const db2 = new Database({ ref: "ref", model: Simple });
+			const db1 = new Database({ ref: "testdatabase", model: Simple });
+			const db2 = new Database({ ref: "testdatabase", model: Simple });
 			Promise.all([db1.loaded, db2.loaded])
 				.then(() => done())
 				.catch((e) => {
@@ -74,7 +86,7 @@ describe("Actions", async () => {
 		});
 	});
 
-	describe("Operations", () => {
+	describe("Operations", async () => {
 		let dbName = testDb;
 
 		let db = new Database<Employee>({
@@ -83,10 +95,7 @@ describe("Actions", async () => {
 		});
 
 		beforeEach(async () => {
-			db = new Database<Employee>({
-				ref: dbName,
-				model: Employee,
-			});
+			await db.remove({}, true);
 			await db.reload();
 			(await db.count({})).should.equal(0);
 		});
@@ -100,7 +109,7 @@ describe("Actions", async () => {
 					Employee.new({
 						name: "Alex",
 						age: 12,
-						arr: [],
+						children: [],
 						male: true,
 					}),
 				]);
@@ -110,7 +119,7 @@ describe("Actions", async () => {
 				expect(doc.name).to.be.equal("Alex");
 				expect(doc.age).to.be.equal(12);
 				expect(doc.male).to.be.equal(true);
-				expect(doc.arr.length).to.be.equal(0);
+				expect(doc.children.length).to.be.equal(0);
 			});
 			it("Creating while giving an ID", async () => {
 				await db.insert([
@@ -118,7 +127,7 @@ describe("Actions", async () => {
 						_id: "1234",
 						name: "Alex",
 						age: 12,
-						arr: [],
+						children: [],
 						male: true,
 					}),
 				]);
@@ -133,14 +142,14 @@ describe("Actions", async () => {
 						_id: "1",
 						name: "Alex",
 						age: 12,
-						arr: [],
+						children: [],
 						male: true,
 					}),
 					Employee.new({
 						_id: "2",
 						name: "Dina",
 						age: 1,
-						arr: [],
+						children: [],
 						male: false,
 					}),
 				]);
@@ -156,7 +165,7 @@ describe("Actions", async () => {
 						Employee.new({
 							name: "Alex",
 							age: 12,
-							arr: [],
+							children: [],
 							male: true,
 						}),
 					]);
@@ -172,7 +181,7 @@ describe("Actions", async () => {
 					expect(doc.name).to.be.equal("Alex");
 					expect(doc.age).to.be.equal(12);
 					expect(doc.male).to.be.equal(true);
-					expect(doc.arr.length).to.be.equal(0);
+					expect(doc.children.length).to.be.equal(0);
 				}
 				{
 					// inserting multiple documents
@@ -180,13 +189,13 @@ describe("Actions", async () => {
 						Employee.new({
 							name: "Alex",
 							age: 12,
-							arr: [],
+							children: [],
 							male: true,
 						}),
 						Employee.new({
 							name: "Dina",
 							age: 11,
-							arr: [],
+							children: [],
 							male: false,
 						}),
 					]);
@@ -202,7 +211,7 @@ describe("Actions", async () => {
 					expect(doc1.name).to.be.equal("Alex");
 					expect(doc1.age).to.be.equal(12);
 					expect(doc1.male).to.be.equal(true);
-					expect(doc1.arr.length).to.be.equal(0);
+					expect(doc1.children.length).to.be.equal(0);
 
 					const doc2 = r.docs.find((x) => x.name === "Dina")!;
 					expect(typeof doc2._id).to.equal("string");
@@ -211,7 +220,7 @@ describe("Actions", async () => {
 					expect(doc2.name).to.be.equal("Dina");
 					expect(doc2.age).to.be.equal(11);
 					expect(doc2.male).to.be.equal(false);
-					expect(doc2.arr.length).to.be.equal(0);
+					expect(doc2.children.length).to.be.equal(0);
 				}
 			});
 			it("Modeling", async () => {
@@ -225,20 +234,20 @@ describe("Actions", async () => {
 		describe("Read", () => {
 			beforeEach(async () => {
 				await db.insert([
-					Employee.new({ name: "a", age: 1, arr: [], male: true }),
-					Employee.new({ name: "b", age: 2, arr: [], male: false }),
-					Employee.new({ name: "c", age: 3, arr: [], male: true }),
+					Employee.new({ name: "a", age: 1, children: [], male: true }),
+					Employee.new({ name: "b", age: 2, children: [], male: false }),
+					Employee.new({ name: "c", age: 3, children: [], male: true }),
 					Employee.new({
 						name: "d",
 						age: 4,
-						arr: [],
+						children: [],
 						male: false,
 						d: { a: { x: 10 } },
 					}),
 					Employee.new({
 						name: "e",
 						age: 5,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 20 } },
 					}),
@@ -285,14 +294,14 @@ describe("Actions", async () => {
 			});
 			it("Deep filter", async () => {
 				{
-					const res = await db.read({ $deep: { "d.a.x": { $eq: 10 } } });
+					const res = await db.read({ $deep: { d: { a: { x: { $eq: 10 } } } } });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("d");
 					expect(res[0].age).to.be.eq(4);
 					expect(res[0].male).to.be.eq(false);
 				}
 				{
-					const res = await db.read({ $deep: { "d.a.x": { $eq: 20 } } });
+					const res = await db.read({ $deep: { d: { a: { x: { $eq: 20 } } } } });
 					expect(res.length).to.be.eq(1);
 					expect(res[0].name).to.be.eq("e");
 					expect(res[0].age).to.be.eq(5);
@@ -301,7 +310,7 @@ describe("Actions", async () => {
 				{
 					const res = await db.read({
 						$deep: {
-							"d.a.x": { $lt: 20 },
+							d: { a: { x: { $lt: 20 } } },
 						},
 					});
 					expect(res.length).to.be.eq(1);
@@ -333,7 +342,7 @@ describe("Actions", async () => {
 				expect(res[0]).to.be.deep.equal({ male: true });
 			});
 			it("deep projecting", async () => {
-				const res = await db.find({ name: "e" }, { project: { _id: 0, $deep: { "d.a.x": 1 } } });
+				const res = await db.find({ name: "e" }, { project: { _id: 0, $deep: { d: { a: { x: 1 } } } } });
 				expect(res[0]).to.be.deep.equal({ d: { a: { x: 20 } } });
 			});
 			it("sorting", async () => {
@@ -355,11 +364,11 @@ describe("Actions", async () => {
 				}
 			});
 			it("deep sorting", async () => {
-				const res1 = await db.find({}, { sort: { $deep: { "d.a.x": 1 } } });
+				const res1 = await db.find({}, { sort: { $deep: { d: { a: { x: 1 } } } } });
 				expect(res1[res1.length - 1].d?.a.x).to.be.equal(20);
 				expect(res1[res1.length - 2].d?.a.x).to.be.equal(10);
 
-				const res2 = await db.find({}, { sort: { $deep: { "d.a.x": -1 } } });
+				const res2 = await db.find({}, { sort: { $deep: { d: { a: { x: -1 } } } } });
 				expect(res2[0].d?.a.x).to.be.equal(20);
 				expect(res2[1].d?.a.x).to.be.equal(10);
 			});
@@ -419,14 +428,14 @@ describe("Actions", async () => {
 					Employee.new({
 						name: "alex",
 						age: 28,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 0 } },
 					}),
 					Employee.new({
 						name: "dina",
 						age: 27,
-						arr: [],
+						children: [],
 						male: false,
 						d: { a: { x: -1 } },
 					}),
@@ -439,7 +448,7 @@ describe("Actions", async () => {
 				expect(afterUpdate[0].name).to.be.eq("aly");
 			});
 			it("Deep filter", async () => {
-				await db.update({ $deep: { "d.a.x": { $eq: 0 } } }, { $set: { name: "name2" } });
+				await db.update({ $deep: { d: { a: { x: { $eq: 0 } } } } }, { $set: { name: "name2" } });
 				const afterUpdate = await db.find({ age: 28 });
 				expect(afterUpdate.length).to.be.eq(1);
 				expect(afterUpdate[0].name).to.be.eq("name2");
@@ -482,7 +491,7 @@ describe("Actions", async () => {
 					Employee.new({
 						name: "alex",
 						age: 27,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 0 } },
 					}),
@@ -526,21 +535,21 @@ describe("Actions", async () => {
 					Employee.new({
 						name: "alex",
 						age: 1,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 1 } },
 					}),
 					Employee.new({
 						name: "dina",
 						age: 2,
-						arr: [],
+						children: [],
 						male: false,
 						d: { a: { x: 1 } },
 					}),
 					Employee.new({
 						name: "david",
 						age: 2,
-						arr: [],
+						children: [],
 						male: false,
 						d: { a: { x: 0 } },
 					}),
@@ -551,8 +560,8 @@ describe("Actions", async () => {
 				expect(await db.count({ age: 2 })).eq(2);
 			});
 			it("Deep filter", async () => {
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 0 } } })).eq(1);
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(2);
+				expect(await db.count({ $deep: { d: { a: { x: 0 } } } })).eq(1);
+				expect(await db.count({ $deep: { d: { a: { x: 1 } } } })).eq(2);
 			});
 			it("with no filter", async () => {
 				expect(await db.count()).eq(3);
@@ -566,21 +575,21 @@ describe("Actions", async () => {
 					Employee.new({
 						name: "alex",
 						age: 1,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 1 } },
 					}),
 					Employee.new({
 						name: "dina",
 						age: 2,
-						arr: [],
+						children: [],
 						male: false,
 						d: { a: { x: 1 } },
 					}),
 					Employee.new({
 						name: "david",
 						age: 2,
-						arr: [],
+						children: [],
 						male: true,
 						d: { a: { x: 0 } },
 					}),
@@ -597,9 +606,9 @@ describe("Actions", async () => {
 				expect(await db.count({ name: "dina" })).eq(0);
 			});
 			it("Deep filter", async () => {
-				const res = await db.delete({ $deep: { "d.a.x": { $eq: 1 } } });
+				const res = await db.delete({ $deep: { d: { a: { x: 1 } } } });
 				expect(res.number).eq(1);
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(
+				expect(await db.count({ $deep: { d: { a: { x: 1 } } } })).eq(
 					1 // one is left, since this is not a multi delete
 				);
 				expect(await db.count()).eq(2);
@@ -610,9 +619,9 @@ describe("Actions", async () => {
 				expect(await db.count()).eq(2);
 			});
 			it("multi delete", async () => {
-				const res = await db.delete({ $deep: { "d.a.x": { $eq: 1 } } }, true);
+				const res = await db.delete({ $deep: { d: { a: { x: 1 } } } }, true);
 				expect(res.number).eq(2);
-				expect(await db.count({ $deep: { "d.a.x": { $eq: 1 } } })).eq(
+				expect(await db.count({ $deep: { d: { a: { x: 1 } } } })).eq(
 					0 // no one is left, since this is a multi delete
 				);
 				expect(await db.count()).eq(1);

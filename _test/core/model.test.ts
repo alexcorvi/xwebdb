@@ -5,12 +5,12 @@
 import xwebdb from "../../dist/xwebdb.js";
 import underscore from "../../node_modules/underscore/underscore.js";
 const _: any = underscore;
-const BaseModel = xwebdb.BaseModel;
+const Doc = xwebdb.Doc;
 const { Datastore, modelling: model } = xwebdb._internal;
 
 const assert = chai.assert;
 
-class Simple extends BaseModel {}
+class Simple extends Doc {}
 
 describe("Model", () => {
 	describe("Serialization, deserialization", () => {
@@ -154,19 +154,20 @@ describe("Model", () => {
 		it("Can serialize string fields with a new line without breaking the DB", async () => {
 			const badString = "world\r\nearth\nother\rline";
 			let db1 = new Datastore({
-				ref: "workspace/test1.db",
+				ref: "testdatabase",
 				defer: 0,
 				stripDefaults: false,
 			});
 			await db1.loadDatabase();
 			await db1.insert({ hello: badString } as any);
 			let db2 = new Datastore({
-				ref: "workspace/test1.db",
+				ref: "testdatabase",
 				defer: 0,
 				stripDefaults: false,
 			});
 			await db2.loadDatabase();
 			let docs = await db2.find({});
+			console.log(docs)
 			docs.length.should.equal(1);
 			(docs[0] as any).hello.should.equal(badString);
 			await db1.persistence.deleteEverything();
