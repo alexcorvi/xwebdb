@@ -98,7 +98,6 @@ type $DeepCurrentDate<Main> = {
 		  }
 		: never;
 };
-
 export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	/**
 	 * Sets the value of a field in a document.
@@ -151,12 +150,12 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	 */
 	$min?: Partial<
 		{
-			[Key in Keys<S>]: S[Key] extends number
-				? S[Key]
-				: S[Key] extends Date
-				? S[Key]
+			[Key in Keys<D>]: D[Key] extends number
+				? D[Key]
+				: D[Key] extends Date
+				? D[Key]
 				: never;
-		} & { $deep: $DeepMinMax<S> }
+		} & { $deep: $DeepMinMax<D> }
 	>;
 	/**
 	 * Only updates the field if the specified value is greater than the existing field value.
@@ -164,12 +163,12 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	 */
 	$max?: Partial<
 		{
-			[Key in Keys<S>]: S[Key] extends number
-				? S[Key]
-				: S[Key] extends Date
-				? S[Key]
+			[Key in Keys<D>]: D[Key] extends number
+				? D[Key]
+				: D[Key] extends Date
+				? D[Key]
 				: never;
-		} & { $deep: $DeepMinMax<S> }
+		} & { $deep: $DeepMinMax<D> }
 	>;
 	/**
 	 * Sets the value of a field to current date, either as a Date or a Timestamp.
