@@ -145,7 +145,7 @@ export class Sync {
 		return false;
 	}
 
-	async _sync(): Promise<{
+	async _sync(force: boolean = false): Promise<{
 		sent: number;
 		received: number;
 		diff: -1 | 0 | 1;
@@ -155,6 +155,7 @@ export class Sync {
 		const lHash = (await this.p.data.get("$H")) || "0";
 		const hashTime = lHash.split("_")[1];
 		if (
+			!force &&
 			hashTime === timeSignature &&
 			(lHash === rHash ||
 				(lHash === "0" && (rHash || "").indexOf("10009") > -1))
