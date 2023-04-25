@@ -16,6 +16,8 @@ import {
 	NFP,
 } from "./types"; // for some reason using @types will disable some type checks
 
+let deepOperators: (keyof UpdateOperators<{}>)[] = ["$set", "$unset", "$inc", "$mul", "$rename", "$min", "$max", "$currentDate", "$addToSet"];
+
 export interface DatabaseConfigurations<C extends typeof Doc> {
 	ref: string;
 	model?: C;
@@ -232,11 +234,11 @@ export class Database<S extends Doc> {
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
 		filter = fixDeep(filter || {});
-		if (update.$set) {
-			update.$set = fixDeep(update.$set);
-		}
-		if (update.$unset) {
-			update.$unset = fixDeep(update.$unset);
+		for (let index = 0; index < deepOperators.length; index++) {
+			const operator = deepOperators[index];
+			if(update[operator]) {
+				update[operator] = fixDeep(update[operator]!) as any
+			}
 		}
 		await this.reloadFirst();
 		const res = await this._datastore.update(filter, update, {
@@ -256,11 +258,11 @@ export class Database<S extends Doc> {
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number; upsert: boolean }> {
 		filter = fixDeep(filter || {});
-		if (update.$set) {
-			update.$set = fixDeep(update.$set);
-		}
-		if (update.$unset) {
-			update.$unset = fixDeep(update.$unset);
+		for (let index = 0; index < deepOperators.length; index++) {
+			const operator = deepOperators[index];
+			if(update[operator]) {
+				update[operator] = fixDeep(update[operator]!) as any
+			}
 		}
 		await this.reloadFirst();
 		const res = await this._datastore.update(filter, update, {
@@ -362,8 +364,27 @@ export class Database<S extends Doc> {
 	ensureIndex = this.createIndex;
 }
 
-function fixDeep<T extends Filter<any>>(input: T): T {
-	const result = Object.assign<T, Filter<any>>(input, input.$deep);
+function fixDeep<T extends object>(input: T): T {
+	const output: { [key: string]: any } = {};
+	function flattenObject(obj: { [key: string]: any }, prefix: string = "") {
+		for (const key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				const nestedKey = prefix ? `${prefix}.${key}` : key;
+				const value = obj[key];
+				if (
+					typeof value === "object" &&
+					Object.keys(value).length && // empty objects and arrays excluded from recursion
+					Object.keys(value).filter((x) => x[0] === "$").length === 0 // objects that have operators excluded from recursion
+				) {
+					flattenObject(value, nestedKey);
+				} else {
+					output[nestedKey] = value;
+				}
+			}
+		}
+	}
+	flattenObject((input as any).$deep);
+	const result = Object.assign<T, Filter<any>>(input, output);
 	delete result.$deep;
 	return result;
 }
