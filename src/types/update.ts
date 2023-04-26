@@ -1,6 +1,6 @@
 import { Keys, Partial } from "./common";
-import { FieldLevelQueryOperators } from "./filter";
-import { RecursivePartial, NFGP, NFP } from "./common";
+import { FieldLevelQueryOperators, LogicalOperators } from "./filter";
+import { NFGP, NFP } from "./common";
 
 export interface PushModifiers<V> {
 	/**
@@ -122,8 +122,11 @@ type $DeepAddToSet<S> = {
 type $DeepPull<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
 		? U extends object
-			? { [index: number]: $DeepPull<U> } | FieldLevelQueryOperators<U>
-			: FieldLevelQueryOperators<U>
+			?
+					| { [index: number]: $DeepPull<U> }
+					| FieldLevelQueryOperators<U>
+					| (U extends object ? LogicalOperators<U>:never)
+			: FieldLevelQueryOperators<U> | LogicalOperators<U>
 		: S[P] extends object
 		? $DeepPull<S[P]>
 		: never;
@@ -261,7 +264,10 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	$pull?: Partial<
 		{
 			[Key in Keys<S>]: S[Key] extends Array<infer U>
-				? Partial<U> | FieldLevelQueryOperators<U>
+				?
+						| Partial<U>
+						| FieldLevelQueryOperators<U>
+						| (U extends object ? LogicalOperators<U> : never)
 				: never;
 		} & { $deep: $DeepPull<S> }
 	>;
