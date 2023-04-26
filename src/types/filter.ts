@@ -138,6 +138,7 @@ export interface LogicalOperators<S> {
 	 * Use the $where operator to pass either a string containing a JavaScript function to the query system. The $where provides greater flexibility, but requires that the database processes the JavaScript expression or function for each document in the collection. Reference the document in the JavaScript expression or function using this.
 	 */
 	$where?: (this: S) => boolean;
+}
 
 export type TopLevelQueryOperators<S> = LogicalOperators<S> & {
 	/**
