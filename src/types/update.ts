@@ -243,9 +243,7 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	 */
 	$addToSet?: Partial<
 		{
-			[Key in Keys<S>]: S[Key] extends Array<infer U>
-				? U | { $each: U[] }
-				: never;
+			[Key in Keys<S>]: S[Key] extends Array<infer U> ? U | { $each: U[] } : never;
 		} & { $deep: $DeepAddToSet<S> }
 	>;
 	/**
@@ -286,9 +284,7 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
 	 */
 	$push?: Partial<
 		{
-			[Key in Keys<S>]: S[Key] extends Array<infer U>
-				? U | PushModifiers<U>
-				: never;
+			[Key in Keys<S>]: S[Key] extends Array<infer U> ? U | PushModifiers<U> : never;
 		} & { $deep: $DeepPush<S> }
 	>;
 }
