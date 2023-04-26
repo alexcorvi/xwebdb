@@ -132,8 +132,8 @@ type $DeepPull<S> = {
 type $DeepPullAll<S> = {
 	[P in keyof S]?: S[P] extends Array<infer U>
 		? U extends object
-			? { [index: number]: $DeepPullAll<S[P][0]> } | U[]
-			: U[]
+			? { [index: number]: $DeepPullAll<S[P][0]> } | FieldLevelQueryOperators<U>[]
+			: FieldLevelQueryOperators<U>[]
 		: S[P] extends object
 		? $DeepPullAll<S[P]>
 		: never;
