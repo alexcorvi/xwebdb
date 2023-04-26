@@ -115,7 +115,7 @@ export interface TotalArrayOperators<V> extends AnyFieldOperators<V> {
 
 export type ArrayOperators<V> = TotalArrayOperators<V> & InnerArrayOperators<V>;
 
-export interface TopLevelQueryOperators<S> {
+export interface LogicalOperators<S> {
 	/**
 	 * $and performs a logical AND operation on an array of two or more expressions (e.g. <expression1>, <expression2>, etc.) and selects the documents that satisfy all the expressions in the array. The $and operator uses short-circuit evaluation. If the first expression (e.g. <expression1>) evaluates to false, MongoDB will not evaluate the remaining expressions.
 	 * { $and: [ { <expression1> }, { <expression2> } , ... , { <expressionN> } ] }
@@ -139,6 +139,7 @@ export interface TopLevelQueryOperators<S> {
 	 */
 	$where?: (this: S) => boolean;
 
+export type TopLevelQueryOperators<S> = LogicalOperators<S> & {
 	/**
 	 * Use this operator when trying to apply filter on a deeply nested properties.
 	 * `{$deep:{employee:{address:{ street: "St. Peters" }}}}`
