@@ -56,9 +56,7 @@ export class Database<S extends Doc> {
 			timestampData: options.timestampData,
 			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
-			devalidateHash: options.sync
-				? options.sync.devalidateHash
-				: undefined,
+			devalidateHash: options.sync ? options.sync.devalidateHash : undefined,
 			defer: options.deferPersistence || 0,
 			stripDefaults: options.stripDefaults || false,
 		});
@@ -102,8 +100,7 @@ export class Database<S extends Doc> {
 	> {
 		const res = await this.read(...arguments);
 		const ob = o.observable(res);
-		let toDBObserver: (changes: observable.Change<S[]>[]) => void = () =>
-			undefined;
+		let toDBObserver: (changes: observable.Change<S[]>[]) => void = () => undefined;
 		let fromDBuid = "";
 
 		if (toDB) {
@@ -117,20 +114,14 @@ export class Database<S extends Doc> {
 						change.type === "reverse"
 					) {
 						continue;
-					} else if (
-						change.path.length === 1 &&
-						change.type === "update"
-					) {
+					} else if (change.path.length === 1 && change.type === "update") {
 						let doc = change.snapshot[change.path[0] as number];
 						let _id = change.oldValue._id;
 						operations[_id] = () =>
 							this.update({ _id: _id } as any, {
 								$set: doc as any,
 							});
-					} else if (
-						change.path.length > 1 ||
-						change.type === "update"
-					) {
+					} else if (change.path.length > 1 || change.type === "update") {
 						// updating specific field in document
 						let doc = change.snapshot[change.path[0] as number];
 						let _id = doc._id;
@@ -151,9 +142,7 @@ export class Database<S extends Doc> {
 						operations[_id] = () => this.insert(doc);
 					}
 				}
-				const results = Object.values(operations).map((operation) =>
-					operation()
-				);
+				const results = Object.values(operations).map((operation) => operation());
 				Promise.all(results).catch((e) => {
 					liveUpdate();
 					console.error(
