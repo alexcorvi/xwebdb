@@ -99,7 +99,7 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.dotNotation(doc, this.fieldName) as Key;
+		let key = model.fromDotNotation(doc, this.fieldName) as Key;
 
 		// We don't index documents that don't contain the field if the index is sparse
 		if (key === undefined && this.sparse) {
@@ -174,7 +174,7 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.dotNotation(doc, this.fieldName) as Key;
+		let key = model.fromDotNotation(doc, this.fieldName) as Key;
 
 		if (key === undefined && this.sparse) {
 			return;

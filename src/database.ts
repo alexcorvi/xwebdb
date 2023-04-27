@@ -1,7 +1,7 @@
 import { Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
-import { modifiersKeys } from "./core/model/";
+import { modifiersKeys, toDotNotation } from "./core/model/";
 import {
 	Doc,
 	Filter,
@@ -189,9 +189,9 @@ export class Database<S extends Doc> {
 			project?: SchemaKeyProjection<S>;
 		} = {}
 	): Promise<S[]> {
-		filter = fixDeep(filter);
-		sort = fixDeep(sort);
-		project = fixDeep(project);
+		filter = toDotNotation(filter);
+		sort = toDotNotation(sort);
+		project = toDotNotation(project);
 
 		const cursor = this._datastore.cursor(filter);
 		if (sort) {
@@ -218,11 +218,11 @@ export class Database<S extends Doc> {
 		update: UpdateOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
-		filter = fixDeep(filter || {});
+		filter = toDotNotation(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
 			if (update[operator]) {
-				update[operator] = fixDeep(update[operator]!) as any;
+				update[operator] = toDotNotation(update[operator]!) as any;
 			}
 		}
 		await this.reloadFirst();
@@ -242,11 +242,11 @@ export class Database<S extends Doc> {
 		update: UpsertOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number; upsert: boolean }> {
-		filter = fixDeep(filter || {});
+		filter = toDotNotation(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
 			if (update[operator]) {
-				update[operator] = fixDeep(update[operator]!) as any;
+				update[operator] = toDotNotation(update[operator]!) as any;
 			}
 		}
 		await this.reloadFirst();
@@ -261,7 +261,7 @@ export class Database<S extends Doc> {
 	 * Count documents that meets the specified criteria
 	 */
 	public async count(filter: Filter<S> = {}): Promise<number> {
-		filter = fixDeep(filter || {});
+		filter = toDotNotation(filter || {});
 		await this.reloadFirst();
 		return await this._datastore.count(filter);
 	}
@@ -274,7 +274,7 @@ export class Database<S extends Doc> {
 		filter: Filter<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
-		filter = fixDeep(filter || {});
+		filter = toDotNotation(filter || {});
 		await this.reloadFirst();
 		const res = await this._datastore.remove(filter, {
 			multi: multi || false,
@@ -320,6 +320,16 @@ export class Database<S extends Doc> {
 		return await this._datastore.persistence.sync.sync();
 	}
 
+	async forceSync() {
+		if (!this._datastore.persistence.sync) {
+			throw new Error(
+				"XWebDB: Can not perform sync operation unless provided with remote DB adapter"
+			);
+		}
+		await this.reloadFirst();
+		return await this._datastore.persistence.sync._sync(true);
+	}
+
 	get syncInProgress() {
 		return this._datastore.persistence.syncInProgress;
 	}
@@ -347,38 +357,4 @@ export class Database<S extends Doc> {
 	 * Create an index specified by options
 	 */
 	ensureIndex = this.createIndex;
-}
-
-function fixDeep<T extends object>(input: T): T {
-	const output: { [key: string]: any } = {};
-	function flattenObject(obj: { [key: string]: any }, prefix: string = "") {
-		for (const key in obj) {
-			if (obj.hasOwnProperty(key)) {
-				const nestedKey = prefix ? `${prefix}.${key}` : key;
-				const value = obj[key];
-				/**
-				 * Recursion should stop at
-				 * 1. arrays
-				 * 2. empty objects
-				 * 3. objects that have operators
-				 * 4. Null values
-				 */
-				if (
-					!Array.isArray(value) &&
-					typeof value === "object" &&
-					value !== null &&
-					Object.keys(value).length &&
-					Object.keys(value).filter((x) => x[0] === "$").length === 0
-				) {
-					flattenObject(value, nestedKey);
-				} else {
-					output[nestedKey] = value;
-				}
-			}
-		}
-	}
-	flattenObject((input as any).$deep);
-	const result = Object.assign<T, Filter<any>>(input, output);
-	delete result.$deep;
-	return result;
 }

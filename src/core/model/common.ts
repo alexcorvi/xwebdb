@@ -1,4 +1,4 @@
-import { Doc } from "../../types";
+import { Doc, Filter } from "../../types";
 import { serialize } from "./serialize";
 
 export interface keyedObject<G = Value> {
@@ -78,7 +78,7 @@ export function clone<T>(obj: T, model: typeof Doc, strictKeys: boolean = false)
 	return JSON.parse(JSON.stringify({ temp: obj })).temp;
 }
 
-export function dotNotation(obj: any, field: string | string[]): any {
+export function fromDotNotation(obj: any, field: string | string[]): any {
 	const fieldParts = typeof field === "string" ? field.split(".") : field;
 	// field cannot be empty so that means we should return undefined so that nothing can match
 	if (!obj) return undefined;
@@ -89,17 +89,49 @@ export function dotNotation(obj: any, field: string | string[]): any {
 		// If the next field is an integer, return only this item of the array
 		let i = parseInt(fieldParts[1], 10);
 		if (typeof i === "number" && !isNaN(i)) {
-			return dotNotation(obj[fieldParts[0]][i], fieldParts.slice(2));
+			return fromDotNotation(obj[fieldParts[0]][i], fieldParts.slice(2));
 		}
 		// Return the array of values
 		let objects = new Array();
 		for (let i = 0; i < obj[fieldParts[0]].length; i += 1) {
-			objects.push(dotNotation(obj[fieldParts[0]][i], fieldParts.slice(1)));
+			objects.push(fromDotNotation(obj[fieldParts[0]][i], fieldParts.slice(1)));
 		}
 		return objects;
 	} else {
-		return dotNotation(obj[fieldParts[0]], fieldParts.slice(1));
+		return fromDotNotation(obj[fieldParts[0]], fieldParts.slice(1));
 	}
+}
+
+export function toDotN<T extends object>(input: T): T {
+	const output: { [key: string]: any } = {};
+	function flattenObject(obj: { [key: string]: any }, prefix: string = "") {
+		for (const key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				const nestedKey = prefix ? `${prefix}.${key}` : key;
+				const value = obj[key];
+				/**
+				 * Recursion should stop at
+				 * 1. arrays
+				 * 2. empty objects
+				 * 3. objects that have operators
+				 * 4. Null values
+				 */
+				if (
+					!Array.isArray(value) &&
+					typeof value === "object" &&
+					value !== null &&
+					Object.keys(value).length &&
+					Object.keys(value).join("").indexOf("$") === -1
+				)
+					flattenObject(value, nestedKey);
+				else output[nestedKey] = value;
+			}
+		}
+	}
+	flattenObject((input as any).$deep);
+	const result = Object.assign<T, Filter<any>>(input, output);
+	delete result.$deep;
+	return result;
 }
 
 export function equal<A, B>(a: A, b: B): boolean {

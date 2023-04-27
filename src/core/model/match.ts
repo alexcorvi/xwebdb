@@ -1,7 +1,7 @@
 import {
 	comparable,
 	equal,
-	dotNotation,
+	fromDotNotation,
 	isPrimitiveType,
 	keyedObject,
 } from "./common";
@@ -161,7 +161,7 @@ function matchSegment(
 	qVal: any,
 	treatObjAsValue?: boolean
 ): boolean {
-	const oVal = dotNotation(obj, queryKey);
+	const oVal = fromDotNotation(obj, queryKey);
 	/**
 	 * A. Dealing with arrays, unless forced to be treated as a values
 	 * oVal = [1,2,3]
