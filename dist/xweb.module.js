@@ -2021,7 +2021,7 @@ class Sync {
         });
     }
     timeSignature() {
-        return Math.floor(Date.now() / this.p.devalidateHash);
+        return Math.floor(Date.now() / this.p.invalidateHash);
     }
     sync() {
         return new Promise((resolve, reject) => {
@@ -2259,7 +2259,7 @@ class Persistence {
         this.ref = "";
         this.syncInterval = 0;
         this.syncInProgress = false;
-        this.devalidateHash = 0;
+        this.invalidateHash = 0;
         this.corruptAlertThreshold = 0.1;
         this.encode = (s) => s;
         this.decode = (s) => s;
@@ -2270,7 +2270,7 @@ class Persistence {
         this.stripDefaults = options.stripDefaults;
         this.data = new IDB(this.ref);
         this.RSA = options.syncToRemote;
-        this.devalidateHash = options.devalidateHash || 0;
+        this.invalidateHash = options.invalidateHash || 0;
         this.syncInterval = options.syncInterval || 0;
         if (this.RSA) {
             const rdata = this.RSA(this.ref);
@@ -2668,7 +2668,7 @@ class Datastore {
             corruptAlertThreshold: options.corruptAlertThreshold || 0,
             syncToRemote: options.syncToRemote,
             syncInterval: options.syncInterval,
-            devalidateHash: options.devalidateHash,
+            invalidateHash: options.invalidateHash,
             stripDefaults: options.stripDefaults,
         });
         this.timestampData = !!options.timestampData;
@@ -4016,7 +4016,6 @@ var observable$1 = /*#__PURE__*/Object.freeze({
 let deepOperators = modifiersKeys;
 class Database {
     constructor(options) {
-        this.reloadBeforeOperations = false;
         /**
          * Create document
          */
@@ -4039,7 +4038,6 @@ class Database {
         this.ensureIndex = this.createIndex;
         this.model = options.model || Doc;
         this.ref = options.ref;
-        this.reloadBeforeOperations = !!options.reloadBeforeOperations;
         this._datastore = new Datastore({
             ref: this.ref,
             model: this.model,
@@ -4049,25 +4047,17 @@ class Database {
             timestampData: options.timestampData,
             syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
             syncInterval: options.sync ? options.sync.syncInterval : undefined,
-            devalidateHash: options.sync ? options.sync.devalidateHash : undefined,
+            invalidateHash: options.sync ? options.sync.invalidateHash : undefined,
             defer: options.deferPersistence || 0,
             stripDefaults: options.stripDefaults || false,
         });
         this.loaded = this._datastore.loadDatabase();
-    }
-    reloadFirst() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.reloadBeforeOperations)
-                return;
-            yield this.reload();
-        });
     }
     /**
      * insert documents
      */
     insert(docs) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.reloadFirst();
             const res = yield this._datastore.insert(docs);
             return res;
         });
@@ -4167,7 +4157,6 @@ class Database {
             if (project) {
                 cursor.projection(project);
             }
-            yield this.reloadFirst();
             return yield cursor.exec();
         });
     }
@@ -4183,7 +4172,6 @@ class Database {
                     update[operator] = toDotNotation(update[operator]);
                 }
             }
-            yield this.reloadFirst();
             const res = yield this._datastore.update(filter, update, {
                 multi,
                 upsert: false,
@@ -4204,7 +4192,6 @@ class Database {
                     update[operator] = toDotNotation(update[operator]);
                 }
             }
-            yield this.reloadFirst();
             const res = yield this._datastore.update(filter, update, {
                 multi,
                 upsert: true,
@@ -4218,7 +4205,6 @@ class Database {
     count(filter = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             filter = toDotNotation(filter || {});
-            yield this.reloadFirst();
             return yield this._datastore.count(filter);
         });
     }
@@ -4229,7 +4215,6 @@ class Database {
     delete(filter, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
             filter = toDotNotation(filter || {});
-            yield this.reloadFirst();
             const res = yield this._datastore.remove(filter, {
                 multi: multi || false,
             });
@@ -4241,7 +4226,6 @@ class Database {
      */
     createIndex(options) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.reloadFirst();
             return yield this._datastore.ensureIndex(options);
         });
     }
@@ -4250,7 +4234,6 @@ class Database {
      */
     removeIndex(fieldName) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.reloadFirst();
             return yield this._datastore.removeIndex(fieldName);
         });
     }
@@ -4268,7 +4251,6 @@ class Database {
             if (!this._datastore.persistence.sync) {
                 throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
             }
-            yield this.reloadFirst();
             return yield this._datastore.persistence.sync.sync();
         });
     }
@@ -4277,7 +4259,6 @@ class Database {
             if (!this._datastore.persistence.sync) {
                 throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
             }
-            yield this.reloadFirst();
             return yield this._datastore.persistence.sync._sync(true);
         });
     }

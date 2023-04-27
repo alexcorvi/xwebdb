@@ -8,23 +8,20 @@ export interface DatabaseConfigurations<C extends typeof Doc> {
     decode?(line: string): string;
     corruptAlertThreshold?: number;
     timestampData?: boolean;
-    reloadBeforeOperations?: boolean;
     sync?: {
         syncToRemote?: (name: string) => remoteStore;
         syncInterval?: number;
-        devalidateHash?: number;
+        invalidateHash?: number;
     };
     deferPersistence?: number;
     stripDefaults?: boolean;
 }
 export declare class Database<S extends Doc> {
     private ref;
-    private reloadBeforeOperations;
     private model;
     _datastore: Datastore<S, typeof Doc>;
     loaded: Promise<boolean>;
     constructor(options: DatabaseConfigurations<typeof Doc>);
-    private reloadFirst;
     /**
      * insert documents
      */

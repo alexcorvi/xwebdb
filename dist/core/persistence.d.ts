@@ -27,7 +27,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
     model?: typeof Doc;
     syncInterval?: number;
     syncToRemote?: (name: string) => remoteStore;
-    devalidateHash?: number;
+    invalidateHash?: number;
     stripDefaults: boolean;
 }
 /**
@@ -41,7 +41,7 @@ export declare class Persistence<G extends Doc, C extends typeof Doc> {
     syncInterval: number;
     syncInProgress: boolean;
     sync?: Sync;
-    devalidateHash: number;
+    invalidateHash: number;
     corruptAlertThreshold: number;
     encode: (s: string) => string;
     decode: (s: string) => string;

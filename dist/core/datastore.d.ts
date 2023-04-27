@@ -19,7 +19,7 @@ export interface DataStoreOptions<G extends typeof Doc> {
     timestampData?: boolean;
     syncToRemote?: (name: string) => remoteStore;
     syncInterval?: number;
-    devalidateHash?: number;
+    invalidateHash?: number;
     model?: G;
     defer: number;
     stripDefaults: boolean;
