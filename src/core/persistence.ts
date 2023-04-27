@@ -1,7 +1,7 @@
 import * as u from "./customUtils";
 import { Datastore, EnsureIndexOptions } from "./datastore";
 import { Index } from "./indexes";
-import * as model from "./model";
+import * as model from "./model/";
 import { Doc } from "../types";
 import { remoteStore } from "./adapters/type";
 import { IDB } from "./idb";

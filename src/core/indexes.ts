@@ -1,5 +1,5 @@
 import { AvlTree } from "./avl";
-import * as model from "./model";
+import * as model from "./model/";
 import { Doc } from "../types";
 
 interface Pair<Doc> {
@@ -75,7 +75,7 @@ export class Index<Key, S extends Doc> {
 
 		this.tree = new AvlTree(
 			this.fieldName,
-			model.compareThings,
+			model.compare,
 			this.unique
 		);
 	}
@@ -83,7 +83,7 @@ export class Index<Key, S extends Doc> {
 	reset() {
 		this.tree = new AvlTree(
 			this.fieldName,
-			model.compareThings,
+			model.compare,
 			this.unique
 		);
 	}
@@ -99,7 +99,7 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.getDotValue(doc, this.fieldName) as Key;
+		let key = model.dotNotation(doc, this.fieldName) as Key;
 
 		// We don't index documents that don't contain the field if the index is sparse
 		if (key === undefined && this.sparse) {
@@ -174,7 +174,7 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.getDotValue(doc, this.fieldName) as Key;
+		let key = model.dotNotation(doc, this.fieldName) as Key;
 
 		if (key === undefined && this.sparse) {
 			return;

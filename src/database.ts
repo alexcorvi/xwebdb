@@ -1,12 +1,7 @@
-import {
-	Datastore,
-	EnsureIndexOptions,
-	observable as o,
-	observable,
-} from "./core";
+import { Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
-import { lastStepModifierFunctions } from "./core/model";
+import { modifiersKeys } from "./core/model/";
 import {
 	Doc,
 	Filter,
@@ -17,7 +12,7 @@ import {
 	NFP,
 } from "./types"; // for some reason using @types will disable some type checks
 
-let deepOperators = Object.keys(lastStepModifierFunctions) as (keyof UpdateOperators<{}>)[];
+let deepOperators = modifiersKeys as (keyof UpdateOperators<{}>)[];
 
 export interface DatabaseConfigurations<C extends typeof Doc> {
 	ref: string;

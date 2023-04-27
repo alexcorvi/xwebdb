@@ -2,7 +2,7 @@ import { Persistence, persistenceLine } from "./persistence";
 import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
 import { Index } from "./indexes";
-import * as modelling from "./model";
+import * as modelling from "./model/";
 import { liveUpdate } from "./live";
 
 type diff = { key: string; value: string };

@@ -1,7 +1,7 @@
 import { Cursor } from "./cursor";
 import * as customUtils from "./customUtils";
 import { Index } from "./indexes";
-import * as model from "./model";
+import * as model from "./model/";
 import { Persistence } from "./persistence";
 import * as types from "../types";
 import { Doc } from "../types/base-schema";
@@ -431,7 +431,7 @@ export class Datastore<
 		let w = Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc];
 		if (this.defer) this.deferredWrites.push(...w);
 		else await this.persistence.writeNewData(w);
-		return model.deepCopy(preparedDoc, this.model);
+		return model.clone(preparedDoc, this.model);
 	}
 
 	/**
@@ -456,7 +456,7 @@ export class Datastore<
 				preparedDoc.push(this.prepareDocumentForInsertion(doc));
 			});
 		} else {
-			preparedDoc = model.deepCopy(newDoc, this.model);
+			preparedDoc = model.clone(newDoc, this.model);
 			if (preparedDoc._id === undefined) {
 				preparedDoc._id = this.createNewId();
 			}
@@ -467,7 +467,7 @@ export class Datastore<
 			if (this.timestampData && preparedDoc.updatedAt === undefined) {
 				preparedDoc.updatedAt = now;
 			}
-			model.checkObject(preparedDoc);
+			model.validateObject(preparedDoc);
 		}
 
 		return preparedDoc;
@@ -619,7 +619,7 @@ export class Datastore<
 			else await this.persistence.writeNewData(updatedDocs);
 			return {
 				number: updatedDocs.length,
-				docs: updatedDocs.map((x) => model.deepCopy(x, this.model)),
+				docs: updatedDocs.map((x) => model.clone(x, this.model)),
 				upsert: false,
 			};
 		} else if (res.length === 0 && upsert) {
@@ -628,7 +628,7 @@ export class Datastore<
 					"XWebDB: $setOnInsert modifier is required when upserting"
 				);
 			}
-			let toBeInserted = model.deepCopy(
+			let toBeInserted = model.clone(
 				updateQuery.$setOnInsert,
 				this.model,
 				true
@@ -682,7 +682,7 @@ export class Datastore<
 		candidates.forEach((d) => {
 			if (model.match(d, query) && (multi || numRemoved === 0)) {
 				numRemoved++;
-				removedFullDoc.push(model.deepCopy(d, this.model));
+				removedFullDoc.push(model.clone(d, this.model));
 				removedDocs.push({ $$deleted: true, _id: d._id });
 				this.removeFromIndexes(d);
 			}

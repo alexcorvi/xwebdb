@@ -1,5 +1,5 @@
 import { Datastore } from "./datastore";
-import * as model from "./model";
+import * as model from "./model/";
 import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
 
 /**
@@ -86,7 +86,7 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 				// pick-type projection
 				toPush = { $set: {} };
 				keys.forEach((k) => {
-					toPush.$set[k] = model.getDotValue(candidate, k);
+					toPush.$set[k] = model.dotNotation(candidate, k);
 					if (toPush.$set[k] === undefined) {
 						delete toPush.$set[k];
 					}
@@ -159,9 +159,9 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 					criterion = criteria[i];
 					compare =
 						criterion.direction *
-						model.compareThings(
-							model.getDotValue(a, criterion.key),
-							model.getDotValue(b, criterion.key)
+						model.compare(
+							model.dotNotation(a, criterion.key),
+							model.dotNotation(b, criterion.key)
 						);
 					if (compare !== 0) {
 						return compare;
@@ -192,7 +192,7 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 		const originalsArr = await this._exec();
 		const res: G[] = [];
 		for (let index = 0; index < originalsArr.length; index++) {
-			res.push(model.deepCopy(originalsArr[index], this.db.model));
+			res.push(model.clone(originalsArr[index], this.db.model));
 		}
 		return res;
 	}
