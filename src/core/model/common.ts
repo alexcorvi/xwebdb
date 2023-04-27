@@ -102,7 +102,7 @@ export function fromDotNotation(obj: any, field: string | string[]): any {
 	}
 }
 
-export function toDotN<T extends object>(input: T): T {
+export function toDotNotation<T extends object>(input: T): T {
 	const output: { [key: string]: any } = {};
 	function flattenObject(obj: { [key: string]: any }, prefix: string = "") {
 		for (const key in obj) {
