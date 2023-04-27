@@ -125,7 +125,7 @@ type $DeepPull<S> = {
 			?
 					| { [index: number]: $DeepPull<U> }
 					| FieldLevelQueryOperators<U>
-					| (U extends object ? LogicalOperators<U>:never)
+					| (U extends object ? LogicalOperators<U> : never)
 			: FieldLevelQueryOperators<U> | LogicalOperators<U>
 		: S[P] extends object
 		? $DeepPull<S[P]>
