@@ -372,10 +372,19 @@ function fixDeep<T extends object>(input: T): T {
 			if (obj.hasOwnProperty(key)) {
 				const nestedKey = prefix ? `${prefix}.${key}` : key;
 				const value = obj[key];
+				/**
+				 * Recursion should stop at
+				 * 1. arrays
+				 * 2. empty objects
+				 * 3. objects that have operators
+				 * 4. Null values
+				 */
 				if (
+					!Array.isArray(value) &&
 					typeof value === "object" &&
-					Object.keys(value).length && // empty objects and arrays excluded from recursion
-					Object.keys(value).filter((x) => x[0] === "$").length === 0 // objects that have operators excluded from recursion
+					value !== null &&
+					Object.keys(value).length &&
+					Object.keys(value).filter((x) => x[0] === "$").length === 0
 				) {
 					flattenObject(value, nestedKey);
 				} else {
