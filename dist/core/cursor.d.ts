@@ -5,7 +5,7 @@ import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
  */
 export declare class Cursor<G extends Doc, C extends typeof Doc> {
     private db;
-    private query;
+    private _query;
     private _limit;
     private _skip;
     private _sort;

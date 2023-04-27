@@ -102,6 +102,11 @@ export declare class Database<S extends Doc> {
         received: number;
         diff: 0 | 1 | -1;
     }>;
+    forceSync(): Promise<{
+        sent: number;
+        received: number;
+        diff: 0 | 1 | -1;
+    }>;
     get syncInProgress(): boolean;
     /**
      * Create document

@@ -25,6 +25,7 @@ export declare function isKeyedObject(obj: Value): obj is keyedObject;
  * where the keys are valid, i.e. don't begin with $ and don't contain a dot
  */
 export declare function clone<T>(obj: T, model: typeof Doc, strictKeys?: boolean): T;
-export declare function dotNotation(obj: any, field: string | string[]): any;
+export declare function fromDotNotation(obj: any, field: string | string[]): any;
+export declare function toDotNotation<T extends object>(input: T): T;
 export declare function equal<A, B>(a: A, b: B): boolean;
 export declare function comparable<T, D>(a: T, b: D): boolean;

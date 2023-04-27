@@ -180,7 +180,7 @@ function clone(obj, model, strictKeys = false) {
     }
     return JSON.parse(JSON.stringify({ temp: obj })).temp;
 }
-function dotNotation(obj, field) {
+function fromDotNotation(obj, field) {
     const fieldParts = typeof field === "string" ? field.split(".") : field;
     // field cannot be empty so that means we should return undefined so that nothing can match
     if (!obj)
@@ -194,18 +194,48 @@ function dotNotation(obj, field) {
         // If the next field is an integer, return only this item of the array
         let i = parseInt(fieldParts[1], 10);
         if (typeof i === "number" && !isNaN(i)) {
-            return dotNotation(obj[fieldParts[0]][i], fieldParts.slice(2));
+            return fromDotNotation(obj[fieldParts[0]][i], fieldParts.slice(2));
         }
         // Return the array of values
         let objects = new Array();
         for (let i = 0; i < obj[fieldParts[0]].length; i += 1) {
-            objects.push(dotNotation(obj[fieldParts[0]][i], fieldParts.slice(1)));
+            objects.push(fromDotNotation(obj[fieldParts[0]][i], fieldParts.slice(1)));
         }
         return objects;
     }
     else {
-        return dotNotation(obj[fieldParts[0]], fieldParts.slice(1));
+        return fromDotNotation(obj[fieldParts[0]], fieldParts.slice(1));
     }
+}
+function toDotNotation(input) {
+    const output = {};
+    function flattenObject(obj, prefix = "") {
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const nestedKey = prefix ? `${prefix}.${key}` : key;
+                const value = obj[key];
+                /**
+                 * Recursion should stop at
+                 * 1. arrays
+                 * 2. empty objects
+                 * 3. objects that have operators
+                 * 4. Null values
+                 */
+                if (!Array.isArray(value) &&
+                    typeof value === "object" &&
+                    value !== null &&
+                    Object.keys(value).length &&
+                    Object.keys(value).join("").indexOf("$") === -1)
+                    flattenObject(value, nestedKey);
+                else
+                    output[nestedKey] = value;
+            }
+        }
+    }
+    flattenObject(input.$deep);
+    const result = Object.assign(input, output);
+    delete result.$deep;
+    return result;
 }
 function equal(a, b) {
     let ta = typeof a;
@@ -473,7 +503,7 @@ function match(obj, query) {
  * if the treatObjAsValue flag is set, don't try to match every part separately, but the array as a whole
  */
 function matchSegment(obj, queryKey, qVal, treatObjAsValue) {
-    const oVal = dotNotation(obj, queryKey);
+    const oVal = fromDotNotation(obj, queryKey);
     /**
      * A. Dealing with arrays, unless forced to be treated as a values
      * oVal = [1,2,3]
@@ -857,13 +887,14 @@ function modify(obj, updateQuery, model) {
 
 var modelling = /*#__PURE__*/Object.freeze({
     __proto__: null,
+    toDotNotation: toDotNotation,
     serialize: serialize,
     deserialize: deserialize,
     clone: clone,
     validateObject: validateObject,
     isPrimitiveType: isPrimitiveType,
     modify: modify,
-    dotNotation: dotNotation,
+    fromDotNotation: fromDotNotation,
     match: match,
     compare: compare,
     modifiersKeys: modifiersKeys,
@@ -901,7 +932,7 @@ function __awaiter(thisArg, _arguments, P, generator) {
 class Cursor {
     constructor(db, query) {
         this.db = db;
-        this.query = query || {};
+        this._query = query || {};
     }
     /**
      * Set a limit to the number of results
@@ -935,10 +966,8 @@ class Cursor {
      * Apply the projection
      */
     _project(candidates) {
-        if (this._projection === undefined ||
-            Object.keys(this._projection).length === 0) {
+        if (this._projection === undefined || Object.keys(this._projection).length === 0)
             return candidates;
-        }
         let res = [];
         let keepId = this._projection._id !== 0;
         delete this._projection._id;
@@ -949,15 +978,16 @@ class Cursor {
         if (actions[0] !== actions[actions.length - 1]) {
             throw new Error("XWebDB: Can't both keep and omit fields except for _id");
         }
-        let action = actions[0];
+        let pick = actions[0] === 1;
         // Do the actual projection
-        candidates.forEach((candidate) => {
+        for (let index = 0; index < candidates.length; index++) {
+            const candidate = candidates[index];
             let toPush = {};
-            if (action === 1) {
+            if (pick) {
                 // pick-type projection
                 toPush = { $set: {} };
                 keys.forEach((k) => {
-                    toPush.$set[k] = dotNotation(candidate, k);
+                    toPush.$set[k] = fromDotNotation(candidate, k);
                     if (toPush.$set[k] === undefined) {
                         delete toPush.$set[k];
                     }
@@ -979,7 +1009,7 @@ class Cursor {
                 delete toPush._id;
             }
             res.push(toPush);
-        });
+        }
         return res;
     }
     /**
@@ -992,9 +1022,9 @@ class Cursor {
             let res = [];
             let added = 0;
             let skipped = 0;
-            const candidates = yield this.db.getCandidates(this.query);
+            const candidates = yield this.db.getCandidates(this._query);
             for (let i = 0; i < candidates.length; i++) {
-                if (match(candidates[i], this.query)) {
+                if (match(candidates[i], this._query)) {
                     // If a sort is defined, wait for the results to be sorted before applying limit and skip
                     if (!this._sort) {
                         if (this._skip && this._skip > skipped) {
@@ -1030,7 +1060,7 @@ class Cursor {
                         criterion = criteria[i];
                         compare$1 =
                             criterion.direction *
-                                compare(dotNotation(a, criterion.key), dotNotation(b, criterion.key));
+                                compare(fromDotNotation(a, criterion.key), fromDotNotation(b, criterion.key));
                         if (compare$1 !== 0) {
                             return compare$1;
                         }
@@ -1626,7 +1656,7 @@ class Index {
             this.insertMultipleDocs(doc);
             return;
         }
-        let key = dotNotation(doc, this.fieldName);
+        let key = fromDotNotation(doc, this.fieldName);
         // We don't index documents that don't contain the field if the index is sparse
         if (key === undefined && this.sparse) {
             return;
@@ -1693,7 +1723,7 @@ class Index {
             doc.forEach((d) => this.remove(d));
             return;
         }
-        let key = dotNotation(doc, this.fieldName);
+        let key = fromDotNotation(doc, this.fieldName);
         if (key === undefined && this.sparse) {
             return;
         }
@@ -3096,14 +3126,14 @@ class Datastore {
                 }
                 // Change the docs in memory
                 this.updateIndexes(modifications);
-                // Update the datafile
-                const updatedDocs = modifications.map((x) => x.newDoc);
                 try {
                     liveUpdate();
                 }
                 catch (e) {
                     console.error(`XWebDB: Could not do live updates due to an error:`, e);
                 }
+                // Update indexedDB
+                const updatedDocs = modifications.map((x) => x.newDoc);
                 if (this.defer)
                     this.deferredWrites.push(...updatedDocs);
                 else
@@ -3581,9 +3611,7 @@ function proxiedPop() {
             popResult = tmpObserved.detach();
         }
     }
-    const changes = [
-        new Change(DELETE, [poppedIndex], undefined, popResult, this, copy(this)),
-    ];
+    const changes = [new Change(DELETE, [poppedIndex], undefined, popResult, this, copy(this))];
     callObservers(oMeta, changes);
     return popResult;
 }
@@ -3620,9 +3648,7 @@ function proxiedShift() {
             }
         }
     }
-    const changes = [
-        new Change(DELETE, [0], undefined, shiftResult, this, copy(this)),
-    ];
+    const changes = [new Change(DELETE, [0], undefined, shiftResult, this, copy(this))];
     callObservers(oMeta, changes);
     return shiftResult;
 }
@@ -3663,9 +3689,7 @@ function proxiedReverse() {
             }
         }
     }
-    const changes = [
-        new Change(REVERSE, [], undefined, undefined, this, copy(this)),
-    ];
+    const changes = [new Change(REVERSE, [], undefined, undefined, this, copy(this))];
     callObservers(oMeta, changes);
     return this;
 }
@@ -3682,9 +3706,7 @@ function proxiedSort(comparator) {
             }
         }
     }
-    const changes = [
-        new Change(SHUFFLE, [], undefined, undefined, this, copy(this)),
-    ];
+    const changes = [new Change(SHUFFLE, [], undefined, undefined, this, copy(this))];
     callObservers(oMeta, changes);
     return this;
 }
@@ -4129,9 +4151,9 @@ class Database {
      */
     read(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, } = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            filter = fixDeep(filter);
-            sort = fixDeep(sort);
-            project = fixDeep(project);
+            filter = toDotNotation(filter);
+            sort = toDotNotation(sort);
+            project = toDotNotation(project);
             const cursor = this._datastore.cursor(filter);
             if (sort) {
                 cursor.sort(sort);
@@ -4154,11 +4176,11 @@ class Database {
      */
     update(filter, update, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
-            filter = fixDeep(filter || {});
+            filter = toDotNotation(filter || {});
             for (let index = 0; index < deepOperators.length; index++) {
                 const operator = deepOperators[index];
                 if (update[operator]) {
-                    update[operator] = fixDeep(update[operator]);
+                    update[operator] = toDotNotation(update[operator]);
                 }
             }
             yield this.reloadFirst();
@@ -4175,11 +4197,11 @@ class Database {
      */
     upsert(filter, update, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
-            filter = fixDeep(filter || {});
+            filter = toDotNotation(filter || {});
             for (let index = 0; index < deepOperators.length; index++) {
                 const operator = deepOperators[index];
                 if (update[operator]) {
-                    update[operator] = fixDeep(update[operator]);
+                    update[operator] = toDotNotation(update[operator]);
                 }
             }
             yield this.reloadFirst();
@@ -4195,7 +4217,7 @@ class Database {
      */
     count(filter = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            filter = fixDeep(filter || {});
+            filter = toDotNotation(filter || {});
             yield this.reloadFirst();
             return yield this._datastore.count(filter);
         });
@@ -4206,7 +4228,7 @@ class Database {
      */
     delete(filter, multi = false) {
         return __awaiter(this, void 0, void 0, function* () {
-            filter = fixDeep(filter || {});
+            filter = toDotNotation(filter || {});
             yield this.reloadFirst();
             const res = yield this._datastore.remove(filter, {
                 multi: multi || false,
@@ -4250,41 +4272,18 @@ class Database {
             return yield this._datastore.persistence.sync.sync();
         });
     }
+    forceSync() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this._datastore.persistence.sync) {
+                throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
+            }
+            yield this.reloadFirst();
+            return yield this._datastore.persistence.sync._sync(true);
+        });
+    }
     get syncInProgress() {
         return this._datastore.persistence.syncInProgress;
     }
-}
-function fixDeep(input) {
-    const output = {};
-    function flattenObject(obj, prefix = "") {
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                const nestedKey = prefix ? `${prefix}.${key}` : key;
-                const value = obj[key];
-                /**
-                 * Recursion should stop at
-                 * 1. arrays
-                 * 2. empty objects
-                 * 3. objects that have operators
-                 * 4. Null values
-                 */
-                if (!Array.isArray(value) &&
-                    typeof value === "object" &&
-                    value !== null &&
-                    Object.keys(value).length &&
-                    Object.keys(value).filter((x) => x[0] === "$").length === 0) {
-                    flattenObject(value, nestedKey);
-                }
-                else {
-                    output[nestedKey] = value;
-                }
-            }
-        }
-    }
-    flattenObject(input.$deep);
-    const result = Object.assign(input, output);
-    delete result.$deep;
-    return result;
 }
 
 const _internal = {
