@@ -21,7 +21,6 @@ export interface DatabaseConfigurations<C extends typeof Doc> {
 	decode?(line: string): string;
 	corruptAlertThreshold?: number;
 	timestampData?: boolean;
-	reloadBeforeOperations?: boolean;
 	sync?: {
 		syncToRemote?: (name: string) => remoteStore;
 		syncInterval?: number;
@@ -33,7 +32,6 @@ export interface DatabaseConfigurations<C extends typeof Doc> {
 
 export class Database<S extends Doc> {
 	private ref: string;
-	private reloadBeforeOperations: boolean = false;
 	private model: typeof Doc;
 	public _datastore: Datastore<S, typeof Doc>;
 	public loaded: Promise<boolean>;
@@ -41,7 +39,6 @@ export class Database<S extends Doc> {
 	constructor(options: DatabaseConfigurations<typeof Doc>) {
 		this.model = options.model || Doc;
 		this.ref = options.ref;
-		this.reloadBeforeOperations = !!options.reloadBeforeOperations;
 		this._datastore = new Datastore({
 			ref: this.ref,
 			model: this.model,
@@ -57,16 +54,11 @@ export class Database<S extends Doc> {
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}
-	private async reloadFirst() {
-		if (!this.reloadBeforeOperations) return;
-		await this.reload();
-	}
 
 	/**
 	 * insert documents
 	 */
 	public async insert(docs: S[] | S): Promise<{ docs: S[]; number: number }> {
-		await this.reloadFirst();
 		const res = await this._datastore.insert(docs);
 		return res;
 	}
@@ -206,7 +198,6 @@ export class Database<S extends Doc> {
 		if (project) {
 			cursor.projection(project as any);
 		}
-		await this.reloadFirst();
 		return await cursor.exec();
 	}
 
@@ -225,7 +216,6 @@ export class Database<S extends Doc> {
 				update[operator] = toDotNotation(update[operator]!) as any;
 			}
 		}
-		await this.reloadFirst();
 		const res = await this._datastore.update(filter, update, {
 			multi,
 			upsert: false,
@@ -249,7 +239,6 @@ export class Database<S extends Doc> {
 				update[operator] = toDotNotation(update[operator]!) as any;
 			}
 		}
-		await this.reloadFirst();
 		const res = await this._datastore.update(filter, update, {
 			multi,
 			upsert: true,
@@ -262,7 +251,6 @@ export class Database<S extends Doc> {
 	 */
 	public async count(filter: Filter<S> = {}): Promise<number> {
 		filter = toDotNotation(filter || {});
-		await this.reloadFirst();
 		return await this._datastore.count(filter);
 	}
 
@@ -275,7 +263,6 @@ export class Database<S extends Doc> {
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
 		filter = toDotNotation(filter || {});
-		await this.reloadFirst();
 		const res = await this._datastore.remove(filter, {
 			multi: multi || false,
 		});
@@ -288,7 +275,6 @@ export class Database<S extends Doc> {
 	public async createIndex(
 		options: EnsureIndexOptions & { fieldName: keyof NFP<S> }
 	): Promise<{ affectedIndex: string }> {
-		await this.reloadFirst();
 		return await this._datastore.ensureIndex(options);
 	}
 
@@ -298,7 +284,6 @@ export class Database<S extends Doc> {
 	public async removeIndex(
 		fieldName: string & keyof NFP<S>
 	): Promise<{ affectedIndex: string }> {
-		await this.reloadFirst();
 		return await this._datastore.removeIndex(fieldName);
 	}
 
@@ -316,7 +301,6 @@ export class Database<S extends Doc> {
 				"XWebDB: Can not perform sync operation unless provided with remote DB adapter"
 			);
 		}
-		await this.reloadFirst();
 		return await this._datastore.persistence.sync.sync();
 	}
 
@@ -326,7 +310,6 @@ export class Database<S extends Doc> {
 				"XWebDB: Can not perform sync operation unless provided with remote DB adapter"
 			);
 		}
-		await this.reloadFirst();
 		return await this._datastore.persistence.sync._sync(true);
 	}
 
