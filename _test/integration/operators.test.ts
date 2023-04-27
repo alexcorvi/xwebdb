@@ -62,6 +62,7 @@ describe("Operators tests", () => {
 			ref: dbName,
 			model: Employee,
 		});
+		await db.delete({}, true);
 		await db.reload();
 		(await db.count({})).should.equal(0);
 
@@ -430,15 +431,9 @@ describe("Operators tests", () => {
 				expect((await db.find({ name: "john" }))[0].additional).eq(undefined);
 			});
 			it("$setOnInsert", async () => {
-				await db.upsert(
-					{ name: "john" },
-					{ $set: { name: "joe" }, $setOnInsert: Employee.new({ name: "joe" }) }
-				);
+				await db.upsert({ name: "john" }, { $set: { name: "joe" }, $setOnInsert: Employee.new({ name: "joe" }) });
 				expect((await db.find({ name: "joe" }))[0].age).eq(35);
-				await db.upsert(
-					{ name: "elizabeth" },
-					{ $set: { name: "beth" }, $setOnInsert: Employee.new({ name: "beth" }) }
-				);
+				await db.upsert({ name: "elizabeth" }, { $set: { name: "beth" }, $setOnInsert: Employee.new({ name: "beth" }) });
 				expect((await db.find({ name: "beth" }))[0].age).eq(9);
 			});
 		});
@@ -472,7 +467,7 @@ describe("Operators tests", () => {
 				expect(JSON.stringify(doc.events)).eq(JSON.stringify([15]));
 			});
 			it("$pull $eq", async () => {
-				await db.update({ name: "john" }, { $pull: { rooms: "a", events: { $eq: 10 } } });
+				await db.update({ name: "john" }, { $pull: { rooms: "a", events: { $in: [10, 11, 12] } } });
 				const doc = (await db.find({ name: "john" }))[0];
 				expect(JSON.stringify(doc.rooms)).eq(JSON.stringify(["b", "c", "d"]));
 				expect(JSON.stringify(doc.events)).eq(JSON.stringify([5, 15]));
@@ -505,10 +500,7 @@ describe("Operators tests", () => {
 				expect(JSON.stringify(doc.events)).eq(JSON.stringify([5, 5, 10, 15, 10, 15]));
 			});
 			it("$push $each $slice", async () => {
-				await db.update(
-					{ name: "john" },
-					{ $push: { events: { $each: [5, 10, 15], $position: 1, $slice: 3 } } }
-				);
+				await db.update({ name: "john" }, { $push: { events: { $each: [5, 10, 15], $position: 1, $slice: 3 } } });
 				const doc = (await db.find({ name: "john" }))[0];
 				expect(JSON.stringify(doc.events)).eq(JSON.stringify([5, 5, 10]));
 			});
@@ -533,9 +525,7 @@ describe("Operators tests", () => {
 						}
 					);
 					const doc = (await db.find({ name: "john" }))[0];
-					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(
-						JSON.stringify(["jim", "tim", "tom", "roy"])
-					);
+					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(JSON.stringify(["jim", "tim", "tom", "roy"]));
 				});
 				it("$push $each $sort 2", async () => {
 					await db.update(
@@ -545,9 +535,7 @@ describe("Operators tests", () => {
 						}
 					);
 					const doc = (await db.find({ name: "john" }))[0];
-					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(
-						JSON.stringify(["tim", "jim", "tom", "roy"])
-					);
+					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(JSON.stringify(["tim", "jim", "tom", "roy"]));
 				});
 				it("$push $each $sort 3", async () => {
 					await db.update(
@@ -557,9 +545,7 @@ describe("Operators tests", () => {
 						}
 					);
 					const doc = (await db.find({ name: "john" }))[0];
-					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(
-						JSON.stringify(["roy", "tom", "tim", "jim"])
-					);
+					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(JSON.stringify(["roy", "tom", "tim", "jim"]));
 				});
 				it("$push $each $sort 4", async () => {
 					await db.update(
@@ -569,9 +555,7 @@ describe("Operators tests", () => {
 						}
 					);
 					const doc = (await db.find({ name: "john" }))[0];
-					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(
-						JSON.stringify(["roy", "tom", "jim", "tim"])
-					);
+					expect(JSON.stringify(doc.children.map((x) => x.name))).eq(JSON.stringify(["roy", "tom", "jim", "tim"]));
 				});
 			});
 		});

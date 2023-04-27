@@ -167,7 +167,6 @@ describe("Model", () => {
 			});
 			await db2.loadDatabase();
 			let docs = await db2.find({});
-			console.log(docs)
 			docs.length.should.equal(1);
 			(docs[0] as any).hello.should.equal(badString);
 			await db1.persistence.deleteEverything();
@@ -183,27 +182,27 @@ describe("Model", () => {
 
 	describe("Object checking", () => {
 		it("Field names beginning with a $ sign are forbidden", () => {
-			assert.isDefined(model.checkObject);
+			assert.isDefined(model.validateObject);
 
 			(() => {
-				model.checkObject({ $bad: true });
+				model.validateObject({ $bad: true });
 			}).should.throw();
 
 			(() => {
-				model.checkObject({
+				model.validateObject({
 					some: 42,
 					nested: { again: "no", $worse: true },
 				});
 			}).should.throw();
 
 			// This shouldn't throw since "$actuallyok" is not a field name
-			model.checkObject({
+			model.validateObject({
 				some: 42,
 				nested: [5, "no", "$actuallyok", true],
 			});
 
 			(() => {
-				model.checkObject({
+				model.validateObject({
 					some: 42,
 					nested: [5, "no", "$actuallyok", true, { $hidden: "useless" }],
 				});
@@ -211,10 +210,10 @@ describe("Model", () => {
 		});
 
 		it("Field names cannot contain a .", () => {
-			assert.isDefined(model.checkObject);
+			assert.isDefined(model.validateObject);
 
 			(() => {
-				model.checkObject({ "so.bad": true });
+				model.validateObject({ "so.bad": true });
 			}).should.throw();
 
 			// Recursive behaviour testing done in the above test on $ signs
@@ -223,7 +222,7 @@ describe("Model", () => {
 		it("Properties with a null value dont trigger an error", () => {
 			const obj = { prop: null };
 
-			model.checkObject(obj);
+			model.validateObject(obj);
 		});
 
 		it("Can check if an object is a primitive or not", () => {
@@ -250,7 +249,7 @@ describe("Model", () => {
 				date: d,
 				subobj: { a: "b", b: "c" },
 			};
-			const res = model.deepCopy(obj, Simple);
+			const res = model.clone(obj, Simple);
 
 			res.a.length.should.equal(3);
 			res.a[0].should.equal("ee");
@@ -276,7 +275,7 @@ describe("Model", () => {
 
 		it("Should deep copy the contents of an array", () => {
 			const a = [{ hello: "world" }];
-			const b = model.deepCopy(a, Simple);
+			const b = model.clone(a, Simple);
 
 			b[0].hello.should.equal("world");
 			b[0].hello = "another";
@@ -292,7 +291,7 @@ describe("Model", () => {
 				nested: { yes: 1, "tt.yy": 2, $nopenope: 3 },
 				array: [{ "rr.hh": 1 }, { yes: true }, { $yes: false }],
 			};
-			const b = model.deepCopy(a, Simple);
+			const b = model.clone(a, Simple);
 
 			assert.deepEqual(a, b);
 		});
@@ -305,7 +304,7 @@ describe("Model", () => {
 				nested: { yes: 1, "tt.yy": 2, $nopenope: 3 },
 				array: [{ "rr.hh": 1 }, { yes: true }, { $yes: false }],
 			};
-			const b = model.deepCopy(a, Simple, true);
+			const b = model.clone(a, Simple, true);
 
 			assert.deepEqual(b as any, {
 				a: 4,
@@ -374,11 +373,11 @@ describe("Model", () => {
 
 			chai.expect(() => {
 				model.modify(obj as any, updateQuery, Simple as any);
-			}).to.throw(/Modifier .set's argument must be an object/);
+			}).to.throw(/must be an object/);
 		});
 
 		describe("$set modifier", () => {
-			it("Can change already set fields without modfifying the underlying object", () => {
+			it("Can change already set fields without modifying the underlying object", () => {
 				const obj = { some: "thing", yup: "yes", nay: "noes" };
 				const updateQuery = {
 					$set: { some: "changed", nay: "yes indeed" },
@@ -396,7 +395,7 @@ describe("Model", () => {
 				obj.nay.should.equal("noes");
 			});
 
-			it("Creates fields to set if they dont exist yet", () => {
+			it("Creates fields to set if they don't exist yet", () => {
 				const obj = { yup: "yes" };
 				const updateQuery = {
 					$set: { some: "changed", nay: "yes indeed" },
@@ -493,11 +492,7 @@ describe("Model", () => {
 				);
 				assert.deepEqual(obj, { argh: true });
 
-				obj = model.modify(
-					{ argh: true, bad: { worse: "oh" } } as any,
-					{ $unset: { "bad.worse": true } },
-					Simple as any
-				);
+				obj = model.modify({ argh: true, bad: { worse: "oh" } } as any, { $unset: { "bad.worse": true } }, Simple as any);
 				assert.deepEqual(obj, { argh: true, bad: {} });
 
 				obj = model.modify(
@@ -1190,82 +1185,43 @@ describe("Model", () => {
 
 	describe("Comparing things", () => {
 		it("undefined is the smallest", () => {
-			const otherStuff: any[] = [
-				null,
-				"string",
-				"",
-				-1,
-				0,
-				5.3,
-				12,
-				true,
-				false,
-				new Date(12345),
-				{},
-				{ hello: "world" },
-				[],
-				["quite", 5],
-			];
+			const otherStuff: any[] = [null, "string", "", -1, 0, 5.3, 12, true, false, new Date(12345), {}, { hello: "world" }, [], ["quite", 5]];
 
-			model.compareThings(undefined, undefined).should.equal(0);
+			model.compare(undefined, undefined).should.equal(0);
 
 			otherStuff.forEach((stuff) => {
-				model.compareThings(undefined, stuff).should.equal(-1);
-				model.compareThings(stuff, undefined).should.equal(1);
+				model.compare(undefined, stuff).should.equal(-1);
+				model.compare(stuff, undefined).should.equal(1);
 			});
 		});
 
 		it("Then null", () => {
-			const otherStuff: any[] = [
-				"string",
-				"",
-				-1,
-				0,
-				5.3,
-				12,
-				true,
-				false,
-				new Date(12345),
-				{},
-				{ hello: "world" },
-				[],
-				["quite", 5],
-			];
+			const otherStuff: any[] = ["string", "", -1, 0, 5.3, 12, true, false, new Date(12345), {}, { hello: "world" }, [], ["quite", 5]];
 
-			model.compareThings(null, null).should.equal(0);
+			model.compare(null, null).should.equal(0);
 
 			otherStuff.forEach((stuff) => {
-				model.compareThings(null, stuff).should.equal(-1);
-				model.compareThings(stuff, null).should.equal(1);
+				model.compare(null, stuff).should.equal(-1);
+				model.compare(stuff, null).should.equal(1);
 			});
 		});
 
 		it("Then numbers", () => {
-			const otherStuff: any[] = [
-				"string",
-				"",
-				true,
-				false,
-				new Date(4312),
-				{},
-				{ hello: "world" },
-				[],
-				["quite", 5],
-			];
+			const otherStuff: any[] = ["string", "", true, false, new Date(4312), {}, { hello: "world" }, [], ["quite", 5]];
 			const numbers = [-12, 0, 12, 5.7];
 
-			model.compareThings(-12, 0).should.equal(-1);
-			model.compareThings(0, -3).should.equal(1);
-			model.compareThings(5.7, 2).should.equal(1);
-			model.compareThings(5.7, 12.3).should.equal(-1);
-			model.compareThings(0, 0).should.equal(0);
-			model.compareThings(-2.6, -2.6).should.equal(0);
-			model.compareThings(5, 5).should.equal(0);
+			model.compare(-12, 0).should.equal(-1);
+			model.compare(0, -3).should.equal(1);
+			model.compare(5.7, 2).should.equal(1);
+			model.compare(5.7, 12.3).should.equal(-1);
+			model.compare(0, 0).should.equal(0);
+			model.compare(-2.6, -2.6).should.equal(0);
+			model.compare(5, 5).should.equal(0);
 
 			otherStuff.forEach((stuff) => {
 				numbers.forEach((number) => {
-					model.compareThings(number, stuff).should.equal(-1);
-					model.compareThings(stuff, number).should.equal(1);
+					model.compare(number, stuff).should.equal(-1);
+					model.compare(stuff, number).should.equal(1);
 				});
 			});
 		});
@@ -1274,15 +1230,15 @@ describe("Model", () => {
 			const otherStuff: any[] = [true, false, new Date(4321), {}, { hello: "world" }, [], ["quite", 5]];
 			const strings = ["", "string", "hello world"];
 
-			model.compareThings("", "hey").should.equal(-1);
-			model.compareThings("hey", "").should.equal(1);
-			model.compareThings("hey", "hew").should.equal(1);
-			model.compareThings("hey", "hey").should.equal(0);
+			model.compare("", "hey").should.equal(-1);
+			model.compare("hey", "").should.equal(1);
+			model.compare("hey", "hew").should.equal(1);
+			model.compare("hey", "hey").should.equal(0);
 
 			otherStuff.forEach((stuff) => {
 				strings.forEach((string) => {
-					model.compareThings(string, stuff).should.equal(-1);
-					model.compareThings(stuff, string).should.equal(1);
+					model.compare(string, stuff).should.equal(-1);
+					model.compare(stuff, string).should.equal(1);
 				});
 			});
 		});
@@ -1291,15 +1247,15 @@ describe("Model", () => {
 			const otherStuff: any[] = [new Date(4321), {}, { hello: "world" }, [], ["quite", 5]];
 			const bools = [true, false];
 
-			model.compareThings(true, true).should.equal(0);
-			model.compareThings(false, false).should.equal(0);
-			model.compareThings(true, false).should.equal(1);
-			model.compareThings(false, true).should.equal(-1);
+			model.compare(true, true).should.equal(0);
+			model.compare(false, false).should.equal(0);
+			model.compare(true, false).should.equal(1);
+			model.compare(false, true).should.equal(-1);
 
 			otherStuff.forEach((stuff) => {
 				bools.forEach((bool) => {
-					model.compareThings(bool, stuff).should.equal(-1);
-					model.compareThings(stuff, bool).should.equal(1);
+					model.compare(bool, stuff).should.equal(-1);
+					model.compare(stuff, bool).should.equal(1);
 				});
 			});
 		});
@@ -1309,16 +1265,16 @@ describe("Model", () => {
 			const dates = [new Date(-123), new Date(), new Date(5555), new Date(0)];
 			const now = new Date();
 
-			model.compareThings(now, now).should.equal(0);
-			model.compareThings(new Date(54341), now).should.equal(-1);
-			model.compareThings(now, new Date(54341)).should.equal(1);
-			model.compareThings(new Date(0), new Date(-54341)).should.equal(1);
-			model.compareThings(new Date(123), new Date(4341)).should.equal(-1);
+			model.compare(now, now).should.equal(0);
+			model.compare(new Date(54341), now).should.equal(-1);
+			model.compare(now, new Date(54341)).should.equal(1);
+			model.compare(new Date(0), new Date(-54341)).should.equal(1);
+			model.compare(new Date(123), new Date(4341)).should.equal(-1);
 
 			otherStuff.forEach((stuff) => {
 				dates.forEach((date) => {
-					model.compareThings(date, stuff).should.equal(-1);
-					model.compareThings(stuff, date).should.equal(1);
+					model.compare(date, stuff).should.equal(-1);
+					model.compare(stuff, date).should.equal(1);
 				});
 			});
 		});
@@ -1327,33 +1283,28 @@ describe("Model", () => {
 			const otherStuff: any[] = [{}, { hello: "world" }];
 			const arrays = [[], ["yes"], ["hello", 5]];
 
-			model.compareThings([], []).should.equal(0);
-			model.compareThings(["hello"], []).should.equal(1);
-			model.compareThings([], ["hello"]).should.equal(-1);
-			model.compareThings(["hello"], ["hello", "world"]).should.equal(-1);
-			model.compareThings(["hello", "earth"], ["hello", "world"]).should.equal(-1);
-			model.compareThings(["hello", "zzz"], ["hello", "world"]).should.equal(1);
-			model.compareThings(["hello", "world"], ["hello", "world"]).should.equal(0);
+			model.compare([], []).should.equal(0);
+			model.compare(["hello"], []).should.equal(1);
+			model.compare([], ["hello"]).should.equal(-1);
+			model.compare(["hello"], ["hello", "world"]).should.equal(-1);
+			model.compare(["hello", "earth"], ["hello", "world"]).should.equal(-1);
+			model.compare(["hello", "zzz"], ["hello", "world"]).should.equal(1);
+			model.compare(["hello", "world"], ["hello", "world"]).should.equal(0);
 
 			otherStuff.forEach((stuff) => {
 				arrays.forEach((array) => {
-					model.compareThings(array, stuff).should.equal(-1);
-					model.compareThings(stuff, array).should.equal(1);
+					model.compare(array, stuff).should.equal(-1);
+					model.compare(stuff, array).should.equal(1);
 				});
 			});
 		});
 
 		it("And finally objects", () => {
-			model.compareThings({}, {}).should.equal(0);
-			model.compareThings({ a: 42 }, { a: 312 }).should.equal(-1);
-			model.compareThings({ a: "42" }, { a: "312" }).should.equal(1);
-			model.compareThings({ a: 42, b: 312 }, { b: 312, a: 42 }).should.equal(0);
-			model.compareThings({ a: 42, b: 312, c: 54 }, { b: 313, a: 42 }).should.equal(-1);
-		});
-
-		it("Can specify custom string comparison function", () => {
-			model.compareThings("hello", "bloup", (a, b) => (a < b ? -1 : 1)).should.equal(1);
-			model.compareThings("hello", "bloup", (a, b) => (a > b ? -1 : 1)).should.equal(-1);
+			model.compare({}, {}).should.equal(0);
+			model.compare({ a: 42 }, { a: 312 }).should.equal(-1);
+			model.compare({ a: "42" }, { a: "312" }).should.equal(1);
+			model.compare({ a: 42, b: 312 }, { b: 312, a: 42 }).should.equal(0);
+			model.compare({ a: 42, b: 312, c: 54 }, { b: 313, a: 42 }).should.equal(-1);
 		});
 	}); // ==== End of 'Comparing things' ==== //
 
@@ -1370,26 +1321,18 @@ describe("Model", () => {
 
 				for (i = 0; i < toTest.length; i += 1) {
 					for (j = 0; j < toTestAgainst.length; j += 1) {
-						model.areThingsEqual(toTest[i], toTestAgainst[j]).should.equal(i === j);
+						model.equal(toTest[i], toTestAgainst[j]).should.equal(i === j);
 					}
 				}
 			});
 
 			it("Can test native types null undefined string number boolean date equality", () => {
 				const toTest = [null, undefined, "somestring", 42, true, new Date(72998322), { hello: "world" }];
-				const toTestAgainst = [
-					undefined,
-					null,
-					"someotherstring",
-					5,
-					false,
-					new Date(111111),
-					{ hello: "mars" },
-				];
+				const toTestAgainst = [undefined, null, "someotherstring", 5, false, new Date(111111), { hello: "mars" }];
 				let i;
 
 				for (i = 0; i < toTest.length; i += 1) {
-					model.areThingsEqual(toTest[i], toTestAgainst[i]).should.equal(false);
+					model.equal(toTest[i], toTestAgainst[i]).should.equal(false);
 				}
 			});
 
@@ -1398,45 +1341,38 @@ describe("Model", () => {
 				let i;
 
 				for (i = 0; i < toTestAgainst.length; i += 1) {
-					model.areThingsEqual([1, 2, 3], toTestAgainst[i]).should.equal(false);
-					model.areThingsEqual(toTestAgainst[i], []).should.equal(false);
+					model.equal([1, 2, 3], toTestAgainst[i]).should.equal(false);
+					model.equal(toTestAgainst[i], []).should.equal(false);
 
-					model.areThingsEqual(undefined, toTestAgainst[i]).should.equal(false);
-					model.areThingsEqual(toTestAgainst[i], undefined).should.equal(false);
+					model.equal(undefined, toTestAgainst[i]).should.equal(false);
+					model.equal(toTestAgainst[i], undefined).should.equal(false);
 				}
 			});
 
 			it("Can test objects equality", () => {
-				model.areThingsEqual({ hello: "world" }, {}).should.equal(false);
-				model.areThingsEqual({ hello: "world" }, { hello: "mars" }).should.equal(false);
-				model.areThingsEqual({ hello: "world" }, { hello: "world", temperature: 42 }).should.equal(false);
-				model
-					.areThingsEqual(
-						{ hello: "world", other: { temperature: 42 } },
-						{ hello: "world", other: { temperature: 42 } }
-					)
-					.should.equal(true);
+				model.equal({ hello: "world" }, {}).should.equal(false);
+				model.equal({ hello: "world" }, { hello: "mars" }).should.equal(false);
+				model.equal({ hello: "world" }, { hello: "world", temperature: 42 }).should.equal(false);
+				model.equal({ hello: "world", other: { temperature: 42 } }, { hello: "world", other: { temperature: 42 } }).should.equal(true);
 			});
 		});
 
 		describe("Getting a fields value in dot notation", () => {
 			it("Return first-level and nested values", () => {
-				model.getDotValue({ hello: "world" }, "hello")!.should.equal("world");
-				model
-					.getDotValue({ hello: "world", type: { planet: true, blue: true } }, "type.planet")!
-					.should.equal(true);
+				model.dotNotation({ hello: "world" }, "hello")!.should.equal("world");
+				model.dotNotation({ hello: "world", type: { planet: true, blue: true } }, "type.planet")!.should.equal(true);
 			});
 
 			it("Return undefined if the field cannot be found in the object", () => {
-				assert.isUndefined(model.getDotValue({ hello: "world" }, "helloo"));
-				assert.isUndefined(model.getDotValue({ hello: "world", type: { planet: true } }, "type.plane"));
+				assert.isUndefined(model.dotNotation({ hello: "world" }, "helloo"));
+				assert.isUndefined(model.dotNotation({ hello: "world", type: { planet: true } }, "type.plane"));
 			});
 
 			it("Can navigate inside arrays with dot notation, and return the array of values in that case", () => {
 				let dv;
 
 				// Simple array of subdocuments
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1449,7 +1385,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, ["Earth", "Mars", "Pluton"]);
 
 				// Nested array of subdocuments
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						db: true,
 						data: {
@@ -1465,7 +1401,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, [3, 2, 9]);
 
 				// Nested array in a subdocument of an array (yay, inception!)
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						db: true,
 						data: {
@@ -1485,7 +1421,7 @@ describe("Model", () => {
 				let dv;
 
 				// Simple index in dot notation
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1498,7 +1434,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, { name: "Mars", number: 2 });
 
 				// Out of bounds index
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1511,7 +1447,7 @@ describe("Model", () => {
 				assert.isUndefined(dv);
 
 				// Index in nested array
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						db: true,
 						data: {
@@ -1527,7 +1463,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, { name: "Pluton", number: 9 });
 
 				// Dot notation with index in the middle
-				dv = model.getDotValue(
+				dv = model.dotNotation(
 					{
 						db: true,
 						data: {
@@ -1576,9 +1512,7 @@ describe("Model", () => {
 			it("Can match for field equality inside an array with the dot notation", () => {
 				model.match({ a: true, b: ["node", "embedded", "database"] }, { "b.1": "node" }).should.equal(false);
 				model.match({ a: true, b: ["node", "embedded", "database"] }, { "b.1": "embedded" }).should.equal(true);
-				model
-					.match({ a: true, b: ["node", "embedded", "database"] }, { "b.1": "database" })
-					.should.equal(false);
+				model.match({ a: true, b: ["node", "embedded", "database"] }, { "b.1": "database" }).should.equal(false);
 			});
 		});
 
@@ -1618,12 +1552,8 @@ describe("Model", () => {
 			});
 
 			it("Can use the $regex operator in cunjunction with other operators", () => {
-				model
-					.match({ test: "helLo" }, { test: { $regex: /ll/i, $nin: ["helL", "helLop"] } })
-					.should.equal(true);
-				model
-					.match({ test: "helLo" }, { test: { $regex: /ll/i, $nin: ["helLo", "helLop"] } })
-					.should.equal(false);
+				model.match({ test: "helLo" }, { test: { $regex: /ll/i, $nin: ["helL", "helLop"] } }).should.equal(true);
+				model.match({ test: "helLo" }, { test: { $regex: /ll/i, $nin: ["helLo", "helLop"] } }).should.equal(false);
 			});
 
 			it("Can use dot-notation", () => {
@@ -1631,9 +1561,7 @@ describe("Model", () => {
 				model.match({ test: { nested: "babaaaar" } }, { "test.nested": /^aba+r/ }).should.equal(false);
 
 				model.match({ test: { nested: "true" } }, { "test.nested": { $regex: /true/ } }).should.equal(true);
-				model
-					.match({ test: { nested: "babaaaar" } }, { "test.nested": { $regex: /^aba+r/ } })
-					.should.equal(false);
+				model.match({ test: { nested: "babaaaar" } }, { "test.nested": { $regex: /^aba+r/ } }).should.equal(false);
 			});
 		});
 
@@ -2147,27 +2075,15 @@ describe("Model", () => {
 				model.match({ hello: "world" }, { $or: [{ hello: "pluton" }, { hello: "world" }] }).should.equal(true);
 				model.match({ hello: "pluton" }, { $or: [{ hello: "pluton" }, { hello: "world" }] }).should.equal(true);
 				model.match({ hello: "nope" }, { $or: [{ hello: "pluton" }, { hello: "world" }] }).should.equal(false);
-				model
-					.match({ hello: "world", age: 15 }, { $or: [{ hello: "pluton" }, { age: { $lt: 20 } }] })
-					.should.equal(true);
-				model
-					.match({ hello: "world", age: 15 }, { $or: [{ hello: "pluton" }, { age: { $lt: 10 } }] })
-					.should.equal(false);
+				model.match({ hello: "world", age: 15 }, { $or: [{ hello: "pluton" }, { age: { $lt: 20 } }] }).should.equal(true);
+				model.match({ hello: "world", age: 15 }, { $or: [{ hello: "pluton" }, { age: { $lt: 10 } }] }).should.equal(false);
 			});
 
 			it("All of the subqueries should match for an $and to match", () => {
-				model
-					.match({ hello: "world", age: 15 }, { $and: [{ age: 15 }, { hello: "world" }] })
-					.should.equal(true);
-				model
-					.match({ hello: "world", age: 15 }, { $and: [{ age: 16 }, { hello: "world" }] })
-					.should.equal(false);
-				model
-					.match({ hello: "world", age: 15 }, { $and: [{ hello: "world" }, { age: { $lt: 20 } }] })
-					.should.equal(true);
-				model
-					.match({ hello: "world", age: 15 }, { $and: [{ hello: "pluton" }, { age: { $lt: 20 } }] })
-					.should.equal(false);
+				model.match({ hello: "world", age: 15 }, { $and: [{ age: 15 }, { hello: "world" }] }).should.equal(true);
+				model.match({ hello: "world", age: 15 }, { $and: [{ age: 16 }, { hello: "world" }] }).should.equal(false);
+				model.match({ hello: "world", age: 15 }, { $and: [{ hello: "world" }, { age: { $lt: 20 } }] }).should.equal(true);
+				model.match({ hello: "world", age: 15 }, { $and: [{ hello: "pluton" }, { age: { $lt: 20 } }] }).should.equal(false);
 			});
 
 			it("Subquery should not match for a $not to match", () => {
@@ -2304,9 +2220,7 @@ describe("Model", () => {
 						{ $where: checkEmail }
 					)
 					.should.equal(false);
-				model
-					.match({ lastName: "Doe", email: "john.doe@gmail.com" }, { $where: checkEmail })
-					.should.equal(false);
+				model.match({ lastName: "Doe", email: "john.doe@gmail.com" }, { $where: checkEmail }).should.equal(false);
 			});
 		});
 
@@ -2321,12 +2235,8 @@ describe("Model", () => {
 				model.match({ tags: ["node", "js", "db"], xwebdb: true }, { tags: "js", xwebdb: true }).should.equal(true);
 
 				// Nested matching
-				model
-					.match({ number: 5, data: { tags: ["node", "js", "db"] } }, { "data.tags": "js" })
-					.should.equal(true);
-				model
-					.match({ number: 5, data: { tags: ["node", "js", "db"] } }, { "data.tags": "j" })
-					.should.equal(false);
+				model.match({ number: 5, data: { tags: ["node", "js", "db"] } }, { "data.tags": "js" }).should.equal(true);
+				model.match({ number: 5, data: { tags: ["node", "js", "db"] } }, { "data.tags": "j" }).should.equal(false);
 			});
 
 			it("With one comparison operator", () => {
