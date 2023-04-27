@@ -8,13 +8,6 @@ interface Pair<Doc> {
 }
 
 /**
- * Two indexed pointers are equal iif they point to the same place
- */
-function checkValueEquality<T>(a: T, b: T) {
-	return a === b;
-}
-
-/**
  * Type-aware projection
  */
 function projectForUnique<Key>(elt: Key): string | Key {
