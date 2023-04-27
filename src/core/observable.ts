@@ -20,9 +20,7 @@ interface Observer<T> {
 export interface ObservableArray<A extends object> {
 	observable: Observable<A>;
 	observe: (observer: Observer<A>) => void;
-	unobserve: (
-		observers?: Observer<A> | Observer<A>[]
-	) => Promise<Observer<A>[]>;
+	unobserve: (observers?: Observer<A> | Observer<A>[]) => Promise<Observer<A>[]>;
 	silently: (work: (o: Observable<A>) => any) => void;
 }
 
@@ -67,17 +65,11 @@ function prepareArray<T extends any[]>(
 	}
 	return target;
 }
-function callObserverSafe<T>(
-	listener: (c: Change<T>[]) => void,
-	changes: Change<T>[]
-) {
+function callObserverSafe<T>(listener: (c: Change<T>[]) => void, changes: Change<T>[]) {
 	try {
 		listener(changes);
 	} catch (e) {
-		console.error(
-			`XWebDB: Failed to notify listener ${listener} with ${changes}`,
-			e
-		);
+		console.error(`XWebDB: Failed to notify listener ${listener} with ${changes}`, e);
 	}
 }
 function callObserversFromMT<T extends object>(this: OMetaBase<T>) {
@@ -87,10 +79,7 @@ function callObserversFromMT<T extends object>(this: OMetaBase<T>) {
 		callObserverSafe(listener, changes);
 	}
 }
-function callObservers<T extends object>(
-	oMeta: OMetaBase<T>,
-	changes: Change<T>[]
-) {
+function callObservers<T extends object>(oMeta: OMetaBase<T>, changes: Change<T>[]) {
 	let currentObservable: OMetaBase<T> | null = oMeta;
 	const l = changes.length;
 	do {
@@ -179,16 +168,7 @@ function proxiedPop<T extends any[]>(this: Observable<T>) {
 		}
 	}
 
-	const changes = [
-		new Change(
-			DELETE,
-			[poppedIndex],
-			undefined,
-			popResult,
-			this,
-			copy(this)
-		),
-	];
+	const changes = [new Change(DELETE, [poppedIndex], undefined, popResult, this, copy(this))];
 	callObservers(oMeta, changes);
 
 	return popResult;
@@ -244,9 +224,7 @@ function proxiedShift<T extends any[]>(this: Observable<T>) {
 		}
 	}
 
-	const changes = [
-		new Change(DELETE, [0], undefined, shiftResult, this, copy(this)),
-	];
+	const changes = [new Change(DELETE, [0], undefined, shiftResult, this, copy(this))];
 	callObservers(oMeta, changes);
 
 	return shiftResult;
@@ -276,14 +254,7 @@ function proxiedUnshift<T extends any[]>(this: Observable<T>) {
 	const l = unshiftContent.length;
 	const changes = new Array(l);
 	for (let i = 0; i < l; i++) {
-		changes[i] = new Change(
-			INSERT,
-			[i],
-			target[i],
-			undefined,
-			this,
-			copy(this)
-		);
+		changes[i] = new Change(INSERT, [i], target[i], undefined, this, copy(this));
 	}
 	callObservers(oMeta, changes);
 
@@ -305,9 +276,7 @@ function proxiedReverse<T extends any[]>(this: Observable<T>) {
 		}
 	}
 
-	const changes = [
-		new Change(REVERSE, [], undefined, undefined, this, copy(this)),
-	];
+	const changes = [new Change(REVERSE, [], undefined, undefined, this, copy(this))];
 	callObservers(oMeta, changes);
 
 	return this;
@@ -331,9 +300,7 @@ function proxiedSort<T extends any[]>(
 		}
 	}
 
-	const changes = [
-		new Change(SHUFFLE, [], undefined, undefined, this, copy(this)),
-	];
+	const changes = [new Change(SHUFFLE, [], undefined, undefined, this, copy(this))];
 	callObservers(oMeta, changes);
 
 	return this;
@@ -378,27 +345,9 @@ function proxiedFill<T extends any[]>(
 					}
 				}
 
-				changes.push(
-					new Change(
-						UPDATE,
-						[i],
-						target[i],
-						tmpTarget,
-						this,
-						copy(this)
-					)
-				);
+				changes.push(new Change(UPDATE, [i], target[i], tmpTarget, this, copy(this)));
 			} else {
-				changes.push(
-					new Change(
-						INSERT,
-						[i],
-						target[i],
-						undefined,
-						this,
-						copy(this)
-					)
-				);
+				changes.push(new Change(INSERT, [i], target[i], undefined, this, copy(this)));
 			}
 		}
 
@@ -457,9 +406,7 @@ function proxiedCopyWithin<T extends any[]>(
 			if (typeof nItem !== "object" && nItem === oItem) {
 				continue;
 			}
-			changes.push(
-				new Change(UPDATE, [i], nItem, oItem, this, copy(this))
-			);
+			changes.push(new Change(UPDATE, [i], nItem, oItem, this, copy(this)));
 		}
 
 		callObservers(oMeta, changes);
@@ -604,10 +551,7 @@ class OMetaBase<T extends object> {
 	target: T;
 	batches: [Observer<T>, Change<T>[]][] = [];
 
-	constructor(
-		properties: MetaProperties<T>,
-		cloningFunction: PrepareFunction<T>
-	) {
+	constructor(properties: MetaProperties<T>, cloningFunction: PrepareFunction<T>) {
 		const { target, parent, ownKey, visited = new Set() } = properties;
 		if (parent && ownKey !== undefined) {
 			this.parent = parent;
@@ -685,14 +629,7 @@ class OMetaBase<T extends object> {
 		}
 
 		const changes = [
-			new Change(
-				DELETE,
-				[key],
-				undefined,
-				oldValue,
-				this.proxy,
-				copy(this.proxy)
-			),
+			new Change(DELETE, [key], undefined, oldValue, this.proxy, copy(this.proxy)),
 		];
 		callObservers(this, changes);
 
@@ -716,9 +653,7 @@ class ArrayOMeta<G, T extends Array<G>> extends OMetaBase<T> {
 	}
 }
 
-function observable<D, A extends D[]>(
-	target: A | Observable<A>
-): ObservableArray<A> {
+function observable<D, A extends D[]>(target: A | Observable<A>): ObservableArray<A> {
 	const o = isObservable(target)
 		? (target as Observable<A>)
 		: new ArrayOMeta({
@@ -729,8 +664,7 @@ function observable<D, A extends D[]>(
 
 	async function unobserve(observers?: Observer<A> | Observer<A>[]) {
 		if (!observers) return await __unobserve(o);
-		else if (Array.isArray(observers))
-			return await __unobserve(o, observers);
+		else if (Array.isArray(observers)) return await __unobserve(o, observers);
 		else return await __unobserve(o, [observers]);
 	}
 
@@ -756,10 +690,7 @@ function isObservable<T>(input: T) {
 	return !!(input && (input as any)[oMetaKey]);
 }
 
-function __observe<T extends object>(
-	observable: Observable<T>,
-	observer: Observer<T>
-) {
+function __observe<T extends object>(observable: Observable<T>, observer: Observer<T>) {
 	const observers = observable[oMetaKey].observers;
 	if (!observers.some((o) => o === observer)) {
 		observers.push(observer);
@@ -770,8 +701,7 @@ async function __unobserve<T extends object>(
 	observable: Observable<T> | Promise<Observable<T>>,
 	observers?: Observer<T>[]
 ) {
-	if (observable instanceof Promise)
-		observable = await Promise.resolve(observable);
+	if (observable instanceof Promise) observable = await Promise.resolve(observable);
 	const existingObs = observable[oMetaKey].observers;
 	let length = existingObs.length;
 	if (!length) {
@@ -786,8 +716,8 @@ async function __unobserve<T extends object>(
 	for (let index = 0; index < observers.length; index++) {
 		const observer = observers[index];
 		const i = existingObs.indexOf(observer);
-		if(i > -1) {
-			spliced.push(existingObs.splice(i,1)[0])
+		if (i > -1) {
+			spliced.push(existingObs.splice(i, 1)[0]);
 		}
 	}
 	return spliced;
