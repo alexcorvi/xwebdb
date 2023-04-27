@@ -1359,20 +1359,20 @@ describe("Model", () => {
 
 		describe("Getting a fields value in dot notation", () => {
 			it("Return first-level and nested values", () => {
-				model.dotNotation({ hello: "world" }, "hello")!.should.equal("world");
-				model.dotNotation({ hello: "world", type: { planet: true, blue: true } }, "type.planet")!.should.equal(true);
+				model.fromDotNotation({ hello: "world" }, "hello")!.should.equal("world");
+				model.fromDotNotation({ hello: "world", type: { planet: true, blue: true } }, "type.planet")!.should.equal(true);
 			});
 
 			it("Return undefined if the field cannot be found in the object", () => {
-				assert.isUndefined(model.dotNotation({ hello: "world" }, "helloo"));
-				assert.isUndefined(model.dotNotation({ hello: "world", type: { planet: true } }, "type.plane"));
+				assert.isUndefined(model.fromDotNotation({ hello: "world" }, "helloo"));
+				assert.isUndefined(model.fromDotNotation({ hello: "world", type: { planet: true } }, "type.plane"));
 			});
 
 			it("Can navigate inside arrays with dot notation, and return the array of values in that case", () => {
 				let dv;
 
 				// Simple array of subdocuments
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1385,7 +1385,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, ["Earth", "Mars", "Pluton"]);
 
 				// Nested array of subdocuments
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						db: true,
 						data: {
@@ -1401,7 +1401,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, [3, 2, 9]);
 
 				// Nested array in a subdocument of an array (yay, inception!)
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						db: true,
 						data: {
@@ -1421,7 +1421,7 @@ describe("Model", () => {
 				let dv;
 
 				// Simple index in dot notation
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1434,7 +1434,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, { name: "Mars", number: 2 });
 
 				// Out of bounds index
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						planets: [
 							{ name: "Earth", number: 3 },
@@ -1447,7 +1447,7 @@ describe("Model", () => {
 				assert.isUndefined(dv);
 
 				// Index in nested array
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						db: true,
 						data: {
@@ -1463,7 +1463,7 @@ describe("Model", () => {
 				assert.deepEqual(dv, { name: "Pluton", number: 9 });
 
 				// Dot notation with index in the middle
-				dv = model.dotNotation(
+				dv = model.fromDotNotation(
 					{
 						db: true,
 						data: {
