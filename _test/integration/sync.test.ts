@@ -2381,13 +2381,13 @@ describe("Database Syncing", () => {
 	});
 
 	describe("Devalidation of hashes", () => {
-		it("hashes devalidated in specific amount of time", async () => {
+		it("hashes invalidated in specific amount of time", async () => {
 			let d1 = new Database<{ _id: string; name: string; age: number }>({
 				ref: "db_A",
 				sync: {
 					syncToRemote: memoryAdapter(),
 					syncInterval: 9999999999999,
-					devalidateHash: 500,
+					invalidateHash: 450,
 				},
 			});
 			let d2 = new Database<{ _id: string; name: string; age: number }>({
@@ -2422,14 +2422,14 @@ describe("Database Syncing", () => {
 
 			await wait(100);
 			{
-				// not devalidated .. still needs more time
+				// not invalidated .. still needs more time
 				const s1 = await d1.sync();
 				const s2 = await d1.sync();
 				s1.diff.should.eq(-1);
 				s2.diff.should.eq(-1);
 			}
 			{
-				// not devalidated
+				// not invalidated
 				const s1 = await d2.sync();
 				const s2 = await d2.sync();
 				s1.diff.should.eq(-1);
@@ -2438,14 +2438,14 @@ describe("Database Syncing", () => {
 
 			await wait(400);
 			{
-				// devalidated
+				// invalidated
 				const s1 = await d1.sync();
 				const s2 = await d1.sync();
 				s1.diff.should.eq(0);
 				s2.diff.should.eq(-1);
 			}
 			{
-				// not devalidated
+				// not invalidated
 				const s1 = await d2.sync();
 				const s2 = await d2.sync();
 				s1.diff.should.eq(-1);
@@ -2454,6 +2454,18 @@ describe("Database Syncing", () => {
 
 			await d1._datastore.persistence.deleteEverything();
 			await d2._datastore.persistence.deleteEverything();
+		});
+
+		it("ForceSync", async ()=>{
+			await d1.insert(Kid.new({}));
+			await d2.insert(Kid.new({}));
+			{
+				(await d1.sync()).diff.should.eq(1);
+				(await d1.sync()).diff.should.oneOf([0,-1]);
+				(await d1.sync()).diff.should.oneOf([-1]);
+				(await d1.sync()).diff.should.oneOf([-1]);
+				(await d1.forceSync()).diff.should.eq(0);
+			}
 		});
 	});
 });
