@@ -14,7 +14,7 @@ export declare class Sync {
     }>;
     private brace;
     private causesUCV;
-    _sync(): Promise<{
+    _sync(force?: boolean): Promise<{
         sent: number;
         received: number;
         diff: -1 | 0 | 1;

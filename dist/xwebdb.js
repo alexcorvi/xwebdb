@@ -85,115 +85,96 @@
     });
 
     /**
-     * Check a key throw an error if the key is non valid
-     * Non-treatable edge cases here: if part of the object if of the form { $$date: number } or { $$deleted: true }
-     * Its serialized-then-deserialized version it will transformed into a Date object
-     * But you really need to want it to trigger such behaviour, even when warned not to use '$' at the beginning of the field names...
-     */
-    function checkKey(k, v) {
-        if (typeof k === "number") {
-            k = k.toString();
-        }
-        if (k[0] === "$" &&
-            !(k === "$$date" && typeof v === "number") &&
-            !(k === "$$deleted" && v === true) &&
-            !(k === "$$indexCreated") &&
-            !(k === "$$indexRemoved")) {
-            throw new Error("XWebDB: Field names cannot begin with the $ character");
-        }
-        if (k.indexOf(".") !== -1) {
-            throw new Error("XWebDB: Field names cannot contain a .");
-        }
-    }
-    /**
-     * Check a DB object and throw an error if it's not valid
-     * Works by applying the above checkKey function to all fields recursively
-     */
-    function checkObject(obj) {
-        if (Array.isArray(obj)) {
-            obj.forEach((o) => checkObject(o));
-        }
-        else if (typeof obj === "object" &&
-            obj !== null &&
-            !(obj instanceof Date)) {
-            Object.keys(obj).forEach(function (k) {
-                checkKey(k, obj[k]);
-                checkObject(obj[k]);
-            });
-        }
-    }
-    /**
      * Serialize an object to be persisted to a one-line string
-     * For serialization/deserialization, we use the native JSON parser and not eval or Function
-     * That gives us less freedom but data entered in the database may come from users
-     * so eval and the like are not safe
      * Accepted primitive types: Number, String, Boolean, Date, null
      * Accepted secondary types: Objects, Arrays
      */
-    function serialize(obj) {
-        var res;
-        res = JSON.stringify(obj, function (k, v) {
-            checkKey(k, v);
-            if (v === undefined) {
+    function serialize(obj, ignoreCheckKey = false) {
+        return JSON.stringify(obj, function (key, value) {
+            if (!ignoreCheckKey)
+                validateKey(key, value);
+            if (value === undefined)
                 return undefined;
-            }
-            if (v === null) {
+            if (value === null)
                 return null;
-            }
-            // Hackish way of checking if object is Date.
-            // We can't use value directly because for dates it is already string in this function (date.toJSON was already called), so we use this
-            if (typeof this[k].getTime === "function") {
-                return { $$date: this[k].getTime() };
-            }
-            return v;
+            if (typeof this[key].getTime === "function")
+                return { $$date: this[key].getTime() };
+            return value;
         });
-        return res;
     }
     /**
      * From a one-line representation of an object generate by the serialize function
      * Return the object itself
      */
     function deserialize(rawData) {
-        return JSON.parse(rawData, function (k, v) {
-            if (k === "$$date") {
-                return new Date(v);
-            }
-            if (typeof v === "string" ||
-                typeof v === "number" ||
-                typeof v === "boolean" ||
-                v === null) {
-                return v;
-            }
-            if (v && v.$$date) {
-                return v.$$date;
-            }
-            return v;
+        return JSON.parse(rawData, function (key, val) {
+            if (key === "$$date")
+                return new Date(val);
+            let t = typeof val;
+            if (t === "string" || t === "number" || t === "boolean" || val === null)
+                return val;
+            if (val && val.$$date)
+                return val.$$date;
+            return val;
         });
+    }
+
+    /**
+     * Check a key throw an error if the key is non valid
+     */
+    function validateKey(key, v) {
+        if (typeof key === "number")
+            key = key.toString();
+        if (key[0] === "$" &&
+            !(key === "$$date" && typeof v === "number") &&
+            !(key === "$$deleted" && v === true) &&
+            !(key === "$$indexCreated") &&
+            !(key === "$$indexRemoved"))
+            throw new Error("XWebDB: Field names cannot begin with the $ character");
+        if (key.indexOf(".") !== -1)
+            throw new Error("XWebDB: Field names cannot contain a .");
+    }
+    /**
+     * Check a DB object and throw an error if it's not valid
+     * Works by applying the above checkKey function to all fields recursively
+     */
+    function validateObject(obj) {
+        if (Array.isArray(obj))
+            obj.forEach((sub) => validateObject(sub));
+        else if (isKeyedObject(obj) && !(obj instanceof Date))
+            for (const [key, value] of Object.entries(obj)) {
+                validateKey(key, value);
+                validateObject(value);
+            }
+    }
+    /**
+     * Tells if an object is a primitive type or a "real" object
+     * Arrays are considered primitive
+     */
+    function isPrimitiveType(obj) {
+        return !isKeyedObject(obj);
+    }
+    function isKeyedObject(obj) {
+        return (typeof obj === "object" && obj !== null && !(obj instanceof Date) && !Array.isArray(obj));
     }
     /**
      * Deep copy a DB object
      * The optional strictKeys flag (defaulting to false) indicates whether to copy everything or only fields
-     * where the keys are valid, i.e. don't begin with $ and don't contain a .
+     * where the keys are valid, i.e. don't begin with $ and don't contain a dot
      */
-    function deepCopy(obj, model, strictKeys) {
-        let res = undefined;
-        if (typeof obj === "boolean" ||
-            typeof obj === "number" ||
-            typeof obj === "string" ||
-            obj === null ||
-            obj instanceof Date) {
+    function clone(obj, model, strictKeys = false) {
+        let t = typeof obj;
+        if (t === "boolean" || t === "number" || t === "string")
             return obj;
-        }
-        if (Array.isArray(obj)) {
-            res = [];
-            obj.forEach((o) => res.push(deepCopy(o, model, strictKeys)));
-            return res;
-        }
+        if (obj === null || obj instanceof Date)
+            return obj;
+        if (Array.isArray(obj))
+            return obj.map((sub) => clone(sub, model, strictKeys));
         if (typeof obj === "object") {
-            res = {};
-            Object.keys(obj).forEach((k) => {
-                if (!strictKeys || (k[0] !== "$" && k.indexOf(".") === -1)) {
-                    res[k] = deepCopy(obj[k], model, strictKeys);
+            let res = {};
+            Object.entries(obj).forEach(([key, val]) => {
+                if (!strictKeys || (key[0] !== "$" && key.indexOf(".") === -1)) {
+                    res[key] = clone(val, model, strictKeys);
                 }
             });
             if (res.hasOwnProperty("_id")) {
@@ -205,30 +186,84 @@
         }
         return JSON.parse(JSON.stringify({ temp: obj })).temp;
     }
-    /**
-     * Tells if an object is a primitive type or a "real" object
-     * Arrays are considered primitive
-     */
-    function isPrimitiveType(obj) {
-        return (typeof obj === "boolean" ||
-            typeof obj === "number" ||
-            typeof obj === "string" ||
-            obj === null ||
-            obj instanceof Date ||
-            Array.isArray(obj));
+    function dotNotation(obj, field) {
+        const fieldParts = typeof field === "string" ? field.split(".") : field;
+        // field cannot be empty so that means we should return undefined so that nothing can match
+        if (!obj)
+            return undefined;
+        if (fieldParts.length === 0)
+            return obj;
+        // got it
+        if (fieldParts.length === 1)
+            return obj[fieldParts[0]];
+        if (Array.isArray(obj[fieldParts[0]])) {
+            // If the next field is an integer, return only this item of the array
+            let i = parseInt(fieldParts[1], 10);
+            if (typeof i === "number" && !isNaN(i)) {
+                return dotNotation(obj[fieldParts[0]][i], fieldParts.slice(2));
+            }
+            // Return the array of values
+            let objects = new Array();
+            for (let i = 0; i < obj[fieldParts[0]].length; i += 1) {
+                objects.push(dotNotation(obj[fieldParts[0]][i], fieldParts.slice(1)));
+            }
+            return objects;
+        }
+        else {
+            return dotNotation(obj[fieldParts[0]], fieldParts.slice(1));
+        }
     }
+    function equal(a, b) {
+        let ta = typeof a;
+        let tb = typeof b;
+        // Strings, booleans, numbers, null
+        if (a === null || ta === "string" || ta === "boolean" || ta === "number")
+            return a === b;
+        if (b === null || tb === "string" || tb === "boolean" || tb === "number")
+            return a === b;
+        // Dates
+        if (a instanceof Date || b instanceof Date) {
+            return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+        }
+        // Arrays (no match since arrays are used as a $in)
+        // undefined (no match since they mean field doesn't exist and can't be serialized)
+        if ((!(Array.isArray(a) && Array.isArray(b)) && (Array.isArray(a) || Array.isArray(b))) ||
+            a === undefined ||
+            b === undefined) {
+            return false;
+        }
+        // objects are checked by serialization, placing inside temp to prevent any possible runtime errors
+        let aS = serialize({ temp: a }, true);
+        let bS = serialize({ temp: b }, true);
+        return aS === bS;
+    }
+    function comparable(a, b) {
+        let ta = typeof a;
+        let tb = typeof b;
+        if (ta !== "string" &&
+            ta !== "number" &&
+            tb !== "string" &&
+            tb !== "number" &&
+            !(a instanceof Date) &&
+            !(b instanceof Date)) {
+            return false;
+        }
+        if (ta !== tb) {
+            return false;
+        }
+        return true;
+    }
+
     function compareNSB(a, b) {
-        if (a < b) {
+        if (a < b)
             return -1;
-        }
-        if (a > b) {
+        if (a > b)
             return 1;
-        }
         return 0;
     }
     function compareArrays(a, b) {
         for (let i = 0; i < Math.min(a.length, b.length); i += 1) {
-            let comp = compareThings(a[i], b[i]);
+            let comp = compare(a[i], b[i]);
             if (comp !== 0) {
                 return comp;
             }
@@ -237,89 +272,312 @@
         return compareNSB(a.length, b.length);
     }
     /**
-     * Compare { things U undefined }
-     * Things are defined as any native types (string, number, boolean, null, date) and objects
-     * We need to compare with undefined as it will be used in indexes
-     * In the case of objects and arrays, we deep-compare
-     * If two objects don't have the same type, the (arbitrary) type hierarchy is: undefined, null, number, strings, boolean, dates, arrays, objects
-     * Return -1 if a < b, 1 if a > b and 0 if a = b (note that equality here is NOT the same as defined in areThingsEqual!)
-     *
+     * Compare anything
+     * type hierarchy is: undefined, null, number, strings, boolean, dates, arrays, objects
+     * Return -1 if a < b, 1 if a > b and 0 if a = b
+     * (note that equality here is NOT the same as defined in areThingsEqual!)
      */
-    function compareThings(a, b, _compareStrings) {
-        const compareStrings = _compareStrings || compareNSB;
+    function compare(a, b) {
         // undefined
-        if (a === undefined) {
+        if (a === undefined)
             return b === undefined ? 0 : -1;
-        }
-        if (b === undefined) {
-            return a === undefined ? 0 : 1;
-        }
+        if (b === undefined)
+            return 1; // "a" is defined
         // null
-        if (a === null) {
+        if (a === null)
             return b === null ? 0 : -1;
-        }
-        if (b === null) {
-            return a === null ? 0 : 1;
-        }
+        if (b === null)
+            return 1; // "a" isn't null or any of the above
+        // other types
+        let ta = typeof a;
+        let tb = typeof b;
         // Numbers
-        if (typeof a === "number") {
+        if (ta === "number")
             return typeof b === "number" ? compareNSB(a, b) : -1;
-        }
-        if (typeof b === "number") {
-            return typeof a === "number" ? compareNSB(a, b) : 1;
-        }
+        if (tb === "number")
+            return 1; // "a" isn't a number or any of the above
         // Strings
-        if (typeof a === "string") {
-            return typeof b === "string" ? compareStrings(a, b) : -1;
-        }
-        if (typeof b === "string") {
-            return typeof a === "string" ? compareStrings(a, b) : 1;
-        }
+        if (ta === "string")
+            return tb === "string" ? compareNSB(a, b) : -1;
+        if (tb === "string")
+            return 1; // "a" isn't a string or any of the above
         // Booleans
-        if (typeof a === "boolean") {
-            return typeof b === "boolean" ? compareNSB(a, b) : -1;
-        }
-        if (typeof b === "boolean") {
-            return typeof a === "boolean" ? compareNSB(a, b) : 1;
-        }
+        if (ta === "boolean")
+            return tb === "boolean" ? compareNSB(a, b) : -1;
+        if (tb === "boolean")
+            return 1; // "a" isn't a boolean or any of the above
         // Dates
-        if (a instanceof Date) {
+        if (a instanceof Date)
             return b instanceof Date ? compareNSB(a.getTime(), b.getTime()) : -1;
-        }
-        if (b instanceof Date) {
-            return a instanceof Date ? compareNSB(a.getTime(), b.getTime()) : 1;
-        }
+        if (b instanceof Date)
+            return 1; // "a" isn't Date or any of the above
         // Arrays (first element is most significant and so on)
-        if (Array.isArray(a)) {
+        if (Array.isArray(a))
             return Array.isArray(b) ? compareArrays(a, b) : -1;
-        }
-        if (Array.isArray(b)) {
-            return Array.isArray(a) ? compareArrays(a, b) : 1;
-        }
+        if (Array.isArray(b))
+            return 1; // "a" isn't an array or any of the above
         // Objects
         let aKeys = Object.keys(a).sort();
         let bKeys = Object.keys(b).sort();
         for (let i = 0; i < Math.min(aKeys.length, bKeys.length); i += 1) {
-            let comp = compareThings(a[aKeys[i]], b[bKeys[i]]);
-            if (comp !== 0) {
-                return comp;
+            let comp = compare(a[aKeys[i]], b[bKeys[i]]);
+            if (comp !== 0)
+                return comp; // first key wins
+        }
+        return compareNSB(aKeys.length, bKeys.length); // by keys length if common part is the same
+    }
+
+    const arrComparison = {
+        // Specific to arrays
+        $size: function (arr, size) {
+            if (!Array.isArray(arr))
+                return false;
+            if (typeof size !== "number" || size % 1 !== 0)
+                throw new Error("XWebDB: $size operator called without an integer");
+            return arr.length === size;
+        },
+        $elemMatch: function (obj, value) {
+            if (!Array.isArray(obj))
+                return false;
+            let i = obj.length;
+            while (i--)
+                if (match(obj[i], value))
+                    return true;
+            return false;
+        },
+        $all: function (a, b) {
+            if (!Array.isArray(a))
+                throw new Error("XWebDB: $all must be applied on fields of type array");
+            if (!Array.isArray(b))
+                throw new Error("XWebDB: $all must be supplied with argument of type array");
+            for (let i = 0; i < b.length; i++)
+                if (a.indexOf(b[i]) === -1)
+                    return false;
+            return true;
+        },
+    };
+    const comparisonFunctions = Object.assign({ $type: function (a, b) {
+            if (["number", "boolean", "string", "undefined"].indexOf(b) > -1)
+                return typeof a === b;
+            else if (b === "array")
+                return Array.isArray(a);
+            else if (b === "null")
+                return a === null;
+            else if (b === "date")
+                return a instanceof Date;
+            else if (b === "object")
+                return (typeof a === "object" &&
+                    !(a instanceof Date) &&
+                    !(a === null) &&
+                    !Array.isArray(a));
+            else
+                return false;
+        }, $not: (a, b) => !match({ k: a }, { k: b }), $eq: (a, b) => equal(a, b), $lt: (a, b) => comparable(a, b) && a < b, $lte: (a, b) => comparable(a, b) && a <= b, $gt: (a, b) => comparable(a, b) && a > b, $gte: (a, b) => comparable(a, b) && a >= b, $mod: function (a, b) {
+            if (!Array.isArray(b)) {
+                throw new Error("XWebDB: malformed mod, must be supplied with an array");
+            }
+            if (b.length !== 2) {
+                throw new Error("XWebDB: malformed mod, array length must be exactly two, a divisor and a remainder");
+            }
+            return a % b[0] === b[1];
+        }, $ne: function (a, b) {
+            if (a === undefined)
+                return true;
+            return !equal(a, b);
+        }, $in: function (a, b) {
+            if (!Array.isArray(b))
+                throw new Error("XWebDB: $in operator called with a non-array");
+            for (let i = 0; i < b.length; i += 1)
+                if (equal(a, b[i]))
+                    return true;
+            return false;
+        }, $nin: function (a, b) {
+            if (!Array.isArray(b))
+                throw new Error("XWebDB: $nin operator called with a non-array");
+            return !comparisonFunctions.$in(a, b);
+        }, $regex: function (a, b) {
+            if (!(b instanceof RegExp))
+                throw new Error("XWebDB: $regex operator called with non regular expression");
+            if (typeof a !== "string")
+                return false;
+            else
+                return b.test(a);
+        }, $exists: function (value, exists) {
+            if (exists || exists === "")
+                exists = true;
+            else
+                exists = false;
+            if (value === undefined)
+                return !exists;
+            else
+                return exists;
+        } }, arrComparison);
+    function logicalOperator(operator, obj, query) {
+        if (!Array.isArray(query)) {
+            throw new Error("XWebDB: $or/$nor/$and operators should be used with an array");
+        }
+        for (let i = 0; i < query.length; i += 1) {
+            const matched = match(obj, query[i]);
+            if (matched) {
+                if (operator === "$or")
+                    return true;
+                if (operator === "$nor")
+                    return false;
+            }
+            else if (operator === "$and")
+                return false;
+        }
+        return operator === "$or" ? false : true;
+    }
+    const logicalOperators = {
+        $and: (obj, query) => logicalOperator("$and", obj, query),
+        $nor: (obj, query) => logicalOperator("$nor", obj, query),
+        $or: (obj, query) => logicalOperator("$or", obj, query),
+        $where: (obj, fn) => {
+            if (typeof fn !== "function")
+                throw new Error("XWebDB: $where operator used without a function");
+            let result = fn.call(obj);
+            if (typeof result !== "boolean")
+                throw new Error("XWebDB: $where function must return boolean");
+            return result;
+        },
+    };
+    function match(obj, query) {
+        // edge-case: if query contains $operators that are comparison
+        // then it should be treated as if it's a pr
+        // this enables queries like: $eq $ne to be applied to objects
+        let fieldLevel$ = false;
+        let queryKeys = Object.keys(query);
+        for (let index = 0; index < queryKeys.length; index++) {
+            const key = queryKeys[index];
+            if (comparisonFunctions[key]) {
+                fieldLevel$ = true;
+                break;
             }
         }
-        return compareNSB(aKeys.length, bKeys.length);
+        // Primitive query against a primitive type
+        if (isPrimitiveType(obj) || isPrimitiveType(query) || fieldLevel$)
+            return matchSegment({ TMP: obj }, "TMP", query);
+        // Normal query
+        for (let i = 0; i < queryKeys.length; i += 1) {
+            let queryKey = queryKeys[i];
+            let queryValue = query[queryKey];
+            if (queryKey[0] === "$") {
+                let logOperatorF = logicalOperators[queryKey];
+                if (!logOperatorF)
+                    throw new Error("XWebDB: Unknown logical operator " + queryKey);
+                if (!logOperatorF(obj, queryValue))
+                    return false;
+            }
+            else if (!matchSegment(obj, queryKey, queryValue))
+                return false;
+        }
+        return true;
     }
-    // ==============================================================
-    // Updating documents
-    // ==============================================================
+    /**
+     * Match an object against a specific { key: value } part of a query
+     * if the treatObjAsValue flag is set, don't try to match every part separately, but the array as a whole
+     */
+    function matchSegment(obj, queryKey, qVal, treatObjAsValue) {
+        const oVal = dotNotation(obj, queryKey);
+        /**
+         * A. Dealing with arrays, unless forced to be treated as a values
+         * oVal = [1,2,3]
+         * if qVal = [1,2,3] .. we should skip this and go to an exact match
+         * if qVal is an object:
+         * 						1. is there an array comparison function? -> we should skip this and go to (B)
+         * 						e.g. qVal = { $size: 1 } // find a document that has a specified array of size 1
+         * 						2. there's a $ne/$nin check against values one by one (MongoDB behaves like this check: https://stackoverflow.com/questions/10907843/mongo-ne-query-with-an-array-not-working-as-expected for explanation)
+         * 						e.g. qVal = { $ne: 2 } // find a document that has a specified array that doesn't have an element "2"
+         * 						3. then match each element of the array and one of them must match, if none matches return false
+         * 						e.g. qVal = { $eq: 3 } // find a document that has a specified array that has an element "3"
+         */
+        if (Array.isArray(oVal) && !treatObjAsValue) {
+            // If the queryValue is an array, try to perform an exact match
+            // e.g. qVal = {a: [1,2,3]} where oVal = [1,2,3] 
+            if (Array.isArray(qVal))
+                return matchSegment(obj, queryKey, qVal, true);
+            // Check if we are using an array-specific comparison function
+            // e.g. qVal = {a: { $size: 3 }}
+            if (qVal !== null && typeof qVal === "object" && !(qVal instanceof RegExp)) {
+                let keys = Object.keys(qVal);
+                for (let i = 0; i < keys.length; i += 1) {
+                    if (arrComparison[keys[i]]) {
+                        return matchSegment(obj, queryKey, qVal, true);
+                    }
+                }
+            }
+            // edge case: using $ne on array
+            if (qVal["$ne"])
+                if (oVal.indexOf(qVal["$ne"]) !== -1)
+                    return false;
+            // edge case: using $nin on array
+            if (Array.isArray(qVal["$nin"]))
+                if (qVal["$nin"].filter((v) => -1 !== oVal.indexOf(v)).length)
+                    return false;
+            // If not, treat it as an array of { obj, query } where there needs to be at least one match
+            for (let i = 0; i < oVal.length; i += 1)
+                if (matchSegment({ TMP: oVal[i] }, "TMP", qVal))
+                    return true;
+            return false;
+        }
+        /**
+         * B. Dealing with objects of $operators: queryValue is an actual object.
+         * e.g. qVal = { $lt: 1 }
+         * 			If there's $operator + regular fields, will throw an error
+         * 			If there's no $operator will skip this block and go to basic matching
+         */
+        if (typeof qVal === "object" &&
+            qVal !== null &&
+            !(qVal instanceof RegExp) &&
+            !Array.isArray(qVal)) {
+            let keys = Object.keys(qVal);
+            let firstChars = keys.map((item) => item[0]);
+            let dollarFirstChars = firstChars.filter((c) => c === "$");
+            if (dollarFirstChars.length !== 0 && dollarFirstChars.length !== firstChars.length) {
+                throw new Error("XWebDB: You cannot mix operators and normal fields");
+            }
+            if (dollarFirstChars.length > 0) {
+                for (let i = 0; i < keys.length; i += 1) {
+                    if (!comparisonFunctions[keys[i]]) {
+                        throw new Error("XWebDB: Unknown comparison function " + keys[i]);
+                    }
+                    if (!comparisonFunctions[keys[i]](oVal, qVal[keys[i]])) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        /**
+         * C. Dealing with RegExp
+         * e.g. { a: /abc/ }
+         */
+        if (qVal instanceof RegExp) {
+            return comparisonFunctions.$regex(oVal, qVal);
+        }
+        /**
+         * D. Basic equality matching
+         * e.g. { n: 12 }
+         * e.g. { a: [ 1, 2, 3 ] }
+         * e.g. { o: { k:1 } }
+         */
+        if (!equal(oVal, qVal)) {
+            return false;
+        }
+        return true;
+    }
+
     /**
      * The signature of modifier functions is as follows
      * Their structure is always the same: recursively follow the dot notation while creating
      * the nested documents if needed, then apply the "last step modifier"
+     * to know what each operator does: https://www.mongodb.com/docs/manual/reference/operator/update/
      */
     const lastStepModifierFunctions = {
         $set: function (obj, field, value) {
-            if (!obj) {
+            if (!obj)
                 return;
-            }
             obj[field] = value;
         },
         $mul: function (obj, field, value) {
@@ -330,61 +588,54 @@
             obj[field] = base * value;
         },
         $unset: function (obj, field) {
+            if (Array.isArray(obj)) {
+                obj.splice(Number(field), 1);
+                return;
+            }
             delete obj[field];
         },
-        /**
-         * Push an element to the end of an array field
-         * Optional modifier $each instead of value to push several values
-         * Optional modifier $slice to slice the resulting array, see https://docs.mongodb.org/manual/reference/operator/update/slice/
-         * Differences with MongoDB: if $slice is specified and not $each, we act as if value is an empty array
-         */
-        $push: function (obj, field, value) {
-            // Create the array if it doesn't exist
-            if (!obj.hasOwnProperty(field)) {
+        $push: function (obj, field, query) {
+            // Setup
+            if (!obj.hasOwnProperty(field))
                 obj[field] = [];
-            }
-            if (!Array.isArray(obj[field])) {
+            if (!Array.isArray(obj[field]))
                 throw new Error("XWebDB: Can't $push an element on non-array values");
-            }
-            if (value !== null &&
-                typeof value === "object" &&
-                value["$slice"] &&
-                value["$each"] === undefined) {
-                value.$each = [];
-            }
-            if (value !== null &&
-                typeof value === "object" &&
-                value["$each"]) {
-                const eachVal = value["$each"];
-                const sliceVal = value["$slice"];
-                const posVal = value["$position"];
-                const sortVal = value["$sort"];
-                const allKeys = Object.keys(value);
-                if (Object.keys(value).length > 1) {
-                    if (allKeys.filter((x) => {
-                        return (["$each", "$slice", "$position", "$sort"].indexOf(x) === -1);
-                    }).length) {
-                        throw new Error("XWebDB: Can only use the modifiers $slice, $position and $sort in conjunction with $each when $push to array");
-                    }
-                }
-                if (!Array.isArray(eachVal)) {
+            if (query !== null &&
+                typeof query === "object" &&
+                query.$slice &&
+                query.$each === undefined)
+                query.$each = [];
+            // with modifiers
+            if (query !== null && typeof query === "object" && query.$each) {
+                const eachVal = query.$each;
+                const sliceVal = query.$slice;
+                const posVal = query.$position;
+                const sortVal = query.$sort;
+                const allKeys = Object.keys(query);
+                // checking modifiers
+                if (allKeys.length > 1 &&
+                    allKeys.filter((x) => {
+                        return ["$each", "$slice", "$position", "$sort"].indexOf(x) === -1;
+                    }).length)
+                    throw new Error("XWebDB: Can only use the known modifiers $slice, $position and $sort in conjunction with $each when $push to array");
+                else if (!Array.isArray(eachVal))
                     throw new Error("XWebDB: $each requires an array value");
-                }
-                if (posVal) {
-                    for (let i = 0; i < eachVal.length; i++) {
-                        const element = eachVal[i];
-                        obj[field].splice(posVal + i, 0, element);
-                    }
-                }
-                else {
+                else if (sliceVal !== undefined && typeof sliceVal !== "number")
+                    throw new Error("XWebDB: $slice requires a number value");
+                // pushing with $position
+                if (posVal)
+                    for (let i = 0; i < eachVal.length; i++)
+                        obj[field].splice(posVal + i, 0, eachVal[i]);
+                // pushing without $position
+                else
                     eachVal.forEach((v) => obj[field].push(v));
-                }
+                // $applying sort
                 if (sortVal) {
                     if (typeof sortVal === "number") {
                         if (sortVal === 1)
-                            obj[field].sort((a, b) => compareThings(a, b));
+                            obj[field].sort((a, b) => compare(a, b));
                         else
-                            obj[field].sort((a, b) => compareThings(b, a));
+                            obj[field].sort((a, b) => compare(b, a));
                     }
                     else {
                         obj[field].sort((a, b) => {
@@ -393,12 +644,12 @@
                                 const key = keys[i];
                                 const order = sortVal[key];
                                 if (order === 1) {
-                                    const comp = compareThings(a[key], b[key]);
+                                    const comp = compare(a[key], b[key]);
                                     if (comp)
                                         return comp;
                                 }
                                 else {
-                                    const comp = compareThings(b[key], a[key]);
+                                    const comp = compare(b[key], a[key]);
                                     if (comp)
                                         return comp;
                                 }
@@ -407,16 +658,11 @@
                         });
                     }
                 }
-                if (sliceVal === undefined) {
-                    return;
-                }
-                if (sliceVal !== undefined && typeof sliceVal !== "number") {
-                    throw new Error("XWebDB: $slice requires a number value");
-                }
+                // applying $slice
                 if (sliceVal === 0) {
                     obj[field] = [];
                 }
-                else {
+                else if (typeof sliceVal === "number") {
                     let start = 0;
                     let end = 0;
                     let n = obj[field].length;
@@ -431,151 +677,114 @@
                     obj[field] = obj[field].slice(start, end);
                 }
             }
+            // without modifiers
             else {
-                obj[field].push(value);
+                obj[field].push(query);
             }
         },
-        /**
-         * Add an element to an array field only if it is not already in it
-         * No modification if the element is already in the array
-         * Note that it doesn't check whether the original array contains duplicates
-         */
-        $addToSet: function (obj, field, value) {
-            // Create the array if it doesn't exist
+        $addToSet: function (obj, field, query) {
+            // setup
             if (!obj.hasOwnProperty(field)) {
                 obj[field] = [];
             }
             if (!Array.isArray(obj[field])) {
                 throw new Error("XWebDB: Can't $addToSet an element on non-array values");
             }
-            const eachVal = value["$each"];
-            if (value !== null && typeof value === "object" && eachVal) {
-                if (Object.keys(value).length > 1) {
+            const eachVal = query ? query.$each : undefined;
+            // adding
+            if (query !== null && typeof query === "object" && eachVal) {
+                if (Object.keys(query).length > 1)
                     throw new Error("XWebDB: Can't use another field in conjunction with $each on $addToSet modifier");
-                }
-                if (!Array.isArray(eachVal)) {
+                if (!Array.isArray(eachVal))
                     throw new Error("XWebDB: $each requires an array value");
-                }
-                eachVal.forEach((v) => lastStepModifierFunctions.$addToSet(obj, field, v));
+                eachVal.forEach((val) => lastStepModifierFunctions.$addToSet(obj, field, val));
             }
             else {
                 let addToSet = true;
                 for (let index = 0; index < obj[field].length; index++) {
                     const element = obj[field][index];
-                    if (compareThings(element, value) === 0) {
+                    if (compare(element, query) === 0) {
                         addToSet = false;
                         break;
                     }
                 }
                 if (addToSet) {
-                    obj[field].push(value);
+                    obj[field].push(query);
                 }
             }
         },
-        /**
-         * Remove the first or last element of an array
-         */
         $pop: function (obj, field, value) {
-            if (!Array.isArray(obj[field])) {
+            if (!Array.isArray(obj[field]))
                 throw new Error("XWebDB: Can't $pop an element from non-array values");
-            }
-            if (typeof value !== "number") {
-                throw new Error("XWebDB: " +
-                    value + " isn't an integer, can't use it with $pop");
-            }
-            if (value === 0) {
+            if (typeof value !== "number" || value % 1 !== 0)
+                throw new Error("XWebDB: " + value + " isn't an integer, can't use it with $pop");
+            if (value === 0)
                 return;
-            }
-            if (value > 0) {
+            if (value > 0)
                 obj[field] = obj[field].slice(0, obj[field].length - 1);
-            }
-            else {
+            else
                 obj[field] = obj[field].slice(1);
-            }
         },
-        /**
-         * Removes all instances of a value from an existing array
-         */
         $pull: function (obj, field, value) {
-            if (!Array.isArray(obj[field])) {
+            if (!Array.isArray(obj[field]))
                 throw new Error("XWebDB: Can't $pull an element from non-array values");
-            }
             let arr = obj[field];
-            for (let i = arr.length - 1; i >= 0; i -= 1) {
-                if (match(arr[i], value)) {
+            for (let i = arr.length - 1; i >= 0; i -= 1)
+                if (match(arr[i], value))
                     arr.splice(i, 1);
-                }
-            }
         },
-        /**
-         * Removes all instances of a value from an existing array
-         */
         $pullAll: function (obj, field, value) {
-            if (!Array.isArray(obj[field])) {
+            if (!Array.isArray(obj[field]))
                 throw new Error("XWebDB: Can't $pull an element from non-array values");
-            }
             let arr = obj[field];
-            for (let i = arr.length - 1; i >= 0; i -= 1) {
-                for (let j = 0; j < value.length; j++) {
-                    if (match(arr[i], value[j])) {
+            for (let i = arr.length - 1; i >= 0; i -= 1)
+                for (let j = 0; j < value.length; j++)
+                    if (match(arr[i], value[j]))
                         arr.splice(i, 1);
-                    }
-                }
-            }
         },
-        /**
-         * Increment a numeric field's value
-         */
         $inc: function (obj, field, value) {
-            if (typeof value !== "number") {
+            if (typeof value !== "number")
                 throw new Error("XWebDB: " + value + " must be a number");
-            }
             if (typeof obj[field] !== "number") {
-                if (!obj.hasOwnProperty(field)) {
+                if (!obj.hasOwnProperty(field))
                     obj[field] = value;
-                }
-                else {
+                else
                     throw new Error("XWebDB: Can't use the $inc modifier on non-number fields");
-                }
             }
-            else {
+            else
                 obj[field] = obj[field] + value;
-            }
         },
-        /**
-         * Updates the value of the field, only if specified field is greater than the current value of the field
-         */
         $max: function (obj, field, value) {
-            if (typeof obj[field] === "undefined") {
+            if (typeof obj[field] === "undefined")
                 obj[field] = value;
-            }
-            else if (value > obj[field]) {
+            else if (value > obj[field])
                 obj[field] = value;
-            }
         },
-        /**
-         * Updates the value of the field, only if specified field is smaller than the current value of the field
-         */
         $min: function (obj, field, value) {
-            if (typeof obj[field] === "undefined") {
+            if (typeof obj[field] === "undefined")
                 obj[field] = value;
-            }
-            else if (value < obj[field]) {
+            else if (value < obj[field])
                 obj[field] = value;
-            }
         },
         $currentDate: function (obj, field, value) {
-            if (value === true) {
+            if (value === true)
                 obj[field] = new Date();
-            }
-            else if (value.$type && value.$type === "timestamp") {
+            else if (value.$type && value.$type === "timestamp")
                 obj[field] = Date.now();
-            }
-            else if (value.$type && value.$type === "date") {
+            else if (value.$type && value.$type === "date")
                 obj[field] = new Date();
-            }
+            else
+                throw new Error("XWebDB: Malformed $currentDate update query");
         },
         $rename: function (obj, field, value) {
+            if (Array.isArray(obj)) {
+                // this is not supported by MongoDB
+                // However, I've decided to support it
+                let to = Number(value);
+                let from = Number(field);
+                obj.splice(to, 0, obj.splice(from, 1)[0]);
+                return;
+            }
             obj[value] = obj[field];
             delete obj[field];
         },
@@ -585,512 +794,86 @@
             // this operator is being dealt with at the datastore.ts file
         },
     };
-    // Given its name, create the complete modifier function
-    function createModifierFunction(modifier) {
-        return function (obj, field, value) {
+    // to work down on $operators with dot notation (or not)
+    // we have to chase down the field recursively until not "." exists in it
+    // this is done throw this singleton and function
+    const modifierFunctions = {};
+    const modifiersKeys = Object.keys(lastStepModifierFunctions);
+    for (let index = 0; index < modifiersKeys.length; index++) {
+        const $name = modifiersKeys[index];
+        modifierFunctions[$name] = (obj, field, query) => {
             var fieldParts = typeof field === "string" ? field.split(".") : field;
+            // reached target
             if (fieldParts.length === 1) {
-                lastStepModifierFunctions[modifier](obj, field, value);
+                lastStepModifierFunctions[$name](obj, field, query);
             }
+            // still following dot notation
             else {
                 if (obj[fieldParts[0]] === undefined) {
-                    if (modifier === "$unset") {
-                        return;
-                    } // Bad looking specific fix, needs to be generalized modifiers that behave like $unset are implemented
-                    obj[fieldParts[0]] = {};
+                    if ($name === "$unset")
+                        return; // already unset
+                    obj[fieldParts[0]] = {}; // create it
                 }
-                modifierFunctions[modifier](obj[fieldParts[0]], fieldParts.slice(1).join("."), value);
+                let next = fieldParts.slice(1).join(".");
+                modifierFunctions[$name](obj[fieldParts[0]], next, query);
             }
         };
     }
-    const modifierFunctions = {};
-    // Actually create all modifier functions
-    Object.keys(lastStepModifierFunctions).forEach(function (modifier) {
-        modifierFunctions[modifier] = createModifierFunction(modifier);
-    });
     /**
      * Modify a DB object according to an update query
      */
     function modify(obj, updateQuery, model) {
-        var keys = Object.keys(updateQuery);
-        let firstChars = keys.map((x) => x.charAt(0));
-        let dollarFirstChars = firstChars.filter((x) => x === "$");
-        if (keys.indexOf("_id") !== -1 &&
-            updateQuery["_id"] !== obj._id) {
+        const keys = Object.keys(updateQuery);
+        const firstChars = keys.map((x) => x.charAt(0));
+        const dollarFirstChars = firstChars.filter((x) => x === "$");
+        if (keys.indexOf("_id") !== -1 && updateQuery._id !== obj._id)
             throw new Error("XWebDB: You cannot change a document's _id");
-        }
-        if (dollarFirstChars.length !== 0 &&
-            dollarFirstChars.length !== firstChars.length) {
+        if (dollarFirstChars.length !== 0 && dollarFirstChars.length !== firstChars.length)
             throw new Error("XWebDB: You cannot mix modifiers and normal fields");
-        }
         let newDoc;
         if (dollarFirstChars.length === 0) {
             // Simply replace the object with the update query contents
-            newDoc = deepCopy(updateQuery, model);
+            newDoc = clone(updateQuery, model);
             newDoc._id = obj._id;
         }
         else {
             // Apply modifiers
-            let modifiers = Array.from(new Set(keys));
-            newDoc = deepCopy(obj, model);
-            modifiers.forEach(function (modifier) {
-                let modArgument = updateQuery[modifier];
-                if (!modifierFunctions[modifier]) {
+            const modifiers = Array.from(new Set(keys));
+            newDoc = clone(obj, model);
+            for (let index = 0; index < modifiers.length; index++) {
+                const modifier = modifiers[index];
+                const modArgument = updateQuery[modifier];
+                if (!modifierFunctions[modifier])
                     throw new Error("XWebDB: Unknown modifier " + modifier);
+                if (typeof modArgument !== "object")
+                    throw new Error("XWebDB: Modifier " + modifier + "'s query must be an object");
+                const fields = Object.keys(modArgument);
+                for (let index = 0; index < fields.length; index++) {
+                    const field = fields[index];
+                    modifierFunctions[modifier](newDoc, field, modArgument[field]);
                 }
-                // Can't rely on Object.keys throwing on non objects since ES6
-                // Not 100% satisfying as non objects can be interpreted as objects but no false negatives so we can live with it
-                if (typeof modArgument !== "object") {
-                    throw new Error("XWebDB: Modifier " + modifier + "'s argument must be an object");
-                }
-                let keys = Object.keys(modArgument);
-                keys.forEach(function (k) {
-                    modifierFunctions[modifier](newDoc, k, modArgument[k]);
-                });
-            });
+            }
         }
         // Check result is valid and return it
-        checkObject(newDoc);
-        if (obj._id !== newDoc._id) {
-            throw new Error("XWebDB: You can't change a document's _id");
-        }
+        validateObject(newDoc);
+        if (obj._id !== newDoc._id)
+            throw new Error("XWebDB: You cannot change a document's _id");
         return newDoc;
-    }
-    // ==============================================================
-    // Finding documents
-    // ==============================================================
-    /**
-     * Get a value from object with dot notation
-     */
-    function getDotValue(obj, field) {
-        const fieldParts = typeof field === "string" ? field.split(".") : field;
-        if (!obj) {
-            return undefined;
-        } // field cannot be empty so that means we should return undefined so that nothing can match
-        if (fieldParts.length === 0) {
-            return obj;
-        }
-        if (fieldParts.length === 1) {
-            return obj[fieldParts[0]];
-        }
-        if (Array.isArray(obj[fieldParts[0]])) {
-            // If the next field is an integer, return only this item of the array
-            let i = parseInt(fieldParts[1], 10);
-            if (typeof i === "number" && !isNaN(i)) {
-                return getDotValue(obj[fieldParts[0]][i], fieldParts.slice(2));
-            }
-            // Return the array of values
-            let objects = new Array();
-            for (let i = 0; i < obj[fieldParts[0]].length; i += 1) {
-                objects.push(getDotValue(obj[fieldParts[0]][i], fieldParts.slice(1)));
-            }
-            return objects;
-        }
-        else {
-            return getDotValue(obj[fieldParts[0]], fieldParts.slice(1));
-        }
-    }
-    /**
-     * Check whether 'things' are equal
-     * Things are defined as any native types (string, number, boolean, null, date) and objects
-     * In the case of object, we check deep equality
-     * Returns true if they are, false otherwise
-     */
-    function areThingsEqual(a, b) {
-        var aKeys, bKeys, i;
-        // Strings, booleans, numbers, null
-        if (a === null ||
-            typeof a === "string" ||
-            typeof a === "boolean" ||
-            typeof a === "number" ||
-            b === null ||
-            typeof b === "string" ||
-            typeof b === "boolean" ||
-            typeof b === "number") {
-            return a === b;
-        }
-        // Dates
-        if (a instanceof Date || b instanceof Date) {
-            return (a instanceof Date &&
-                b instanceof Date &&
-                a.getTime() === b.getTime());
-        }
-        // Arrays (no match since arrays are used as a $in)
-        // undefined (no match since they mean field doesn't exist and can't be serialized)
-        if ((!(Array.isArray(a) && Array.isArray(b)) &&
-            (Array.isArray(a) || Array.isArray(b))) ||
-            a === undefined ||
-            b === undefined) {
-            return false;
-        }
-        // General objects (check for deep equality)
-        // a and b should be objects at this point
-        try {
-            aKeys = Object.keys(a);
-            bKeys = Object.keys(b);
-        }
-        catch (e) {
-            return false;
-        }
-        if (aKeys.length !== bKeys.length) {
-            return false;
-        }
-        for (i = 0; i < aKeys.length; i += 1) {
-            if (bKeys.indexOf(aKeys[i]) === -1) {
-                return false;
-            }
-            if (!areThingsEqual(a[aKeys[i]], b[aKeys[i]])) {
-                return false;
-            }
-        }
-        return true;
-    }
-    /**
-     * Check that two values are comparable
-     */
-    function areComparable(a, b) {
-        if (typeof a !== "string" &&
-            typeof a !== "number" &&
-            !(a instanceof Date) &&
-            typeof b !== "string" &&
-            typeof b !== "number" &&
-            !(b instanceof Date)) {
-            return false;
-        }
-        if (typeof a !== typeof b) {
-            return false;
-        }
-        return true;
-    }
-    const comparisonFunctions = {};
-    /**
-     * Arithmetic and comparison operators
-     */
-    comparisonFunctions.$type = function (a, b) {
-        if (["number", "boolean", "string", "undefined"].indexOf(b) > -1) {
-            return typeof a === b;
-        }
-        else if (b === "array") {
-            return Array.isArray(a);
-        }
-        else if (b === "null") {
-            return a === null;
-        }
-        else if (b === "date") {
-            return a instanceof Date;
-        }
-        else if (b === "object") {
-            return (typeof a === "object" &&
-                !(a instanceof Date) &&
-                !(a === null) &&
-                !Array.isArray(a));
-        }
-        else
-            return false;
-    };
-    comparisonFunctions.$not = function (a, b) {
-        return !match({ k: a }, { k: b });
-    };
-    comparisonFunctions.$eq = function (a, b) {
-        return areThingsEqual(a, b);
-    };
-    comparisonFunctions.$lt = function (a, b) {
-        return areComparable(a, b) && a < b;
-    };
-    comparisonFunctions.$lte = function (a, b) {
-        return areComparable(a, b) && a <= b;
-    };
-    comparisonFunctions.$gt = function (a, b) {
-        return areComparable(a, b) && a > b;
-    };
-    comparisonFunctions.$gte = function (a, b) {
-        return areComparable(a, b) && a >= b;
-    };
-    comparisonFunctions.$mod = function (a, b) {
-        if (!Array.isArray(b)) {
-            throw new Error("XWebDB: malformed mod, must be supplied with an array");
-        }
-        if (b.length !== 2) {
-            throw new Error("XWebDB: malformed mod, array length must be exactly two, a divisor and a remainder");
-        }
-        return a % b[0] === b[1];
-    };
-    comparisonFunctions.$ne = function (a, b) {
-        if (a === undefined) {
-            return true;
-        }
-        return !areThingsEqual(a, b);
-    };
-    comparisonFunctions.$in = function (a, b) {
-        var i;
-        if (!Array.isArray(b)) {
-            throw new Error("XWebDB: $in operator called with a non-array");
-        }
-        for (i = 0; i < b.length; i += 1) {
-            if (areThingsEqual(a, b[i])) {
-                return true;
-            }
-        }
-        return false;
-    };
-    comparisonFunctions.$nin = function (a, b) {
-        if (!Array.isArray(b)) {
-            throw new Error("XWebDB: $nin operator called with a non-array");
-        }
-        return !comparisonFunctions.$in(a, b);
-    };
-    comparisonFunctions.$regex = function (a, b) {
-        if (!(b instanceof RegExp)) {
-            throw new Error("XWebDB: $regex operator called with non regular expression");
-        }
-        if (typeof a !== "string") {
-            return false;
-        }
-        else {
-            return b.test(a);
-        }
-    };
-    comparisonFunctions.$exists = function (value, exists) {
-        if (exists || exists === "") {
-            // This will be true for all values of exists except false, null, undefined and 0
-            exists = true; // That's strange behaviour (we should only use true/false) but that's the way Mongo does it...
-        }
-        else {
-            exists = false;
-        }
-        if (value === undefined) {
-            return !exists;
-        }
-        else {
-            return exists;
-        }
-    };
-    // Specific to arrays
-    comparisonFunctions.$size = function (obj, value) {
-        if (!Array.isArray(obj)) {
-            return false;
-        }
-        if (value % 1 !== 0) {
-            throw new Error("XWebDB: $size operator called without an integer");
-        }
-        return obj.length === value;
-    };
-    comparisonFunctions.$elemMatch = function (obj, value) {
-        if (!Array.isArray(obj)) {
-            return false;
-        }
-        var i = obj.length;
-        var result = false; // Initialize result
-        while (i--) {
-            if (match(obj[i], value)) {
-                // If match for array element, return true
-                result = true;
-                break;
-            }
-        }
-        return result;
-    };
-    comparisonFunctions.$all = function (a, b) {
-        if (!Array.isArray(a)) {
-            throw new Error("XWebDB: $all must be applied on fields of type array");
-        }
-        if (!Array.isArray(b)) {
-            throw new Error("XWebDB: $all must be supplied with argument of type array");
-        }
-        for (let i = 0; i < b.length; i++) {
-            const elementInArgument = b[i];
-            if (a.indexOf(elementInArgument) === -1) {
-                return false;
-            }
-        }
-        return true;
-    };
-    const arrayComparisonFunctions = {};
-    arrayComparisonFunctions.$size = true;
-    arrayComparisonFunctions.$elemMatch = true;
-    arrayComparisonFunctions.$all = true;
-    const logicalOperators = {};
-    /**
-     * Match any of the subqueries
-     */
-    logicalOperators.$or = function (obj, query) {
-        var i;
-        if (!Array.isArray(query)) {
-            throw new Error("XWebDB: $or operator used without an array");
-        }
-        for (i = 0; i < query.length; i += 1) {
-            if (match(obj, query[i])) {
-                return true;
-            }
-        }
-        return false;
-    };
-    /**
-     * Match all of the subqueries
-     */
-    logicalOperators.$and = function (obj, query) {
-        if (!Array.isArray(query)) {
-            throw new Error("XWebDB: $and operator used without an array");
-        }
-        for (let i = 0; i < query.length; i += 1) {
-            if (!match(obj, query[i])) {
-                return false;
-            }
-        }
-        return true;
-    };
-    /**
-     * Match non of the subqueries
-     */
-    logicalOperators.$nor = function (obj, query) {
-        if (!Array.isArray(query)) {
-            throw new Error("XWebDB: $nor operator used without an array");
-        }
-        for (let i = 0; i < query.length; i += 1) {
-            if (match(obj, query[i])) {
-                return false;
-            }
-        }
-        return true;
-    };
-    /**
-     * Use a function to match
-     */
-    logicalOperators.$where = function (obj, fn) {
-        var result;
-        if (typeof fn !== "function") {
-            throw new Error("XWebDB: $where operator used without a function");
-        }
-        result = fn.call(obj);
-        if (typeof result !== "boolean") {
-            throw new Error("XWebDB: $where function must return boolean");
-        }
-        return result;
-    };
-    /**
-     * Tell if a given document matches a query
-     */
-    function match(obj, query) {
-        // Primitive query against a primitive type
-        // This is a bit of a hack since we construct an object with an arbitrary key only to dereference it later
-        // But I don't have time for a cleaner implementation now
-        if (isPrimitiveType(obj) || isPrimitiveType(query)) {
-            return matchQueryPart({ needAKey: obj }, "needAKey", query);
-        }
-        // Normal query
-        let queryKeys = Object.keys(query);
-        for (let i = 0; i < queryKeys.length; i += 1) {
-            let queryKey = queryKeys[i];
-            let queryValue = query[queryKey];
-            if (queryKey[0] === "$") {
-                if (!logicalOperators[queryKey]) {
-                    throw new Error("XWebDB: Unknown logical operator " + queryKey);
-                }
-                if (!logicalOperators[queryKey](obj, queryValue)) {
-                    return false;
-                }
-            }
-            else {
-                if (!matchQueryPart(obj, queryKey, queryValue)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-    /**
-     * Match an object against a specific { key: value } part of a query
-     * if the treatObjAsValue flag is set, don't try to match every part separately, but the array as a whole
-     */
-    function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
-        const objValue = getDotValue(obj, queryKey);
-        // Check if the value is an array if we don't force a treatment as value
-        if (Array.isArray(objValue) && !treatObjAsValue) {
-            // If the queryValue is an array, try to perform an exact match
-            if (Array.isArray(queryValue)) {
-                return matchQueryPart(obj, queryKey, queryValue, true);
-            }
-            // Check if we are using an array-specific comparison function
-            if (queryValue !== null &&
-                typeof queryValue === "object" &&
-                !(queryValue instanceof RegExp)) {
-                let keys = Object.keys(queryValue);
-                for (let i = 0; i < keys.length; i += 1) {
-                    if (arrayComparisonFunctions[keys[i]]) {
-                        return matchQueryPart(obj, queryKey, queryValue, true);
-                    }
-                }
-            }
-            // If not, treat it as an array of { obj, query } where there needs to be at least one match
-            for (let i = 0; i < objValue.length; i += 1) {
-                // edge case: using $ne on array
-                if (queryValue["$ne"]) {
-                    if (objValue.indexOf(queryValue["$ne"]) !== -1) {
-                        return false;
-                    }
-                }
-                if (Array.isArray(queryValue["$nin"])) {
-                    const intersection = queryValue["$nin"].filter((value) => -1 !== objValue.indexOf(value));
-                    if (intersection.length) {
-                        return false;
-                    }
-                }
-                if (matchQueryPart({ k: objValue[i] }, "k", queryValue)) {
-                    return true;
-                } // k here could be any string
-            }
-            return false;
-        }
-        // queryValue is an actual object. Determine whether it contains comparison operators
-        // or only normal fields. Mixed objects are not allowed
-        if (queryValue !== null &&
-            typeof queryValue === "object" &&
-            !(queryValue instanceof RegExp) &&
-            !Array.isArray(queryValue)) {
-            let keys = Object.keys(queryValue);
-            let firstChars = keys.map((item) => item[0]);
-            let dollarFirstChars = firstChars.filter((c) => c === "$");
-            if (dollarFirstChars.length !== 0 &&
-                dollarFirstChars.length !== firstChars.length) {
-                throw new Error("XWebDB: You cannot mix operators and normal fields");
-            }
-            // queryValue is an object of this form: { $comparisonOperator1: value1, ... }
-            if (dollarFirstChars.length > 0) {
-                for (let i = 0; i < keys.length; i += 1) {
-                    if (!comparisonFunctions[keys[i]]) {
-                        throw new Error("XWebDB: Unknown comparison function " + keys[i]);
-                    }
-                    if (!comparisonFunctions[keys[i]](objValue, queryValue[keys[i]])) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-        }
-        // Using regular expressions with basic querying
-        if (queryValue instanceof RegExp) {
-            return comparisonFunctions.$regex(objValue, queryValue);
-        }
-        // queryValue is either a native value or a normal object
-        // Basic matching is possible
-        if (!areThingsEqual(objValue, queryValue)) {
-            return false;
-        }
-        return true;
     }
 
     var modelling = /*#__PURE__*/Object.freeze({
         __proto__: null,
         serialize: serialize,
         deserialize: deserialize,
-        deepCopy: deepCopy,
-        checkObject: checkObject,
+        clone: clone,
+        validateObject: validateObject,
         isPrimitiveType: isPrimitiveType,
         modify: modify,
-        getDotValue: getDotValue,
+        dotNotation: dotNotation,
         match: match,
-        areThingsEqual: areThingsEqual,
-        compareThings: compareThings
+        compare: compare,
+        modifiersKeys: modifiersKeys,
+        equal: equal
     });
 
     /******************************************************************************
@@ -1180,7 +963,7 @@
                     // pick-type projection
                     toPush = { $set: {} };
                     keys.forEach((k) => {
-                        toPush.$set[k] = getDotValue(candidate, k);
+                        toPush.$set[k] = dotNotation(candidate, k);
                         if (toPush.$set[k] === undefined) {
                             delete toPush.$set[k];
                         }
@@ -1247,15 +1030,15 @@
                     }
                     res.sort((a, b) => {
                         let criterion;
-                        let compare;
+                        let compare$1;
                         let i;
                         for (i = 0; i < criteria.length; i++) {
                             criterion = criteria[i];
-                            compare =
+                            compare$1 =
                                 criterion.direction *
-                                    compareThings(getDotValue(a, criterion.key), getDotValue(b, criterion.key));
-                            if (compare !== 0) {
-                                return compare;
+                                    compare(dotNotation(a, criterion.key), dotNotation(b, criterion.key));
+                            if (compare$1 !== 0) {
+                                return compare$1;
                             }
                         }
                         return 0;
@@ -1280,7 +1063,7 @@
                 const originalsArr = yield this._exec();
                 const res = [];
                 for (let index = 0; index < originalsArr.length; index++) {
-                    res.push(deepCopy(originalsArr[index], this.db.model));
+                    res.push(clone(originalsArr[index], this.db.model));
                 }
                 return res;
             });
@@ -1834,10 +1617,10 @@
             if (sparse) {
                 this.sparse = sparse;
             }
-            this.tree = new AvlTree(this.fieldName, compareThings, this.unique);
+            this.tree = new AvlTree(this.fieldName, compare, this.unique);
         }
         reset() {
-            this.tree = new AvlTree(this.fieldName, compareThings, this.unique);
+            this.tree = new AvlTree(this.fieldName, compare, this.unique);
         }
         /**
          * Insert a new document in the index
@@ -1849,7 +1632,7 @@
                 this.insertMultipleDocs(doc);
                 return;
             }
-            let key = getDotValue(doc, this.fieldName);
+            let key = dotNotation(doc, this.fieldName);
             // We don't index documents that don't contain the field if the index is sparse
             if (key === undefined && this.sparse) {
                 return;
@@ -1916,7 +1699,7 @@
                 doc.forEach((d) => this.remove(d));
                 return;
             }
-            let key = getDotValue(doc, this.fieldName);
+            let key = dotNotation(doc, this.fieldName);
             if (key === undefined && this.sparse) {
                 return;
             }
@@ -2308,13 +2091,14 @@
             this.p.db.removeFromIndexes(line.data);
             return false;
         }
-        _sync() {
+        _sync(force = false) {
             return __awaiter(this, void 0, void 0, function* () {
                 const timeSignature = this.timeSignature().toString();
                 const rHash = (yield this.rdata.getItem("$H")) || "0";
                 const lHash = (yield this.p.data.get("$H")) || "0";
                 const hashTime = lHash.split("_")[1];
-                if (hashTime === timeSignature &&
+                if (!force &&
+                    hashTime === timeSignature &&
                     (lHash === rHash ||
                         (lHash === "0" && (rHash || "").indexOf("10009") > -1))) {
                     return { sent: 0, received: 0, diff: -1 };
@@ -2712,6 +2496,9 @@
     class BaseModel {
         static new(data) {
             const instance = new this();
+            if (typeof data !== "object" || data === null) {
+                return instance;
+            }
             const keys = Object.keys(Object.assign(Object.assign({}, instance), data));
             for (let i = 0; i < keys.length; i++) {
                 const key = keys[i];
@@ -2719,13 +2506,13 @@
                 let dataVal = data[key];
                 if (insVal && insVal["_$SHOULD_MAP$_"]) {
                     if (dataVal === undefined) {
-                        instance[key] = insVal["_$DEFAULT_VALUE$_"];
+                        instance[key] = insVal["def"];
                     }
                     else if (Array.isArray(dataVal)) {
-                        instance[key] = dataVal.map((x) => insVal.new(x));
+                        instance[key] = dataVal.map((x) => insVal.ctr.new(x));
                     }
                     else {
-                        instance[key] = insVal.new(dataVal);
+                        instance[key] = insVal.ctr.new(dataVal);
                     }
                 }
                 else {
@@ -2757,10 +2544,12 @@
     }
     class SubDoc extends BaseModel {
     }
-    function mapSubModel(c, defaultValue) {
-        c['_$SHOULD_MAP$_'] = true;
-        c['_$DEFAULT_VALUE$_'] = defaultValue;
-        return c;
+    function mapSubModel(ctr, def) {
+        return {
+            _$SHOULD_MAP$_: true,
+            def,
+            ctr,
+        };
     }
 
     class Q {
@@ -3156,7 +2945,7 @@
                     this.deferredWrites.push(...w);
                 else
                     yield this.persistence.writeNewData(w);
-                return deepCopy(preparedDoc, this.model);
+                return clone(preparedDoc, this.model);
             });
         }
         /**
@@ -3181,7 +2970,7 @@
                 });
             }
             else {
-                preparedDoc = deepCopy(newDoc, this.model);
+                preparedDoc = clone(newDoc, this.model);
                 if (preparedDoc._id === undefined) {
                     preparedDoc._id = this.createNewId();
                 }
@@ -3192,7 +2981,7 @@
                 if (this.timestampData && preparedDoc.updatedAt === undefined) {
                     preparedDoc.updatedAt = now;
                 }
-                checkObject(preparedDoc);
+                validateObject(preparedDoc);
             }
             return preparedDoc;
         }
@@ -3327,7 +3116,7 @@
                         yield this.persistence.writeNewData(updatedDocs);
                     return {
                         number: updatedDocs.length,
-                        docs: updatedDocs.map((x) => deepCopy(x, this.model)),
+                        docs: updatedDocs.map((x) => clone(x, this.model)),
                         upsert: false,
                     };
                 }
@@ -3335,7 +3124,7 @@
                     if (!updateQuery.$setOnInsert) {
                         throw new Error("XWebDB: $setOnInsert modifier is required when upserting");
                     }
-                    let toBeInserted = deepCopy(updateQuery.$setOnInsert, this.model, true);
+                    let toBeInserted = clone(updateQuery.$setOnInsert, this.model, true);
                     const newDoc = yield this._insert(toBeInserted);
                     if (Array.isArray(newDoc)) {
                         return {
@@ -3380,7 +3169,7 @@
                 candidates.forEach((d) => {
                     if (match(d, query) && (multi || numRemoved === 0)) {
                         numRemoved++;
-                        removedFullDoc.push(deepCopy(d, this.model));
+                        removedFullDoc.push(clone(d, this.model));
                         removedDocs.push({ $$deleted: true, _id: d._id });
                         this.removeFromIndexes(d);
                     }
@@ -4208,7 +3997,7 @@
         Change: Change
     });
 
-    let deepOperators = ["$set", "$unset", "$inc", "$mul", "$rename", "$min", "$max", "$currentDate", "$addToSet"];
+    let deepOperators = modifiersKeys;
     class Database {
         constructor(options) {
             this.reloadBeforeOperations = false;
@@ -4244,9 +4033,7 @@
                 timestampData: options.timestampData,
                 syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
                 syncInterval: options.sync ? options.sync.syncInterval : undefined,
-                devalidateHash: options.sync
-                    ? options.sync.devalidateHash
-                    : undefined,
+                devalidateHash: options.sync ? options.sync.devalidateHash : undefined,
                 defer: options.deferPersistence || 0,
                 stripDefaults: options.stripDefaults || false,
             });
@@ -4285,16 +4072,14 @@
                                 change.type === "reverse") {
                                 continue;
                             }
-                            else if (change.path.length === 1 &&
-                                change.type === "update") {
+                            else if (change.path.length === 1 && change.type === "update") {
                                 let doc = change.snapshot[change.path[0]];
                                 let _id = change.oldValue._id;
                                 operations[_id] = () => this.update({ _id: _id }, {
                                     $set: doc,
                                 });
                             }
-                            else if (change.path.length > 1 ||
-                                change.type === "update") {
+                            else if (change.path.length > 1 || change.type === "update") {
                                 // updating specific field in document
                                 let doc = change.snapshot[change.path[0]];
                                 let _id = doc._id;
@@ -4482,10 +4267,18 @@
                 if (obj.hasOwnProperty(key)) {
                     const nestedKey = prefix ? `${prefix}.${key}` : key;
                     const value = obj[key];
-                    if (typeof value === "object" &&
-                        Object.keys(value).length && // empty objects and arrays excluded from recursion
-                        Object.keys(value).filter((x) => x[0] === "$").length === 0 // objects that have operators excluded from recursion
-                    ) {
+                    /**
+                     * Recursion should stop at
+                     * 1. arrays
+                     * 2. empty objects
+                     * 3. objects that have operators
+                     * 4. Null values
+                     */
+                    if (!Array.isArray(value) &&
+                        typeof value === "object" &&
+                        value !== null &&
+                        Object.keys(value).length &&
+                        Object.keys(value).filter((x) => x[0] === "$").length === 0) {
                         flattenObject(value, nestedKey);
                     }
                     else {

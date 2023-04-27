@@ -84,7 +84,7 @@ export interface TotalArrayOperators<V> extends AnyFieldOperators<V> {
     $size?: number;
 }
 export type ArrayOperators<V> = TotalArrayOperators<V> & InnerArrayOperators<V>;
-export interface TopLevelQueryOperators<S> {
+export interface LogicalOperators<S> {
     /**
      * $and performs a logical AND operation on an array of two or more expressions (e.g. <expression1>, <expression2>, etc.) and selects the documents that satisfy all the expressions in the array. The $and operator uses short-circuit evaluation. If the first expression (e.g. <expression1>) evaluates to false, MongoDB will not evaluate the remaining expressions.
      * { $and: [ { <expression1> }, { <expression2> } , ... , { <expressionN> } ] }
@@ -104,12 +104,14 @@ export interface TopLevelQueryOperators<S> {
      * Use the $where operator to pass either a string containing a JavaScript function to the query system. The $where provides greater flexibility, but requires that the database processes the JavaScript expression or function for each document in the collection. Reference the document in the JavaScript expression or function using this.
      */
     $where?: (this: S) => boolean;
+}
+export type TopLevelQueryOperators<S> = LogicalOperators<S> & {
     /**
      * Use this operator when trying to apply filter on a deeply nested properties.
      * `{$deep:{employee:{address:{ street: "St. Peters" }}}}`
      */
     $deep?: $DeepFilter<S>;
-}
+};
 type $DeepFilter<S> = {
     [P in keyof S]?: S[P] extends Array<any> ? {
         [index: number]: $DeepFilter<S[P][0]>;

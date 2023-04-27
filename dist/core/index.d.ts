@@ -1,5 +1,5 @@
 export * as customUtils from "./customUtils";
-export * as modelling from "./model";
+export * as modelling from "./model/";
 export { Datastore, DataStoreOptions, EnsureIndexOptions } from "./datastore";
 export { Cursor } from "./cursor";
 export { Index } from "./indexes";

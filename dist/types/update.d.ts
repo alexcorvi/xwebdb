@@ -1,5 +1,5 @@
 import { Keys, Partial } from "./common";
-import { FieldLevelQueryOperators } from "./filter";
+import { FieldLevelQueryOperators, LogicalOperators } from "./filter";
 import { NFGP, NFP } from "./common";
 export interface PushModifiers<V> {
     /**
@@ -56,11 +56,40 @@ type $DeepMinMax<Main> = {
 type $DeepCurrentDate<Main> = {
     [Key in keyof Main]?: Main[Key] extends Array<any> ? {
         [index: number]: $DeepCurrentDate<Main[Key][0]>;
-    } : Main[Key] extends object ? $DeepCurrentDate<Main[Key]> : Main[Key] extends number ? {
-        $type: "timestamp";
     } : Main[Key] extends Date ? true | {
         $type: "date";
+    } : Main[Key] extends object ? $DeepCurrentDate<Main[Key]> : Main[Key] extends number ? {
+        $type: "timestamp";
     } : never;
+};
+type $DeepPop<S> = {
+    [P in keyof S]?: S[P] extends Array<infer U> ? U extends object ? {
+        [index: number]: $DeepPop<S[P][0]>;
+    } | (1 | -1) : 1 | -1 : S[P] extends object ? $DeepPop<S[P]> : never;
+};
+type $DeepAddToSet<S> = {
+    [P in keyof S]?: S[P] extends Array<infer U> ? U extends object ? {
+        [index: number]: $DeepAddToSet<S[P][0]>;
+    } | {
+        $each: U[];
+    } : {
+        $each: U[];
+    } : S[P] extends object ? $DeepAddToSet<S[P]> : never;
+};
+type $DeepPull<S> = {
+    [P in keyof S]?: S[P] extends Array<infer U> ? U extends object ? {
+        [index: number]: $DeepPull<U>;
+    } | FieldLevelQueryOperators<U> | (U extends object ? LogicalOperators<U> : never) : FieldLevelQueryOperators<U> | LogicalOperators<U> : S[P] extends object ? $DeepPull<S[P]> : never;
+};
+type $DeepPullAll<S> = {
+    [P in keyof S]?: S[P] extends Array<infer U> ? U extends object ? {
+        [index: number]: $DeepPullAll<S[P][0]>;
+    } | FieldLevelQueryOperators<U>[] : FieldLevelQueryOperators<U>[] : S[P] extends object ? $DeepPullAll<S[P]> : never;
+};
+type $DeepPush<S> = {
+    [P in keyof S]?: S[P] extends Array<infer U> ? U extends object ? {
+        [index: number]: $DeepPush<S[P][0]>;
+    } | PushModifiers<U> : PushModifiers<U> : S[P] extends object ? $DeepPush<S[P]> : never;
 };
 export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
     /**
@@ -109,18 +138,18 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
      * { $min: { <field1>: <value1>, ... } }
      */
     $min?: Partial<{
-        [Key in Keys<S>]: S[Key] extends number ? S[Key] : S[Key] extends Date ? S[Key] : never;
+        [Key in Keys<D>]: D[Key] extends number ? D[Key] : D[Key] extends Date ? D[Key] : never;
     } & {
-        $deep: $DeepMinMax<S>;
+        $deep: $DeepMinMax<D>;
     }>;
     /**
      * Only updates the field if the specified value is greater than the existing field value.
      * { $max: { <field1>: <value1>, ... } }
      */
     $max?: Partial<{
-        [Key in Keys<S>]: S[Key] extends number ? S[Key] : S[Key] extends Date ? S[Key] : never;
+        [Key in Keys<D>]: D[Key] extends number ? D[Key] : D[Key] extends Date ? D[Key] : never;
     } & {
-        $deep: $DeepMinMax<S>;
+        $deep: $DeepMinMax<D>;
     }>;
     /**
      * Sets the value of a field to current date, either as a Date or a Timestamp.
@@ -143,20 +172,26 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
         [Key in Keys<S>]: S[Key] extends Array<infer U> ? U | {
             $each: U[];
         } : never;
+    } & {
+        $deep: $DeepAddToSet<S>;
     }>;
     /**
      * The $pop operator removes the first or last element of an array. Pass $pop a value of -1 to remove the first element of an array and 1 to remove the last element in an array.
      * { $pop: { <field>: <-1 | 1>, ... } }
      */
     $pop?: Partial<{
-        [Key in Keys<S>]: S[Key] extends Array<infer U> ? -1 | 1 : never;
+        [Key in Keys<S>]: S[Key] extends Array<any> ? -1 | 1 : never;
+    } & {
+        $deep: $DeepPop<S>;
     }>;
     /**
      * Removes all array elements that match a specified query.
      * { $pull: { <field1>: <value|condition>, <field2>: <value|condition>, ... } }
      */
     $pull?: Partial<{
-        [Key in Keys<S>]: S[Key] extends Array<infer U> ? Partial<U> | FieldLevelQueryOperators<U> : never;
+        [Key in Keys<S>]: S[Key] extends Array<infer U> ? Partial<U> | FieldLevelQueryOperators<U> | (U extends object ? LogicalOperators<U> : never) : never;
+    } & {
+        $deep: $DeepPull<S>;
     }>;
     /**
      * The $pullAll operator removes all instances of the specified values from an existing array. Unlike the $pull operator that removes elements by specifying a query, $pullAll removes elements that match the listed values.
@@ -164,6 +199,8 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
      */
     $pullAll?: Partial<{
         [Key in Keys<S>]: S[Key] extends Array<infer U> ? U[] : never;
+    } & {
+        $deep: $DeepPullAll<S>;
     }>;
     /**
      * The $push operator appends a specified value to an array.
@@ -171,6 +208,8 @@ export interface UpdateOperators<A, S = NFGP<A>, D = NFP<A>> {
      */
     $push?: Partial<{
         [Key in Keys<S>]: S[Key] extends Array<infer U> ? U | PushModifiers<U> : never;
+    } & {
+        $deep: $DeepPush<S>;
     }>;
 }
 export type UpdateOperatorsOnSchema<S, V> = Partial<{
