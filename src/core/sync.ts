@@ -31,7 +31,7 @@ export class Sync {
 	}
 
 	private timeSignature() {
-		return Math.floor(Date.now() / this.p.devalidateHash);
+		return Math.floor(Date.now() / this.p.invalidateHash);
 	}
 
 	sync() {

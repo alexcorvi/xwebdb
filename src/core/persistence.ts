@@ -52,7 +52,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	model?: typeof Doc;
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
-	devalidateHash?: number;
+	invalidateHash?: number;
 	stripDefaults: boolean;
 }
 
@@ -67,7 +67,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	syncInterval = 0;
 	syncInProgress = false;
 	sync?: Sync;
-	devalidateHash: number = 0;
+	invalidateHash: number = 0;
 	corruptAlertThreshold: number = 0.1;
 	encode = (s: string) => s;
 	decode = (s: string) => s;
@@ -83,7 +83,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
-		this.devalidateHash = options.devalidateHash || 0;
+		this.invalidateHash = options.invalidateHash || 0;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
 			const rdata = this.RSA(this.ref);
