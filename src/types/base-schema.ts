@@ -1,5 +1,5 @@
 import * as customUtils from "../core/customUtils";
-import { RecursivePartial, NFGP, NFP } from "./common";
+import { RecursivePartial, NFGP } from "./common";
 
 class BaseModel {
 	static new<T extends BaseModel>(this: new () => T, data?: RecursivePartial<NFGP<T>>): T {
