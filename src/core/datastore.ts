@@ -604,9 +604,6 @@ export class Datastore<
 
 			// Change the docs in memory
 			this.updateIndexes(modifications);
-
-			// Update the datafile
-			const updatedDocs = modifications.map((x) => x.newDoc);
 			try {
 				liveUpdate();
 			} catch (e) {
@@ -615,6 +612,8 @@ export class Datastore<
 					e
 				);
 			}
+			// Update indexedDB
+			const updatedDocs = modifications.map((x) => x.newDoc);
 			if (this.defer) this.deferredWrites.push(...updatedDocs);
 			else await this.persistence.writeNewData(updatedDocs);
 			return {
