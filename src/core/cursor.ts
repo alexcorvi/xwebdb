@@ -7,17 +7,15 @@ import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
  */
 export class Cursor<G extends Doc, C extends typeof Doc> {
 	private db: Datastore<G, C>;
-	private query: { [key: string]: any };
-
+	private _query: { [key: string]: any };
 	private _limit: number | undefined;
 	private _skip: number | undefined;
 	private _sort: undefined | SchemaKeySort<G>;
-
 	private _projection: undefined | SchemaKeyProjection<G>;
 
 	constructor(db: Datastore<G, C>, query?: any) {
 		this.db = db;
-		this.query = query || {};
+		this._query = query || {};
 	}
 
 	/**
@@ -55,19 +53,13 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	/**
 	 * Apply the projection
 	 */
-	private _project(candidates: G[]) {
-		if (
-			this._projection === undefined ||
-			Object.keys(this._projection).length === 0
-		) {
+	private _project(candidates: G[]): G[] {
+		if (this._projection === undefined || Object.keys(this._projection).length === 0)
 			return candidates;
-		}
 
-		let res: any[] = [];
-
+		let res: G[] = [];
 		let keepId = this._projection._id !== 0;
 		delete this._projection._id;
-
 		let keys = Object.keys(this._projection);
 
 		// Check for consistency
@@ -77,16 +69,17 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 			throw new Error("XWebDB: Can't both keep and omit fields except for _id");
 		}
 
-		let action = actions[0];
+		let pick = actions[0] === 1;
 
 		// Do the actual projection
-		candidates.forEach((candidate) => {
-			let toPush: { [key: string]: any } = {};
-			if (action === 1) {
+		for (let index = 0; index < candidates.length; index++) {
+			const candidate = candidates[index];
+			let toPush: any = {};
+			if (pick) {
 				// pick-type projection
 				toPush = { $set: {} };
 				keys.forEach((k) => {
-					toPush.$set[k] = model.dotNotation(candidate, k);
+					toPush.$set[k] = model.fromDotNotation(candidate, k);
 					if (toPush.$set[k] === undefined) {
 						delete toPush.$set[k];
 					}
@@ -106,7 +99,7 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 				delete toPush._id;
 			}
 			res.push(toPush);
-		});
+		}
 
 		return res;
 	}
@@ -120,10 +113,9 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 		let res: G[] = [];
 		let added = 0;
 		let skipped = 0;
-		const candidates = await this.db.getCandidates(this.query);
-
+		const candidates = await this.db.getCandidates(this._query);
 		for (let i = 0; i < candidates.length; i++) {
-			if (model.match(candidates[i], this.query)) {
+			if (model.match(candidates[i], this._query)) {
 				// If a sort is defined, wait for the results to be sorted before applying limit and skip
 				if (!this._sort) {
 					if (this._skip && this._skip > skipped) {
@@ -160,8 +152,8 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 					compare =
 						criterion.direction *
 						model.compare(
-							model.dotNotation(a, criterion.key),
-							model.dotNotation(b, criterion.key)
+							model.fromDotNotation(a, criterion.key),
+							model.fromDotNotation(b, criterion.key)
 						);
 					if (compare !== 0) {
 						return compare;
@@ -172,15 +164,11 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 
 			// Applying limit and skip
 			const limit = this._limit || res.length;
-
 			const skip = this._skip || 0;
-
 			res = res.slice(skip, skip + limit);
 		}
-
 		// Apply projection
 		res = this._project(res);
-
 		return res;
 	}
 
