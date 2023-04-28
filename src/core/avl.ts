@@ -12,7 +12,8 @@ export class Node<K, V> {
 	 * @param key The key of the new node.
 	 * @param value The value of the new node.
 	 */
-	constructor(key: K, value: V) {
+	constructor(key: K, value: V, compare: CompareFunction<any>) {
+		this.compareKeys = compare;
 		this.value.push(value);
 		this.key = key;
 	}
@@ -262,7 +263,7 @@ export class AvlTree<K, V> {
 	private _insert(key: K, value: V, root: Node<K, V> | null): Node<K, V> {
 		// Perform regular BST insertion
 		if (root === null) {
-			return new Node(key, value);
+			return new Node(key, value, this._compare);
 		}
 
 		if (this._compare(key, root.key) < 0) {
