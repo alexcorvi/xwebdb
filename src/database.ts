@@ -49,7 +49,7 @@ export class Database<S extends Doc> {
 			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
 			invalidateHash: options.sync ? options.sync.invalidateHash : undefined,
-			defer: options.deferPersistence || 0,
+			defer: options.deferPersistence,
 			stripDefaults: options.stripDefaults || false,
 		});
 		this.loaded = this._datastore.loadDatabase();

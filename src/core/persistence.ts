@@ -53,7 +53,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
 	invalidateHash?: number;
-	stripDefaults: boolean;
+	stripDefaults?: boolean;
 }
 
 /**
@@ -79,7 +79,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this._model = options.model;
 		this.db = options.db;
 		this.ref = this.db.ref;
-		this.stripDefaults = options.stripDefaults;
+		this.stripDefaults = options.stripDefaults || false;
 		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
@@ -316,7 +316,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		}
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
-		if (this.sync) await this.sync.setLocalHash(keys);
+		if (this.sync) await this.sync.setL$(keys);
 		return _ids;
 	}
 	async writeData(input: [string, string][]) {
@@ -344,7 +344,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		}
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevsData);
-		if (this.sync) await this.sync.setLocalHash(keys);
+		if (this.sync) await this.sync.setR$(keys);
 		return input.map((x) => x[0]);
 	}
 	/**

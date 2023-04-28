@@ -18,19 +18,22 @@ export class Sync {
 		this.rdata = rdata;
 	}
 
-	async setLocalHash(keys?: string[]) {
+	// set local hash
+	async setL$(keys?: string[]) {
 		if (!keys) keys = (await this.p.data.keys()) as string[];
 		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
-		this.p.data.set("$H", "$H" + hash + "_" + this.timeSignature());
+		this.p.data.set("$H", "$H" + hash + "_" + this.ts());
 	}
 
-	async setRemoteHash(keys?: string[]) {
+	// set remote hash
+	async setR$(keys?: string[]) {
 		if (!keys) keys = (await this.rdata.keys()) as string[];
 		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
-		this.rdata.setItem("$H", "$H" + hash + "_" + this.timeSignature());
+		this.rdata.setItem("$H", "$H" + hash + "_" + this.ts());
 	}
 
-	private timeSignature() {
+	// time signature
+	private ts() {
 		return Math.floor(Date.now() / this.p.invalidateHash);
 	}
 
@@ -67,7 +70,21 @@ export class Sync {
 		});
 	}
 
-	private async brace(
+	/**
+	 * When finding a diff, decide what to do with it:
+	 * "this" means docs that should be uploaded 
+	 * "that" means docs that should be downloaded		--> or vice versa
+	 * A. if there's a conflict (a key should be downloaded & uploaded at the same sync instance)
+	 * 		Decide a winner:
+	 * 			"this" wins: remove it from "that" and add it to "this"
+	 * 			"that" wins: don't do anything
+	 * B. No conflict: add it regularly
+	 * 
+	 * in total: this adds and removes from two arrays,
+	 * one array is of docs that should be uploaded
+	 * and one of docs that should be downloaded
+	 */
+	private async decide(
 		key: string,
 		getter: (x: string) => Promise<string>,
 		thisDiffs: diff[],
@@ -85,24 +102,27 @@ export class Sync {
 			const conflictingTime = Number(conflictingRev.substring(2));
 			if (thisTime > conflictingTime) {
 				// this wins
-				thatDiffs.splice(conflictingIndex, 1); // removing remote
+				thatDiffs.splice(conflictingIndex, 1); // removing that
 				thisDiffs.push({
 					key: key,
 					value: (await getter(key)) || "",
 				});
 			}
-			// otherwise .. don't add to local diff
+			// otherwise .. don't add this diff
 		} else {
 			thisDiffs.push({
 				key: key,
 				value: (await getter(key)) || "",
 			});
 		}
-
-		return { thisDiffs, thatDiffs };
 	}
 
-	private causesUCV(
+	/**
+	 * This checks whether an update would cause a unique constraint violation
+	 * by actually adding to indexes (if it's a doc)
+	 * or by creating a new index (if it's an index)
+	 */
+	private UCV(
 		input: string
 	):
 		| { type: "doc"; prop: string; value: string }
@@ -150,7 +170,7 @@ export class Sync {
 		received: number;
 		diff: -1 | 0 | 1;
 	}> {
-		const timeSignature = this.timeSignature().toString();
+		const timeSignature = this.ts().toString();
 		const rHash = (await this.rdata!.getItem("$H")) || "0";
 		const lHash = (await this.p.data.get("$H")) || "0";
 		const hashTime = lHash.split("_")[1];
@@ -186,7 +206,7 @@ export class Sync {
 				continue;
 			} else if (li === ll || asc(lv, rv) > 0) {
 				ri++;
-				await this.brace(
+				await this.decide(
 					rv,
 					(x: string) => this.rdata.getItem(x),
 					remoteDiffs,
@@ -194,7 +214,7 @@ export class Sync {
 				);
 			} else {
 				li++;
-				await this.brace(
+				await this.decide(
 					lv,
 					(x: string) => this.p.data.get(x) as any,
 					localDiffs,
@@ -204,8 +224,8 @@ export class Sync {
 		}
 
 		if (remoteDiffs.length === 0 && localDiffs.length === 0) {
-			await this.setLocalHash();
-			await this.setRemoteHash();
+			await this.setL$();
+			await this.setR$();
 			return { sent: 0, received: 0, diff: 0 };
 		}
 
@@ -214,9 +234,9 @@ export class Sync {
 		const downSet: [string, string][] = [];
 		for (let index = 0; index < remoteDiffs.length; index++) {
 			const diff = remoteDiffs[index];
-			const UCV = this.causesUCV(diff.value);
+			const UCV = this.UCV(diff.value);
 
-			// if unique constraint violations occured
+			// if unique constraint violations occurred
 			// make the key non-unique
 			// any other implementation would result in unjustified complexity
 			if (UCV && UCV.type === "doc") {
@@ -253,7 +273,7 @@ export class Sync {
 		}
 		await this.p.data.dels(downRemove);
 		await this.p.data.sets(downSet);
-		await this.setLocalHash();
+		await this.setL$();
 
 		// uploading
 		const upRemove: string[] = [];
@@ -269,7 +289,7 @@ export class Sync {
 		}
 		await this.rdata.removeItems(upRemove);
 		await this.rdata.setItems(upSet);
-		await this.setRemoteHash();
+		await this.setR$();
 		await this.p.loadDatabase();
 		try {
 			liveUpdate();
