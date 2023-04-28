@@ -15,16 +15,13 @@ const testDb = "testdatabase";
 describe("Cursor", () => {
 	let d = new Datastore<any, any>({
 		ref: testDb,
-		defer: 0,
-		stripDefaults: false,
 	});
 	beforeEach(async () => {
 		d = new Datastore({
 			ref: testDb,
-			defer: 0,
-			stripDefaults: false,
 		});
 		d.ref.should.equal(testDb);
+		d.persistence.data.clear();
 		await d.loadDatabase();
 		d.getAllData().length.should.equal(0);
 	});

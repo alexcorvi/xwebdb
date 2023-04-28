@@ -155,15 +155,11 @@ describe("Model", () => {
 			const badString = "world\r\nearth\nother\rline";
 			let db1 = new Datastore({
 				ref: "testdatabase",
-				defer: 0,
-				stripDefaults: false,
 			});
 			await db1.loadDatabase();
 			await db1.insert({ hello: badString } as any);
 			let db2 = new Datastore({
 				ref: "testdatabase",
-				defer: 0,
-				stripDefaults: false,
 			});
 			await db2.loadDatabase();
 			let docs = await db2.find({});

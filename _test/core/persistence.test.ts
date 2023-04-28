@@ -16,16 +16,13 @@ const testDb = "testdatabase";
 describe("Persistence", () => {
 	let d = new Datastore({
 		ref: testDb,
-		defer: 0,
-		stripDefaults: false,
 	});
 	beforeEach(async () => {
 		d = new Datastore({
 			ref: testDb,
-			defer: 0,
-			stripDefaults: false,
 		});
 		d.ref.should.equal(testDb);
+		d.persistence.data.clear();
 		await d.loadDatabase();
 		d.getAllData().length.should.equal(0);
 	});
@@ -296,11 +293,7 @@ describe("Persistence", () => {
 		}
 	});
 
-	const fakeData =
-		'{"_id":"one","hello":"world"}\n' +
-		"Some corrupt data\n" +
-		'{"_id":"two","hello":"earth"}\n' +
-		'{"_id":"three","hello":"you"}\n';
+	const fakeData = '{"_id":"one","hello":"world"}\n' + "Some corrupt data\n" + '{"_id":"two","hello":"earth"}\n' + '{"_id":"three","hello":"you"}\n';
 
 	it("When treating raw data, refuse to proceed if too much data is corrupt, to avoid data loss", async () => {
 		await Promise.all(
@@ -312,8 +305,6 @@ describe("Persistence", () => {
 		// Default corruptAlertThreshold
 		d = new Datastore({
 			ref: testDb,
-			defer: 0,
-			stripDefaults: false,
 		});
 
 		let loaded = 0;
@@ -336,8 +327,6 @@ describe("Persistence", () => {
 		d = new Datastore({
 			ref: testDb,
 			corruptAlertThreshold: 1,
-			defer: 0,
-			stripDefaults: false,
 		});
 
 		let loaded = 0;
@@ -360,8 +349,6 @@ describe("Persistence", () => {
 		d = new Datastore({
 			ref: testDb,
 			corruptAlertThreshold: 0,
-			defer: 0,
-			stripDefaults: false,
 		});
 
 		let loaded = 0;
@@ -385,8 +372,6 @@ describe("Persistence", () => {
 				new Datastore({
 					ref: testDb,
 					encode: as,
-					defer: 0,
-					stripDefaults: false,
 				});
 			}).should.throw();
 
@@ -397,8 +382,6 @@ describe("Persistence", () => {
 				new Datastore({
 					ref: testDb,
 					decode: bd,
-					defer: 0,
-					stripDefaults: false,
 				});
 			}).should.throw();
 
@@ -415,8 +398,6 @@ describe("Persistence", () => {
 					decode(s) {
 						return s;
 					},
-					defer: 0,
-					stripDefaults: false,
 				});
 			}).should.throw();
 
@@ -429,8 +410,6 @@ describe("Persistence", () => {
 				ref: testDb,
 				encode: as,
 				decode: bd,
-				defer: 0,
-				stripDefaults: false,
 			});
 			await d.loadDatabase();
 			await d.insert({ _id: "id1", hello: "world" });
@@ -451,8 +430,6 @@ describe("Persistence", () => {
 				ref: testDb,
 				encode: as,
 				decode: bd,
-				defer: 0,
-				stripDefaults: false,
 			});
 			await d.loadDatabase();
 			await d.insert({ _id: "id1", p: "Mars" });
@@ -483,8 +460,6 @@ describe("Persistence", () => {
 				ref: testDb,
 				encode: as,
 				decode: bd,
-				defer: 0,
-				stripDefaults: false,
 			});
 			await d.loadDatabase();
 			await d.ensureIndex({ fieldName: "idefix" });
@@ -517,8 +492,6 @@ describe("Persistence", () => {
 				ref: testDb,
 				encode: as,
 				decode: bd,
-				defer: 0,
-				stripDefaults: false,
 			});
 			await d.loadDatabase();
 
@@ -537,8 +510,6 @@ describe("Persistence", () => {
 					ref: testDb,
 					encode: as,
 					decode: bd,
-					defer: 0,
-					stripDefaults: false,
 				});
 				await d.loadDatabase();
 				const docs = await d.find({});
@@ -578,8 +549,6 @@ describe("Persistence", () => {
 
 		const big = new Datastore({
 			ref: testDb,
-			defer: 0,
-			stripDefaults: false,
 		});
 
 		it("Loading the database", async function () {

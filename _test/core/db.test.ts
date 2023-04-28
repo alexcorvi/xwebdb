@@ -27,14 +27,10 @@ const reloadTimeUpperBound = 80; // In ms, an upper bound for the reload time us
 describe("Database", function () {
 	let d: InstanceType<typeof Datastore> & { insert: any } = new Datastore({
 		ref: testDb,
-		defer: 0,
-		stripDefaults: false,
 	});
 	beforeEach(async () => {
 		d = new Datastore({
 			ref: testDb,
-			defer: 0,
-			stripDefaults: false,
 		});
 		d.ref.should.equal(testDb);
 		await d.loadDatabase();
@@ -227,8 +223,6 @@ describe("Database", function () {
 				const newDoc = { hello: "world" };
 				d = new Datastore<any, any>({
 					ref: testDb,
-					defer: 0,
-					stripDefaults: false,
 					timestampData: true,
 				});
 				const beginning = Date.now();
@@ -290,8 +284,6 @@ describe("Database", function () {
 			const beginning = Date.now();
 			d = new Datastore<any, any>({
 				ref: testDb,
-				defer: 0,
-				stripDefaults: false,
 				timestampData: true,
 			});
 
@@ -323,8 +315,6 @@ describe("Database", function () {
 			const beginning = Date.now();
 			d = new Datastore<any, any>({
 				ref: testDb,
-				defer: 0,
-				stripDefaults: false,
 				timestampData: true,
 			});
 			await d.loadDatabase();
@@ -566,8 +556,6 @@ describe("Database", function () {
 							// New datastore on same datafile is empty
 							var d2 = new Datastore<any, any>({
 								ref: testDb,
-								defer: 0,
-								stripDefaults: false,
 							});
 							await d2.loadDatabase();
 							d2.find({}).then(function (docs) {
@@ -884,8 +872,6 @@ describe("Database", function () {
 			const beginning = Date.now();
 			d = new Datastore<any, any>({
 				ref: testDb,
-				defer: 0,
-				stripDefaults: false,
 				timestampData: true,
 			});
 			d.loadDatabase()
@@ -1011,24 +997,16 @@ describe("Database", function () {
 				(doc as any).bloup.should.equal(3);
 			});
 			it("Performing upsert without $setOnInsert yields a standard error not an exception", async () => {
-				expect(
-					await rejected(
-						async () => await d.update({ _id: "1234" }, { $set: { $$badfield: 5 } }, { upsert: true })
-					)
-				).to.eq(true);
+				expect(await rejected(async () => await d.update({ _id: "1234" }, { $set: { $$badfield: 5 } }, { upsert: true }))).to.eq(true);
 			});
 		}); // ==== End of 'Upserts' ==== //
 
 		it("Cannot perform update if the update query is not either registered-modifiers-only or copy-only, or contain badly formatted fields", async () => {
 			await d.insert({ something: "yup" });
 
-			expect(await rejected(async () => await d.update({}, { boom: { $badfield: 5 } }, { multi: false }))).to.eq(
-				true
-			);
+			expect(await rejected(async () => await d.update({}, { boom: { $badfield: 5 } }, { multi: false }))).to.eq(true);
 
-			expect(
-				await rejected(async () => await d.update({}, { boom: { "bad.field": 5 } }, { multi: false }))
-			).to.eq(true);
+			expect(await rejected(async () => await d.update({}, { boom: { "bad.field": 5 } }, { multi: false }))).to.eq(true);
 
 			expect(
 				await rejected(
@@ -1044,9 +1022,7 @@ describe("Database", function () {
 				)
 			).to.eq(true);
 
-			expect(
-				await rejected(async () => await d.update({}, { $inexistent: { test: 5 } }, { multi: false }))
-			).to.eq(true);
+			expect(await rejected(async () => await d.update({}, { $inexistent: { test: 5 } }, { multi: false }))).to.eq(true);
 		});
 		it("Can update documents using multiple modifiers", async () => {
 			await d.insert({
@@ -1112,8 +1088,6 @@ describe("Database", function () {
 		it("If an error is thrown by a modifier, the database state is not changed", async () => {
 			const db = new Datastore<any, any>({
 				ref: testDb,
-				defer: 0,
-				stripDefaults: false,
 				timestampData: true,
 			});
 			db.loadDatabase();
@@ -1283,8 +1257,6 @@ describe("Database", function () {
 		it("createdAt property is unchanged and updatedAt correct after an update, even a complete document replacement", async () => {
 			const d2 = new Datastore<any, any>({
 				ref: testDb,
-				defer: 0,
-				stripDefaults: false,
 				timestampData: true,
 			});
 			await d2.loadDatabase();
@@ -1363,10 +1335,7 @@ describe("Database", function () {
 			await d.insert({ a: 9 });
 			await d.insert({ a: 10 });
 			(await d.find({})).length.should.equal(10);
-			await Promise.all([
-				d.remove({ a: { $lte: 5 } }, { multi: true }),
-				d.remove({ a: { $gt: 5 } }, { multi: true }),
-			]);
+			await Promise.all([d.remove({ a: { $lte: 5 } }, { multi: true }), d.remove({ a: { $gt: 5 } }, { multi: true })]);
 			(await d.find({})).length.should.equal(0);
 			(await d.find({ a: { $lte: 5 } })).length.should.equal(0);
 			(await d.find({ a: 1 })).length.should.equal(0);
@@ -1383,9 +1352,7 @@ describe("Database", function () {
 		});
 		it("Returns an error if the query is not well formed", async () => {
 			await d.insert({ hello: "world" });
-			expect(await rejected(async () => await d.remove({ $or: { hello: "world" } }, { multi: true }))).to.eq(
-				true
-			);
+			expect(await rejected(async () => await d.remove({ $or: { hello: "world" } }, { multi: true }))).to.eq(true);
 		});
 		it("Non-multi removes are persistent", async () => {
 			await d.insert({ a: "x" });
@@ -1929,14 +1896,10 @@ describe("Database", function () {
 							d.getAllData().length.should.equal(2);
 							d.indexes._id.getMatching(doc1._id!).length.should.equal(1);
 							d.indexes.a.getMatching(1 as any).length.should.equal(1);
-							(d.indexes._id.getMatching(doc1._id!)[0] as any).should.equal(
-								d.indexes.a.getMatching(1 as any)[0]
-							);
+							(d.indexes._id.getMatching(doc1._id!)[0] as any).should.equal(d.indexes.a.getMatching(1 as any)[0]);
 							d.indexes._id.getMatching(doc2._id!).length.should.equal(1);
 							d.indexes.a.getMatching(2 as any).length.should.equal(1);
-							(d.indexes._id.getMatching(doc2._id!)[0] as any).should.equal(
-								d.indexes.a.getMatching(2 as any)[0]
-							);
+							(d.indexes._id.getMatching(doc2._id!)[0] as any).should.equal(d.indexes.a.getMatching(2 as any)[0]);
 							done();
 						});
 					});
@@ -2083,18 +2046,10 @@ describe("Database", function () {
 								d.indexes.a.tree.numberOfKeys.should.equal(2);
 								d.indexes.b.tree.numberOfKeys.should.equal(2);
 								d.indexes._id.tree.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(456 as any)[0] as any).should.equal(
-									d.indexes._id.getMatching(doc1._id!)[0]
-								);
-								(d.indexes.b.getMatching("no")[0] as any).should.equal(
-									d.indexes._id.getMatching(doc1._id!)[0]
-								);
-								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(
-									d.indexes._id.getMatching(doc2._id!)[0]
-								);
-								(d.indexes.b.getMatching("si")[0] as any).should.equal(
-									d.indexes._id.getMatching(doc2._id!)[0]
-								);
+								(d.indexes.a.getMatching(456 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
+								(d.indexes.b.getMatching("no")[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
+								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
+								(d.indexes.b.getMatching("si")[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
 								return d.update(
 									{},
 									{
@@ -2118,12 +2073,8 @@ describe("Database", function () {
 								d.indexes.b.tree.numberOfKeys.should.equal(1);
 								d.indexes.b.getAll().length.should.equal(2);
 								d.indexes._id.tree.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(466 as any)[0] as any).should.equal(
-									d.indexes._id.getMatching(doc1._id!)[0]
-								);
-								(d.indexes.a.getMatching(12 as any)[0] as any).should.equal(
-									d.indexes._id.getMatching(doc2._id!)[0]
-								);
+								(d.indexes.a.getMatching(466 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
+								(d.indexes.a.getMatching(12 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
 								// Can't test the pointers in b as their order is randomized, but it is the same as with a
 								done();
 							});
@@ -2421,18 +2372,10 @@ describe("Database", function () {
 									d.indexes.a.tree.numberOfKeys.should.equal(2);
 									d.indexes.b.tree.numberOfKeys.should.equal(2);
 									d.indexes._id.tree.numberOfKeys.should.equal(2);
-									(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(
-										d.indexes._id.getMatching(doc2._id!)[0]
-									);
-									(d.indexes.b.getMatching("si")[0] as any).should.equal(
-										d.indexes._id.getMatching(doc2._id!)[0]
-									);
-									(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(
-										d.indexes._id.getMatching(doc3._id!)[0]
-									);
-									(d.indexes.b.getMatching("coin")[0] as any).should.equal(
-										d.indexes._id.getMatching(doc3._id!)[0]
-									);
+									(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
+									(d.indexes.b.getMatching("si")[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
+									(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc3._id!)[0]);
+									(d.indexes.b.getMatching("coin")[0] as any).should.equal(d.indexes._id.getMatching(doc3._id!)[0]);
 									return d.remove({}, { multi: true });
 								})
 								.then(function (nr) {
@@ -2451,8 +2394,6 @@ describe("Database", function () {
 				var persDb = testDb;
 				let db = new Datastore<any, any>({
 					ref: persDb,
-					defer: 0,
-					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
@@ -2469,8 +2410,6 @@ describe("Database", function () {
 								// After a reload the indexes are recreated
 								db = new Datastore<any, any>({
 									ref: persDb,
-									defer: 0,
-									stripDefaults: false,
 								});
 								db.loadDatabase().then(function () {
 									Object.keys(db.indexes).length.should.equal(2);
@@ -2482,8 +2421,6 @@ describe("Database", function () {
 									// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
 									db = new Datastore({
 										ref: persDb,
-										defer: 0,
-										stripDefaults: false,
 									});
 									db.loadDatabase().then(function () {
 										Object.keys(db.indexes).length.should.equal(2);
@@ -2504,8 +2441,6 @@ describe("Database", function () {
 				var persDb = testDb;
 				let db = new Datastore({
 					ref: persDb,
-					defer: 0,
-					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
@@ -2528,8 +2463,6 @@ describe("Database", function () {
 									// After a reload the indexes are recreated
 									db = new Datastore({
 										ref: persDb,
-										defer: 0,
-										stripDefaults: false,
 									});
 									db.loadDatabase().then(function () {
 										Object.keys(db.indexes).length.should.equal(2);
@@ -2558,8 +2491,6 @@ describe("Database", function () {
 											// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
 											db = new Datastore({
 												ref: persDb,
-												defer: 0,
-												stripDefaults: false,
 											});
 											db.loadDatabase().then(function () {
 												Object.keys(db.indexes).length.should.equal(3);
@@ -2587,8 +2518,6 @@ describe("Database", function () {
 				var persDb = testDb;
 				let db = new Datastore({
 					ref: persDb,
-					defer: 0,
-					stripDefaults: false,
 				});
 				db.loadDatabase().then(() => {
 					Object.keys(db.indexes).length.should.equal(1);
@@ -2609,8 +2538,6 @@ describe("Database", function () {
 									// After a reload the indexes are recreated
 									db = new Datastore({
 										ref: persDb,
-										defer: 0,
-										stripDefaults: false,
 									});
 									db.loadDatabase().then(function () {
 										Object.keys(db.indexes).length.should.equal(3);
@@ -2629,8 +2556,6 @@ describe("Database", function () {
 											// After a reload indexes are preserved
 											db = new Datastore({
 												ref: persDb,
-												defer: 0,
-												stripDefaults: false,
 											});
 											db.loadDatabase().then(function () {
 												Object.keys(db.indexes).length.should.equal(2);
@@ -2640,8 +2565,6 @@ describe("Database", function () {
 												// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
 												db = new Datastore({
 													ref: persDb,
-													defer: 0,
-													stripDefaults: false,
 												});
 												db.loadDatabase().then(function () {
 													Object.keys(db.indexes).length.should.equal(2);
