@@ -74,14 +74,14 @@ describe("Live Queries", () => {
 		ref: "db_1",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 9999999999999,
+			syncInterval: 0,
 		},
 	});
 	let d2 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_2",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 9999999999999,
+			syncInterval: 0,
 		},
 	});
 	beforeEach(async () => {

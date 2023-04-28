@@ -73,14 +73,14 @@ describe("Database Syncing", () => {
 		ref: "db_1",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 9999999999999,
+			syncInterval: 0,
 		},
 	});
 	let d2 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_2",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 9999999999999,
+			syncInterval: 0,
 		},
 	});
 	beforeEach(async () => {
@@ -460,7 +460,7 @@ describe("Database Syncing", () => {
 				ref: "db_3",
 				sync: {
 					syncToRemote: memoryAdapter(),
-					syncInterval: 9999999999999,
+					syncInterval: 0,
 				},
 			});
 			// start by cleaning it
@@ -2386,7 +2386,7 @@ describe("Database Syncing", () => {
 				ref: "db_A",
 				sync: {
 					syncToRemote: memoryAdapter(),
-					syncInterval: 9999999999999,
+					syncInterval: 0,
 					invalidateHash: 450,
 				},
 			});
@@ -2394,7 +2394,7 @@ describe("Database Syncing", () => {
 				ref: "db_B",
 				sync: {
 					syncToRemote: memoryAdapter(),
-					syncInterval: 9999999999999,
+					syncInterval: 0,
 				},
 			});
 
