@@ -762,6 +762,119 @@ describe("Actions", async () => {
 				} as any)
 			).to.throw();
 		});
+
+		describe("Stripping default values", () => {
+			let empty = {};
+			let primitive = {
+				age: 17,
+				noDefault: 8,
+			};
+			let nonPrimitive = {
+				d: {
+					a: {
+						x: 7,
+					},
+				},
+				sArr: ["a", "b"],
+			};
+			let nonStandard = {
+				d: {
+					a: {
+						x: 7,
+						y: 8,
+					},
+				},
+				sArr: 10,
+			} as any;
+			let primitiveSubDoc = {
+				mainChild: Child.new({ fullName: "Alex" })._stripDefaults!(),
+			};
+			let nonPrimitiveSubDoc = {
+				mainChild: Child.new({ favoriteToy: { name: "batman" } })._stripDefaults!(),
+			};
+			let complexSubDoc = {
+				mainChild: Child.new({ favoriteToy: { undef: 7 }, toys: [] })._stripDefaults!(),
+			};
+			let complexSubDoc2 = {
+				mainChild: Child.new({ favoriteToy: { undef: 7 }, toys: [Toy.new({ price: 17 })] })._stripDefaults!(),
+			};
+			let subDocsArr = {
+				children: [
+					Child.new({ fullName: "timmy" })._stripDefaults!(),
+					Child.new({ fullName: "billy", age: 19, born: new Date(1992) })._stripDefaults!(),
+					Child.new({ favoriteToy: { name: "batman" } })._stripDefaults!(),
+					Child.new({ toys: [Toy.new({ name: "xbox", date: new Date(2005) })._stripDefaults!(), Toy.new({ price: 109 })._stripDefaults!()] })._stripDefaults!(),
+				],
+			};
+			function strippedButSound(model: Employee) {
+				return JSON.stringify(model) === JSON.stringify(Employee.new(model._stripDefaults!()));
+			}
+			it("Empty initialization", () => {
+				let employee = Employee.new(empty);
+				let s = employee._stripDefaults!();
+				Object.keys(s).length.should.eq(1);
+				Object.keys(s)[0].should.eq("_id");
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(empty);
+			});
+			it("Primitive initialization", () => {
+				let employee = Employee.new(primitive);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(primitive);
+			});
+			it("non-primitive initialization", () => {
+				let employee = Employee.new(nonPrimitive);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(nonPrimitive);
+			});
+			it("non-standard initialization", () => {
+				let employee = Employee.new(nonStandard);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(nonStandard);
+			});
+			it("primitive SubDoc initialization", () => {
+				let employee = Employee.new(primitiveSubDoc);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(primitiveSubDoc);
+			});
+			it("non primitive SubDoc initialization", () => {
+				let employee = Employee.new(nonPrimitiveSubDoc);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(nonPrimitiveSubDoc);
+			});
+			it("complex SubDoc initialization", () => {
+				let employee = Employee.new(complexSubDoc);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(complexSubDoc);
+			});
+			it("complex SubDoc initialization", () => {
+				let employee = Employee.new(complexSubDoc2);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(complexSubDoc2);
+			});
+			it("SubDoc array initialization", () => {
+				let employee = Employee.new(subDocsArr);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(subDocsArr);
+			});
+		});
 	});
 
 	describe("More on $deep", () => {

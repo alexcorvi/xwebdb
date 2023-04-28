@@ -143,10 +143,13 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	}
 
 	async writeNewData(newDocs: G[]) {
-		if(this.stripDefaults && this._model) {
+		if(this.stripDefaults) {
 			newDocs = model.deserialize(model.serialize({t:newDocs})).t // avoid triggering live queries;
 			for (let index = 0; index < newDocs.length; index++) {
-				newDocs[index] = this._model.stripDefaults(newDocs[index] as any)
+				let doc = newDocs[index]
+				if(doc._stripDefaults) {
+					newDocs[index] = doc._stripDefaults();
+				}
 			}
 		}
 

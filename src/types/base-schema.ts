@@ -1,8 +1,8 @@
 import * as customUtils from "../core/customUtils";
-import { RecursivePartial, NFGP } from "./common";
+import { RecursivePartial } from "./common";
 
 class BaseModel {
-	static new<T extends BaseModel>(this: new () => T, data?: RecursivePartial<NFGP<T>>): T {
+	static new<T extends BaseModel>(this: new () => T, data?: RecursivePartial<T>): T {
 		const instance = new this();
 		if (typeof data !== "object" || data === null) {
 			return instance;
@@ -26,25 +26,41 @@ class BaseModel {
 		}
 		return instance;
 	}
+	_stripDefaults?<T extends BaseModel>(this: T): T {
+		// maintain a cache of defaults
+		if (!(this as any).constructor._$def) {
+			(this as any).constructor._$def = (this as any).constructor.new({});
+		}
+		let def = (this as any).constructor._$def;
+		const newData: any = {};
+		for (const [key, oldV] of Object.entries(this)) {
+			const defV = def[key as keyof T];
+			// handling arrays of sub-documents
+			if (Array.isArray(oldV) && oldV[0] && oldV[0]._stripDefaults) {
+				newData[key] = oldV.map((sub) => sub._stripDefaults());
+				if (newData[key].length === 0) delete newData[key]; // disregard empty arrays
+			}
+			// handling direct child sub-document
+			else if (
+				typeof oldV === "object" &&
+				oldV !== null &&
+				(oldV as any)._stripDefaults
+			) {
+				newData[key] = (oldV as any)._stripDefaults();
+				if (Object.keys(newData[key]).length === 0) delete newData[key]; // disregard empty objects
+			}
+			// handling non-sub-document values
+			// we're converting to a string to eliminate non-primitive
+			else if (JSON.stringify(defV) !== JSON.stringify(oldV)) newData[key] = oldV;
+		}
+		return newData;
+	}
 }
 
 export class Doc extends BaseModel {
 	_id: string = customUtils.uid();
 	updatedAt?: Date;
 	createdAt?: Date;
-	// move strip defaults to BaseModel?
-	static stripDefaults<T extends object>(this: new () => T, existingData: T): T {
-		const def = JSON.parse(JSON.stringify(new this()));
-		const keys = Object.keys(def);
-		const newData: any = {};
-		for (let i = 0; i < keys.length; i++) {
-			const key = keys[i] as keyof T;
-			const defV = JSON.parse(JSON.stringify({ t: def[key] }));
-			const oldV = JSON.parse(JSON.stringify({ t: existingData[key] }));
-			if (defV !== oldV) newData[key] = existingData[key];
-		}
-		return newData;
-	}
 }
 export class SubDoc extends BaseModel {}
 
