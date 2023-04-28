@@ -85,6 +85,28 @@ describe("Actions", async () => {
 					throw e;
 				});
 		});
+		
+		it("Deferred indexedDB actions", async function () {
+			let ddb = new Database<Employee>({
+				ref: "deferred",
+				deferPersistence: 10,
+			});
+			const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i));
+			await ddb._datastore.persistence.data.clear();
+			let docs: Employee[] = [];
+			let i = 10;
+			while (i--) docs.push(Employee.new({}));
+			
+			await ddb.insert(docs);
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(0);			
+			await wait(11);
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(docs.length);
+
+			await ddb.delete({}, true);
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(docs.length);			
+			await wait(11);
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(0);
+		});
 	});
 
 	describe("Operations", async () => {
