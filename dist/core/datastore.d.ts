@@ -42,7 +42,7 @@ export declare class Datastore<G extends types.Doc & {
         [key: string]: number;
     };
     model: C;
-    defer: number;
+    defer: boolean;
     deferredWrites: G[];
     deferredDeletes: string[];
     constructor(options: DataStoreOptions<C>);

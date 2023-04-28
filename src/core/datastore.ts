@@ -54,7 +54,7 @@ export class Datastore<
 
 	model: C;
 
-	defer: number = 0;
+	defer: boolean = false;
 	deferredWrites: G[] = [];
 	deferredDeletes: string[] = [];
 
@@ -78,9 +78,9 @@ export class Datastore<
 		});
 
 		this.timestampData = !!options.timestampData;
-
-		if (options.defer) {
-			this.defer = options.defer || 0;
+		
+		if (typeof options.defer === "number" && !isNaN(options.defer)) {
+			this.defer = true;
 			setInterval(async () => {
 				if (this.persistence.syncInProgress)
 					return; // should not process deferred while sync in progress
