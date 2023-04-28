@@ -26,8 +26,8 @@ export interface DataStoreOptions<G extends typeof Doc> {
 	syncInterval?: number;
 	invalidateHash?: number;
 	model?: G;
-	defer: number;
-	stripDefaults: boolean;
+	defer?: number;
+	stripDefaults?: boolean;
 }
 
 interface UpdateOptions {
