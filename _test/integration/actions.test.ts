@@ -786,6 +786,9 @@ describe("Actions", async () => {
 				},
 				sArr: 10,
 			} as any;
+			let dateObj = {
+				mainChild: Child.new({ born: new Date(1959) })._stripDefaults!(),
+			};
 			let primitiveSubDoc = {
 				mainChild: Child.new({ fullName: "Alex" })._stripDefaults!(),
 			};
@@ -845,6 +848,13 @@ describe("Actions", async () => {
 				strippedButSound(employee).should.eq(true);
 				delete (s as any)._id;
 				s.should.deep.eq(primitiveSubDoc);
+			});
+			it("SubDoc with date object initialization", () => {
+				let employee = Employee.new(dateObj);
+				let s = employee._stripDefaults!();
+				strippedButSound(employee).should.eq(true);
+				delete (s as any)._id;
+				s.should.deep.eq(dateObj);
 			});
 			it("non primitive SubDoc initialization", () => {
 				let employee = Employee.new(nonPrimitiveSubDoc);
