@@ -289,7 +289,7 @@ export class Datastore<
 	 * using Index if possible
 	 * when failing it will return all the database
 	 */
-	private _leastCandidates(query: any) {
+	leastCandidates(query: any) {
 		const currentIndexKeys = Object.keys(this.indexes);
 		const queryKeys = Object.keys(query);
 
@@ -378,7 +378,7 @@ export class Datastore<
 		query: any,
 		dontExpireStaleDocs?: boolean
 	): Promise<G[]> {
-		let candidates = this._leastCandidates(query);
+		let candidates = this.leastCandidates(query);
 		if (dontExpireStaleDocs) {
 			if (Array.isArray(candidates)) return candidates;
 			else if (candidates === null) return [];
