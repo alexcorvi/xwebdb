@@ -3,6 +3,7 @@ import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
 import { modifiersKeys, toDotNotation } from "./core/model/";
 import {
+	NOP,
 	Doc,
 	Filter,
 	SchemaKeyProjection,
@@ -14,7 +15,7 @@ import {
 
 let deepOperators = modifiersKeys as (keyof UpdateOperators<{}>)[];
 
-export interface DatabaseConfigurations<C extends typeof Doc> {
+export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	ref: string;
 	model?: C;
 	encode?(line: string): string;
@@ -28,6 +29,7 @@ export interface DatabaseConfigurations<C extends typeof Doc> {
 	};
 	deferPersistence?: number;
 	stripDefaults?: boolean;
+	indexes?: (NOP<D>)[];
 }
 
 export class Database<S extends Doc> {
@@ -36,12 +38,13 @@ export class Database<S extends Doc> {
 	public _datastore: Datastore<S, typeof Doc>;
 	public loaded: Promise<boolean>;
 
-	constructor(options: DatabaseConfigurations<typeof Doc>) {
+	constructor(options: DatabaseConfigurations<typeof Doc, S>) {
 		this.model = options.model || Doc;
 		this.ref = options.ref;
 		this._datastore = new Datastore({
 			ref: this.ref,
 			model: this.model,
+			indexes: options.indexes as any,
 			encode: options.encode,
 			decode: options.decode,
 			corruptAlertThreshold: options.corruptAlertThreshold,

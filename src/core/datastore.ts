@@ -28,6 +28,7 @@ export interface DataStoreOptions<G extends typeof Doc> {
 	model?: G;
 	defer?: number;
 	stripDefaults?: boolean;
+	indexes?: string[];
 }
 
 interface UpdateOptions {
@@ -41,19 +42,15 @@ export class Datastore<
 > {
 	ref: string = "db";
 	timestampData = false;
-
 	persistence: Persistence<G, C>;
 	// rename to something denotes that it's an internal thing
 	q: Q = new Q(1);
-
 	indexes: { [key: string]: Index<string, G> } = {
 		_id: new Index({ fieldName: "_id", unique: true }),
 	};
-
 	ttlIndexes: { [key: string]: number } = {};
-
+	initIndexes: string[] = [];
 	model: C;
-
 	defer: boolean = false;
 	deferredWrites: G[] = [];
 	deferredDeletes: string[] = [];
@@ -76,9 +73,8 @@ export class Datastore<
 			invalidateHash: options.invalidateHash,
 			stripDefaults: options.stripDefaults,
 		});
-
+		this.initIndexes = options.indexes || [];
 		this.timestampData = !!options.timestampData;
-		
 		if (typeof options.defer === "number" && !isNaN(options.defer)) {
 			this.defer = true;
 			setInterval(async () => {
@@ -122,7 +118,14 @@ export class Datastore<
 	 * Load the database from indexedDB, and trigger the execution of buffered commands if any
 	 */
 	public async loadDatabase() {
-		return await this.persistence.loadDatabase();
+		const loaded =  await this.persistence.loadDatabase();
+		for (let index = 0; index < this.initIndexes.length; index++) {
+			const fieldName = this.initIndexes[index];
+			if(!this.indexes[fieldName]) {
+				await this.ensureIndex({fieldName});
+			}
+		}
+		return loaded;
 	}
 
 	/**
