@@ -2,7 +2,6 @@ import { Database } from "../database";
 import {
 	Doc,
 	Filter,
-	NFP,
 	SchemaKeyProjection,
 	SchemaKeySort,
 } from "../types";
