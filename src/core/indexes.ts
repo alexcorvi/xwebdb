@@ -1,4 +1,4 @@
-import { AvlTree } from "./avl";
+import { Dictionary } from "./dictionary";
 import * as model from "./model/";
 import { Doc } from "../types";
 
@@ -31,34 +31,30 @@ function projectForUnique<Key>(elt: Key): string | Key {
 }
 
 function uniqueProjectedKeys<Key>(key: Key[]): (Key | string)[] {
-	return Array.from(new Set(key.map((x) => projectForUnique(x)))).map(
-		(key) => {
-			if (typeof key === "string") {
-				return key.substr(3);
-			} else return key;
-		}
-	);
+	return Array.from(new Set(key.map((x) => projectForUnique(x)))).map((key) => {
+		if (typeof key === "string") {
+			return key.substr(3);
+		} else return key;
+	});
 }
 
-export class Index<Key, S extends Doc> {
-	fieldName: string = "";
+export class Index<Key extends S[keyof S], S extends Doc> {
+	fieldName: keyof S;
 	unique: boolean = false;
 	sparse: boolean = false;
 
-	tree: AvlTree<Key, S>;
+	dict: Dictionary<S>;
 
 	constructor({
 		fieldName,
 		unique,
 		sparse,
 	}: {
-		fieldName: string;
+		fieldName: keyof S;
 		unique?: boolean;
 		sparse?: boolean;
 	}) {
-		if (fieldName) {
-			this.fieldName = fieldName;
-		}
+		this.fieldName = fieldName;
 		if (unique) {
 			this.unique = unique;
 		}
@@ -66,19 +62,19 @@ export class Index<Key, S extends Doc> {
 			this.sparse = sparse;
 		}
 
-		this.tree = new AvlTree(
-			this.fieldName,
-			model.compare,
-			this.unique
-		);
+		this.dict = new Dictionary({
+			unique: this.unique,
+			c: model.compare,
+			fieldName: this.fieldName,
+		});
 	}
 
 	reset() {
-		this.tree = new AvlTree(
-			this.fieldName,
-			model.compare,
-			this.unique
-		);
+		this.dict = new Dictionary({
+			unique: this.unique,
+			c: model.compare,
+			fieldName: this.fieldName,
+		});
 	}
 
 	/**
@@ -92,7 +88,7 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.fromDotNotation(doc, this.fieldName) as Key;
+		let key = model.fromDotNotation(doc, this.fieldName as string) as Key;
 
 		// We don't index documents that don't contain the field if the index is sparse
 		if (key === undefined && this.sparse) {
@@ -100,7 +96,7 @@ export class Index<Key, S extends Doc> {
 		}
 
 		if (!Array.isArray(key)) {
-			this.tree.insert(key as any, doc);
+			this.dict.insert(key,doc);
 		} else {
 			// If an insert fails due to a unique constraint, roll back all inserts before it
 			let keys = uniqueProjectedKeys(key);
@@ -110,7 +106,7 @@ export class Index<Key, S extends Doc> {
 
 			for (let i = 0; i < keys.length; i++) {
 				try {
-					this.tree.insert(keys[i], doc);
+					this.dict.insert(keys[i], doc);
 				} catch (e) {
 					error = e;
 					failingIndex = i;
@@ -120,7 +116,7 @@ export class Index<Key, S extends Doc> {
 
 			if (error) {
 				for (let i = 0; i < failingIndex; i++) {
-					this.tree.delete(keys[i], doc);
+					this.dict.delete(keys[i], doc);
 				}
 				throw error;
 			}
@@ -167,18 +163,16 @@ export class Index<Key, S extends Doc> {
 			return;
 		}
 
-		let key = model.fromDotNotation(doc, this.fieldName) as Key;
+		let key = model.fromDotNotation(doc, this.fieldName as string) as Key;
 
 		if (key === undefined && this.sparse) {
 			return;
 		}
 
 		if (!Array.isArray(key)) {
-			this.tree.delete(key, doc);
+			this.dict.delete(key, doc);
 		} else {
-			uniqueProjectedKeys(key).forEach((_key) =>
-				this.tree.delete(_key, doc)
-			);
+			uniqueProjectedKeys(key).forEach((_key) => this.dict.delete(_key, doc));
 		}
 	}
 
@@ -260,11 +254,11 @@ export class Index<Key, S extends Doc> {
 	 */
 	getMatching(input: Key | Key[]): S[] {
 		if (!Array.isArray(input)) {
-			return this.tree.get(input);
+			return this.dict.get(input);
 		} else {
 			let res: S[] = [];
 			input.forEach((item) => {
-				this.tree.get(item).forEach((singleRes) => {
+				this.dict.get(item).forEach((singleRes) => {
 					if (!singleRes || !singleRes._id) {
 						return;
 					}
@@ -276,14 +270,6 @@ export class Index<Key, S extends Doc> {
 	}
 
 	getAll() {
-		let data: S[] = [];
-		this.tree.executeOnEveryNode(function (node) {
-			data = data.concat(node.value);
-		});
-		return data;
-	}
-
-	getBetweenBounds(query: any) {
-		return this.tree.betweenBounds(query);
+		return this.dict.all;
 	}
 }

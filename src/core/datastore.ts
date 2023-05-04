@@ -9,11 +9,12 @@ import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 import { liveUpdate } from "./live";
 
+type MongoDBQuery = Record<string, any>;
+
 export interface EnsureIndexOptions {
 	fieldName: string;
 	unique?: boolean;
 	sparse?: boolean;
-	expireAfterSeconds?: number;
 }
 
 export interface DataStoreOptions<G extends typeof Doc> {
@@ -36,19 +37,15 @@ interface UpdateOptions {
 	upsert?: boolean;
 }
 
-export class Datastore<
-	G extends types.Doc & { [key: string]: any },
-	C extends typeof Doc
-> {
+export class Datastore<G extends types.Doc & { [key: string]: any }, C extends typeof Doc> {
 	ref: string = "db";
 	timestampData = false;
 	persistence: Persistence<G, C>;
 	// rename to something denotes that it's an internal thing
 	q: Q = new Q(1);
-	indexes: { [key: string]: Index<string, G> } = {
+	indexes: { [key: string]: Index<G[keyof G], G> } = {
 		_id: new Index({ fieldName: "_id", unique: true }),
 	};
-	ttlIndexes: { [key: string]: number } = {};
 	initIndexes: string[] = [];
 	model: C;
 	defer: boolean = false;
@@ -88,9 +85,7 @@ export class Datastore<
 	private async _processDeferred() {
 		if (this.deferredDeletes.length) {
 			try {
-				const done = await this.persistence.deleteData(
-					this.deferredDeletes
-				);
+				const done = await this.persistence.deleteData(this.deferredDeletes);
 				this.deferredDeletes = this.deferredDeletes.filter(
 					(_id) => done.indexOf(_id) === -1
 				);
@@ -101,9 +96,7 @@ export class Datastore<
 		}
 		if (this.deferredWrites.length) {
 			try {
-				const done = await this.persistence.writeNewData(
-					this.deferredWrites
-				);
+				const done = await this.persistence.writeNewData(this.deferredWrites);
 				this.deferredWrites = this.deferredWrites.filter(
 					(doc) => done.indexOf(doc._id || "") === -1
 				);
@@ -118,11 +111,11 @@ export class Datastore<
 	 * Load the database from indexedDB, and trigger the execution of buffered commands if any
 	 */
 	public async loadDatabase() {
-		const loaded =  await this.persistence.loadDatabase();
+		const loaded = await this.persistence.loadDatabase();
 		for (let index = 0; index < this.initIndexes.length; index++) {
 			const fieldName = this.initIndexes[index];
-			if(!this.indexes[fieldName]) {
-				await this.ensureIndex({fieldName});
+			if (!this.indexes[fieldName]) {
+				await this.ensureIndex({ fieldName });
 			}
 		}
 		return loaded;
@@ -132,7 +125,7 @@ export class Datastore<
 	 * Get an array of all the data in the database
 	 */
 	public getAllData() {
-		return this.indexes._id.getAll();
+		return this.indexes._id.dict.all;
 	}
 
 	/**
@@ -150,15 +143,11 @@ export class Datastore<
 	 * For now this function is synchronous, we need to test how much time it takes
 	 * We use an async API for consistency with the rest of the code
 	 */
-	public async ensureIndex(
-		options: EnsureIndexOptions
-	): Promise<{ affectedIndex: string }> {
+	public async ensureIndex(options: EnsureIndexOptions): Promise<{ affectedIndex: string }> {
 		options = options || {};
 
 		if (!options.fieldName) {
-			let err: any = new Error(
-				"XWebDB: Cannot create an index without a fieldName"
-			);
+			let err: any = new Error("XWebDB: Cannot create an index without a fieldName");
 			err.missingFieldName = true;
 			throw err;
 		}
@@ -167,11 +156,6 @@ export class Datastore<
 		}
 
 		this.indexes[options.fieldName] = new Index(options);
-
-		// TTL
-		if (options.expireAfterSeconds !== undefined) {
-			this.ttlIndexes[options.fieldName] = options.expireAfterSeconds;
-		}
 
 		// Index data
 		try {
@@ -191,9 +175,7 @@ export class Datastore<
 	/**
 	 * Remove an index
 	 */
-	public async removeIndex(
-		fieldName: string
-	): Promise<{ affectedIndex: string }> {
+	public async removeIndex(fieldName: string): Promise<{ affectedIndex: string }> {
 		delete this.indexes[fieldName];
 		await this.persistence.deleteData([fieldName]);
 		return {
@@ -244,9 +226,7 @@ export class Datastore<
 	 * If one update violates a constraint, all changes are rolled back
 	 */
 	private updateIndexes<T extends G>(oldDoc: T, newDoc: T): void;
-	private updateIndexes<T extends G>(
-		updates: Array<{ oldDoc: T; newDoc: T }>
-	): void;
+	private updateIndexes<T extends G>(updates: Array<{ oldDoc: T; newDoc: T }>): void;
 	private updateIndexes<T extends G>(
 		oldDoc: T | Array<{ oldDoc: T; newDoc: T }>,
 		newDoc?: T
@@ -284,85 +264,60 @@ export class Datastore<
 		);
 	}
 
-	/**
-	 * This will return the least number of candidates,
-	 * using Index if possible
-	 * when failing it will return all the database
-	 */
-	leastCandidates(query: any) {
-		const currentIndexKeys = Object.keys(this.indexes);
-		const queryKeys = Object.keys(query);
-
-		let usableQueryKeys: string[] = [];
-
-		// possibility: basic match
-		queryKeys.forEach((k) => {
-			// only types that can't be used with . notation
-			if (
-				this._isBasicType(query[k]) &&
-				currentIndexKeys.indexOf(k) !== -1
-			) {
-				usableQueryKeys.push(k);
+	fromDict(query: MongoDBQuery) {
+		let qClone: MongoDBQuery = JSON.parse(JSON.stringify(query));
+		let entries = Object.entries(qClone);
+		if (entries.length && entries[0][0][0] !== "$") qClone = { $noTL: [qClone] };
+		for (let [topLevel, arr] of Object.entries(qClone)) {
+			if (topLevel !== "$noTL" && topLevel !== "$and") continue;
+			for (let index = 0; index < arr.length; index++) {
+				const segment = arr[index];
+				for (let [field, v] of Object.entries(segment) as any) {
+					let index = this.indexes[field];
+					if (!index) continue;
+					if (!v || Object.keys(v).length === 0 || Object.keys(v)[0][0] !== "$")
+						v = { $eq: v };
+					let entries: [string, MongoDBQuery][] = Object.entries(v!);
+					for (let [o, c] of entries) {
+						if (
+							o === "$not" &&
+							c !== null &&
+							typeof c == "object" &&
+							Object.keys(c)
+						) {
+							// negate and put outside $not
+							if (c["$eq"]) (o = "$ne") && (c = c["$eq"]);
+							if (c["$ne"]) (o = "$eq") && (c = c["$ne"]);
+							if (c["$in"]) (o = "$nin") && (c = c["$in"]);
+							if (c["$nin"]) (o = "$in") && (c = c["$nin"]);
+							if (c["$gt"]) (o = "$lte") && (c = c["$gt"]) && (v["$lte"] = c);
+							if (c["$lte"]) (o = "$gt") && (c = c["$lte"]) && (v["$gt"] = c);
+							if (c["$lt"]) (o = "$gte") && (c = c["$lt"]) && (v["$gte"] = c);
+							if (c["$gte"]) (o = "$lt") && (c = c["$gte"]) && (v["$lt"] = c);
+						}
+						// use dict functions
+						if (o === "$eq") return index.dict.get(c as any);
+						if (o === "$in") return index.dict.$in(c as any);
+						if (v["$gt"] || v["$lt"] || v["$gte"] || v["lte"]) {
+							// if there are bounding matchers skip $ne & $nin
+							// since bounded matchers should technically be less & faster
+							continue;
+						}
+						if (o === "$ne") return index.dict.$ne(c as any);
+						if (o === "$nin") return index.dict.$nin(c as any);
+					}
+					if (v["$gt"] || v["$lt"] || v["$gte"] || v["lte"]) {
+						return index.dict.betweenBounds(
+							v["$gt"] || v["$gte"],
+							!!v["$gte"],
+							v["$lt"] || v["$lte"],
+							!!v["$lte"]
+						);
+					}
+				}
 			}
-		});
-		if (usableQueryKeys.length > 0) {
-			return this.indexes[usableQueryKeys[0]].getMatching(
-				query[usableQueryKeys[0]]
-			);
 		}
-
-		// possibility: using $eq
-		queryKeys.forEach((k) => {
-			if (
-				query[k] &&
-				query[k].hasOwnProperty("$eq") &&
-				this._isBasicType(query[k].$eq) &&
-				currentIndexKeys.indexOf(k) !== -1
-			) {
-				usableQueryKeys.push(k);
-			}
-		});
-		if (usableQueryKeys.length > 0) {
-			return this.indexes[usableQueryKeys[0]].getMatching(
-				query[usableQueryKeys[0]].$eq
-			);
-		}
-
-		// possibility: using $in
-		queryKeys.forEach((k) => {
-			if (
-				query[k] &&
-				query[k].hasOwnProperty("$in") &&
-				currentIndexKeys.indexOf(k) !== -1
-			) {
-				usableQueryKeys.push(k);
-			}
-		});
-		if (usableQueryKeys.length > 0) {
-			return this.indexes[usableQueryKeys[0]].getMatching(
-				query[usableQueryKeys[0]].$in
-			);
-		}
-
-		// possibility: using $lt $lte $gt $gte
-		queryKeys.forEach((k) => {
-			if (
-				query[k] &&
-				currentIndexKeys.indexOf(k) !== -1 &&
-				(query[k].hasOwnProperty("$lt") ||
-					query[k].hasOwnProperty("$lte") ||
-					query[k].hasOwnProperty("$gt") ||
-					query[k].hasOwnProperty("$gte"))
-			) {
-				usableQueryKeys.push(k);
-			}
-		});
-		if (usableQueryKeys.length > 0) {
-			return this.indexes[usableQueryKeys[0]].getBetweenBounds(
-				query[usableQueryKeys[0]]
-			);
-		}
-		return this.getAllData();
+		return null;
 	}
 
 	/**
@@ -374,159 +329,75 @@ export class Datastore<
 	 *
 	 * Returned candidates will be scanned to find and remove all expired documents
 	 */
-	async getCandidates(
-		query: any,
-		dontExpireStaleDocs?: boolean
-	): Promise<G[]> {
-		let candidates = this.leastCandidates(query);
-		if (dontExpireStaleDocs) {
-			if (Array.isArray(candidates)) return candidates;
-			else if (candidates === null) return [];
-			else return [candidates];
-		}
-		const expiredDocsIds: string[] = [];
-		const validDocs: G[] = [];
-		const ttlIndexesFieldNames = Object.keys(this.ttlIndexes);
-		if (!candidates) return [];
-		if (!Array.isArray(candidates)) candidates = [candidates];
-		candidates.forEach((candidate) => {
-			let valid = true;
-			ttlIndexesFieldNames.forEach((field) => {
-				if (
-					candidate[field] !== undefined &&
-					candidate[field] instanceof Date &&
-					Date.now() >
-						candidate[field].getTime() +
-							this.ttlIndexes[field] * 1000
-				) {
-					valid = false;
-				}
-			});
-			if (valid) {
-				validDocs.push(candidate);
-			} else if (candidate._id) {
-				expiredDocsIds.push(candidate._id);
-			}
-		});
-
-		for (let index = 0; index < expiredDocsIds.length; index++) {
-			const _id = expiredDocsIds[index];
-			await this._remove({ _id }, { multi: false });
-		}
-
-		return validDocs;
+	getCandidates(query: MongoDBQuery): G[] {
+		return this.fromDict(query) || this.getAllData();
 	}
 
 	/**
 	 * Insert a new document
 	 */
-	private async _insert(newDoc: G | G[]) {
-		let preparedDoc = this.prepareDocumentForInsertion(newDoc);
-		this._insertInCache(preparedDoc);
+	public async insert(newDoc: G | G[]): Promise<types.Result<G>> {
+		// unify input to array
+		let w = Array.isArray(newDoc) ? newDoc : [newDoc];
+		/**
+		 * Clone all documents, add _id, add timestamps and validate
+		 * then add to indexes
+		 * if an error occurred rollback everything
+		*/
+		let cloned: G[] = [];
+		let failingI = -1;
+		let error;
+		for (let index = 0; index < w.length; index++) {
+			cloned[index] = model.clone(w[index], this.model);
+			if (cloned[index]._id === undefined) {
+				cloned[index]._id = this.createNewId();
+			}
+			if( this.timestampData) {
+				let now = new Date();
+				if (cloned[index].createdAt === undefined) {
+					cloned[index].createdAt = now;
+				}
+				if (cloned[index].updatedAt === undefined) {
+					cloned[index].updatedAt = now;
+				}
+			}
+			model.validateObject(cloned[index]);
+			try {
+				this.addToIndexes(cloned[index]);
+			} catch (e) {
+				error = e;
+				failingI = index;
+				break;
+			}
+		}
+		if (error) {
+			for (let i = 0; i < failingI; i++) {
+				this.removeFromIndexes(cloned[i]);
+			}
+			throw error;
+		}
 		try {
 			liveUpdate();
 		} catch (e) {
-			console.error(
-				`XWebDB: Could not do live updates due to an error:`,
-				e
-			);
+			console.error(`XWebDB: Could not do live updates due to an error:`, e);
 		}
-		let w = Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc];
-		if (this.defer) this.deferredWrites.push(...w);
-		else await this.persistence.writeNewData(w);
-		return model.clone(preparedDoc, this.model);
+		if (this.defer) this.deferredWrites.push(...cloned);
+		else await this.persistence.writeNewData(cloned);
+		return {
+			docs: model.clone(cloned, this.model),
+			number: cloned.length,
+		};
 	}
 
 	/**
 	 * Create a new _id that's not already in use
 	 */
 	private createNewId() {
-		let tentativeId = customUtils.uid();
-		if (this.indexes._id.getMatching(tentativeId).length > 0) {
-			tentativeId = this.createNewId();
+		let newID = customUtils.uid();
+		if (this.indexes._id.dict.has(newID as any)) {
+			newID = this.createNewId();
 		}
-		return tentativeId;
-	}
-
-	/**
-	 * Prepare a document (or array of documents) to be inserted in a database
-	 * Meaning adds _id and timestamps if necessary on a copy of newDoc to avoid any side effect on user input
-	 */
-	private prepareDocumentForInsertion(newDoc: G | G[]) {
-		let preparedDoc: G[] | G = [];
-		if (Array.isArray(newDoc)) {
-			newDoc.forEach((doc) => {
-				preparedDoc.push(this.prepareDocumentForInsertion(doc));
-			});
-		} else {
-			preparedDoc = model.clone(newDoc, this.model);
-			if (preparedDoc._id === undefined) {
-				preparedDoc._id = this.createNewId();
-			}
-			const now = new Date();
-			if (this.timestampData && preparedDoc.createdAt === undefined) {
-				preparedDoc.createdAt = now;
-			}
-			if (this.timestampData && preparedDoc.updatedAt === undefined) {
-				preparedDoc.updatedAt = now;
-			}
-			model.validateObject(preparedDoc);
-		}
-
-		return preparedDoc;
-	}
-
-	/**
-	 * If newDoc is an array of documents, this will insert all documents in the cache
-	 */
-	private _insertInCache(preparedDoc: G | G[]) {
-		if (Array.isArray(preparedDoc)) {
-			this._insertMultipleDocsInCache(preparedDoc);
-		} else {
-			this.addToIndexes(preparedDoc);
-		}
-	}
-
-	/**
-	 * If one insertion fails (e.g. because of a unique constraint), roll back all previous
-	 * inserts and throws the error
-	 */
-	private _insertMultipleDocsInCache(preparedDocs: G[]) {
-		let failingI = -1;
-		let error;
-
-		for (let i = 0; i < preparedDocs.length; i++) {
-			try {
-				this.addToIndexes(preparedDocs[i]);
-			} catch (e) {
-				error = e;
-				failingI = i;
-				break;
-			}
-		}
-
-		if (error) {
-			for (let i = 0; i < failingI; i++) {
-				this.removeFromIndexes(preparedDocs[i]);
-			}
-
-			throw error;
-		}
-	}
-
-	public async insert(newDoc: G | G[]): Promise<types.Result<G>> {
-		const res = await this.q.add(() => this._insert(newDoc));
-		if (Array.isArray(res)) {
-			return {
-				docs: res,
-				number: res.length,
-			};
-		} else {
-			return {
-				docs: [res],
-				number: 1,
-			};
-		}
+		return newID;
 	}
 
 	/**
@@ -570,16 +441,13 @@ export class Datastore<
 		const res = await cursor.__exec_unsafe();
 		if (res.length > 0) {
 			let numReplaced = 0;
-			const candidates = await this.getCandidates(query);
+			const candidates = this.getCandidates(query);
 			const modifications = [];
 
 			// Preparing update (if an error is thrown here neither the datafile nor
 			// the in-memory indexes are affected)
 			for (let i = 0; i < candidates.length; i++) {
-				if (
-					(multi || numReplaced === 0) &&
-					model.match(candidates[i], query)
-				) {
+				if ((multi || numReplaced === 0) && model.match(candidates[i], query)) {
 					numReplaced++;
 					let createdAt = candidates[i].createdAt;
 					let modifiedDoc = model.modify<G, C>(
@@ -593,8 +461,7 @@ export class Datastore<
 					if (
 						this.timestampData &&
 						updateQuery.updatedAt === undefined &&
-						(!updateQuery.$set ||
-							updateQuery.$set.updatedAt === undefined)
+						(!updateQuery.$set || updateQuery.$set.updatedAt === undefined)
 					) {
 						modifiedDoc.updatedAt = new Date();
 					}
@@ -610,10 +477,7 @@ export class Datastore<
 			try {
 				liveUpdate();
 			} catch (e) {
-				console.error(
-					`XWebDB: Could not do live updates due to an error:`,
-					e
-				);
+				console.error(`XWebDB: Could not do live updates due to an error:`, e);
 			}
 			// Update indexedDB
 			const updatedDocs = modifications.map((x) => x.newDoc);
@@ -626,29 +490,11 @@ export class Datastore<
 			};
 		} else if (res.length === 0 && upsert) {
 			if (!updateQuery.$setOnInsert) {
-				throw new Error(
-					"XWebDB: $setOnInsert modifier is required when upserting"
-				);
+				throw new Error("XWebDB: $setOnInsert modifier is required when upserting");
 			}
-			let toBeInserted = model.clone(
-				updateQuery.$setOnInsert,
-				this.model,
-				true
-			);
-			const newDoc = await this._insert(toBeInserted);
-			if (Array.isArray(newDoc)) {
-				return {
-					number: newDoc.length,
-					docs: newDoc,
-					upsert: true,
-				};
-			} else {
-				return {
-					number: 1,
-					docs: [newDoc],
-					upsert: true,
-				};
-			}
+			let toBeInserted = model.clone(updateQuery.$setOnInsert, this.model, true);
+			const newDoc = await this.insert(toBeInserted);
+			return { ...newDoc, upsert: true };
 		} else {
 			return {
 				number: 0,
@@ -663,24 +509,19 @@ export class Datastore<
 		updateQuery: any,
 		options: UpdateOptions
 	): Promise<types.Result<G> & { upsert: boolean }> {
-		return await this.q.add(() =>
-			this._update(query, updateQuery, options)
-		);
+		return await this.q.add(() => this._update(query, updateQuery, options));
 	}
 
 	/**
 	 * Remove all docs matching the query
 	 * For now very naive implementation (similar to update)
 	 */
-	private async _remove(
-		query: any,
-		options?: { multi: boolean }
-	): Promise<types.Result<G>> {
+	private async _remove(query: any, options?: { multi: boolean }): Promise<types.Result<G>> {
 		let numRemoved = 0;
 		const removedDocs: { $$deleted: true; _id?: string }[] = [];
 		const removedFullDoc: G[] = [];
 		let multi = options ? !!options.multi : false;
-		const candidates = await this.getCandidates(query, true);
+		const candidates = this.getCandidates(query);
 		candidates.forEach((d) => {
 			if (model.match(d, query) && (multi || numRemoved === 0)) {
 				numRemoved++;
@@ -692,10 +533,7 @@ export class Datastore<
 		try {
 			liveUpdate();
 		} catch (e) {
-			console.error(
-				`XWebDB: Could not do live updates due to an error:`,
-				e
-			);
+			console.error(`XWebDB: Could not do live updates due to an error:`, e);
 		}
 		let d = removedDocs.map((x) => x._id || "");
 		if (this.defer) this.deferredDeletes.push(...d);
@@ -706,10 +544,7 @@ export class Datastore<
 		};
 	}
 
-	public async remove(
-		query: any,
-		options?: { multi: boolean }
-	): Promise<types.Result<G>> {
+	public async remove(query: any, options?: { multi: boolean }): Promise<types.Result<G>> {
 		return this.q.add(() => this._remove(query, options));
 	}
 }

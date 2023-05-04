@@ -109,11 +109,11 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	 * Will return pointers to matched elements (shallow copies), returning full copies is the role of find or findOne
 	 *
 	 */
-	async __exec_unsafe() {
+	__exec_unsafe() {
 		let res: G[] = [];
 		let added = 0;
 		let skipped = 0;
-		const candidates = await this.db.getCandidates(this._query);
+		const candidates = this.db.getCandidates(this._query);
 		for (let i = 0; i < candidates.length; i++) {
 			if (model.match(candidates[i], this._query)) {
 				// If a sort is defined, wait for the results to be sorted before applying limit and skip
@@ -172,12 +172,8 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 		return res;
 	}
 
-	private async _exec() {
-		return this.db.q.add(() => this.__exec_unsafe());
-	}
-
 	async exec() {
-		const originalsArr = await this._exec();
+		const originalsArr = this.__exec_unsafe();
 		const res: G[] = [];
 		for (let index = 0; index < originalsArr.length; index++) {
 			res.push(model.clone(originalsArr[index], this.db.model));
