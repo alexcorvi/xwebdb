@@ -530,114 +530,6 @@ describe("Database", function () {
 				tf: 9,
 			});
 		});
-		it("Can set a TTL index that expires documents", function (done) {
-			d.ensureIndex({
-				fieldName: "exp",
-				expireAfterSeconds: 0.2,
-			})
-				.then(() =>
-					d.insert({
-						_id: "id1",
-						hello: "world",
-						exp: new Date(),
-					})
-				)
-				.then(() => {
-					setTimeout(async function () {
-						const doc = (await d.find({}))[0];
-						(doc as any).hello.should.equal("world");
-						setTimeout(async function () {
-							const doc = (await d.find({}))[0];
-							assert.isUndefined(doc);
-							// no more mention of the document, correctly removed
-							await d.loadDatabase();
-							let persistedDoc = await d.persistence.data.get("id1");
-							expect(!!persistedDoc).eq(false);
-							// New datastore on same datafile is empty
-							var d2 = new Datastore<any, any>({
-								ref: testDb,
-							});
-							await d2.loadDatabase();
-							d2.find({}).then(function (docs) {
-								assert.isEmpty(docs);
-							});
-							done();
-						}, 101);
-					}, 100);
-				});
-		});
-		it("TTL indexes can expire multiple documents and only what needs to be expired", function (done) {
-			d.ensureIndex({
-				fieldName: "exp",
-				expireAfterSeconds: 0.2,
-			})
-				.then(() =>
-					d.insert({
-						hello: "world1",
-						exp: new Date(),
-					})
-				)
-				.then(() =>
-					d.insert({
-						hello: "world2",
-						exp: new Date(),
-					})
-				)
-				.then(() =>
-					d.insert({
-						hello: "world3",
-						exp: new Date(new Date().getTime() + 100),
-					})
-				)
-				.then(() => {
-					setTimeout(async () => {
-						const docs = await d.find({});
-						docs.length.should.equal(3);
-						setTimeout(async function () {
-							const docs = await d.find({});
-							docs.length.should.equal(1);
-							(docs[0] as any).hello.should.equal("world3");
-							setTimeout(async function () {
-								const docs = await d.find({});
-								docs.length.should.equal(0);
-								done();
-							}, 101);
-						}, 101);
-					}, 100);
-				});
-		});
-		it("Document where indexed field is absent or not a date are ignored", async () => {
-			function wait(ms: number) {
-				return new Promise<void>((resolve) => {
-					setTimeout(() => resolve(), ms);
-				});
-			}
-
-			await d.ensureIndex({
-				fieldName: "exp",
-				expireAfterSeconds: 0.5,
-			});
-
-			await d.insert({
-				hello: "world1",
-				exp: new Date(),
-			});
-
-			await d.insert({
-				hello: "world2",
-				exp: "not a date",
-			});
-
-			await d.insert({ hello: "world3" });
-
-			const docs1 = await d.find({});
-			docs1.length.should.equal(3);
-			await wait(500);
-			const docs2 = await d.find({});
-			docs2.length.should.equal(2);
-			(docs2[0] as any).hello.should.not.equal("world1");
-			(docs2[1] as any).hello.should.not.equal("world1");
-		});
 	}); // ==== End of '#getCandidates' ==== //
 
 	describe("Find", () => {
@@ -1419,10 +1311,10 @@ describe("Database", function () {
 				d.indexes.z.fieldName.should.equal("z");
 				d.indexes.z.unique.should.equal(false);
 				d.indexes.z.sparse.should.equal(false);
-				d.indexes.z.tree.numberOfKeys.should.equal(3);
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(d.getAllData()[0]);
-				(d.indexes.z.tree.get("2")[0] as any).should.equal(d.getAllData()[1]);
-				(d.indexes.z.tree.get("3")[0] as any).should.equal(d.getAllData()[2]);
+				d.indexes.z.dict.numberOfKeys.should.equal(3);
+				(d.indexes.z.dict.get("1")[0] as any).should.equal(d.getAllData()[0]);
+				(d.indexes.z.dict.get("2")[0] as any).should.equal(d.getAllData()[1]);
+				(d.indexes.z.dict.get("3")[0] as any).should.equal(d.getAllData()[2]);
 			});
 			it("ensureIndex can be called twice on the same field, the second call will ahve no effect", (done) => {
 				Object.keys(d.indexes).length.should.equal(1);
@@ -1488,11 +1380,11 @@ describe("Database", function () {
 				d.indexes.z.fieldName.should.equal("z");
 				d.indexes.z.unique.should.equal(false);
 				d.indexes.z.sparse.should.equal(false);
-				d.indexes.z.tree.numberOfKeys.should.equal(3);
+				d.indexes.z.dict.numberOfKeys.should.equal(3);
 				// The pointers in the _id and z indexes are the same
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(d.indexes._id.getMatching("aaa")[0]);
-				(d.indexes.z.tree.get("12")[0] as any).should.equal(d.indexes._id.getMatching(newDoc1._id!)[0]);
-				(d.indexes.z.tree.get("14")[0] as any).should.equal(d.indexes._id.getMatching(newDoc2._id!)[0]);
+				(d.indexes.z.dict.get("1")[0] as any).should.equal(d.indexes._id.getMatching("aaa")[0]);
+				(d.indexes.z.dict.get("12")[0] as any).should.equal(d.indexes._id.getMatching(newDoc1._id!)[0]);
+				(d.indexes.z.dict.get("14")[0] as any).should.equal(d.indexes._id.getMatching(newDoc2._id!)[0]);
 				// The data in the z index is correct
 				const docs = await d.find({});
 				var doc0 = _.find(docs, function (doc) {
@@ -1531,7 +1423,7 @@ describe("Database", function () {
 				d.indexes.z.fieldName.should.equal("z");
 				d.indexes.z.unique.should.equal(false);
 				d.indexes.z.sparse.should.equal(false);
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 
 				await d.persistence.data.set(
 					"aaa",
@@ -1565,10 +1457,10 @@ describe("Database", function () {
 				const doc2 = _.find(d.getAllData(), ({ z }) => z === "2");
 				const doc3 = _.find(d.getAllData(), ({ z }) => z === "3");
 				d.getAllData().length.should.equal(3);
-				d.indexes.z.tree.numberOfKeys.should.equal(3);
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(doc1);
-				(d.indexes.z.tree.get("2")[0] as any).should.equal(doc2);
-				(d.indexes.z.tree.get("3")[0] as any).should.equal(doc3);
+				d.indexes.z.dict.numberOfKeys.should.equal(3);
+				(d.indexes.z.dict.get("1")[0] as any).should.equal(doc1);
+				(d.indexes.z.dict.get("2")[0] as any).should.equal(doc2);
+				(d.indexes.z.dict.get("3")[0] as any).should.equal(doc3);
 			});
 			it("Can initialize multiple indexes on a database load", async () => {
 				const now = new Date();
@@ -1597,22 +1489,22 @@ describe("Database", function () {
 				await d.ensureIndex({ fieldName: "z" });
 				await d.ensureIndex({ fieldName: "a" });
 
-				d.indexes.a.tree.numberOfKeys.should.equal(0);
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.a.dict.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				await d.loadDatabase();
 
 				const doc1 = _.find(d.getAllData(), ({ z }) => z === "1");
 				const doc2 = _.find(d.getAllData(), ({ z }) => z === "2");
 				const doc3 = _.find(d.getAllData(), ({ z }) => z === "3");
 				d.getAllData().length.should.equal(3);
-				d.indexes.z.tree.numberOfKeys.should.equal(3);
-				(d.indexes.z.tree.get("1")[0] as any).should.equal(doc1);
-				(d.indexes.z.tree.get("2")[0] as any).should.equal(doc2);
-				(d.indexes.z.tree.get("3")[0] as any).should.equal(doc3);
-				d.indexes.a.tree.numberOfKeys.should.equal(3);
-				(d.indexes.a.tree.get(2 as any)[0] as any).should.equal(doc1);
-				(d.indexes.a.tree.get("world")[0] as any).should.equal(doc2);
-				(d.indexes.a.tree.get({ today: now } as any)[0] as any).should.equal(doc3);
+				d.indexes.z.dict.numberOfKeys.should.equal(3);
+				(d.indexes.z.dict.get("1")[0] as any).should.equal(doc1);
+				(d.indexes.z.dict.get("2")[0] as any).should.equal(doc2);
+				(d.indexes.z.dict.get("3")[0] as any).should.equal(doc3);
+				d.indexes.a.dict.numberOfKeys.should.equal(3);
+				(d.indexes.a.dict.get(2 as any)[0] as any).should.equal(doc1);
+				(d.indexes.a.dict.get("world")[0] as any).should.equal(doc2);
+				d.indexes.a.dict.get({ today: now })[0].should.equal(doc3);
 			});
 			it("If a unique constraint is not respected, database loading will throw but the valid data will be still be usable", async () => {
 				const now = new Date();
@@ -1641,10 +1533,10 @@ describe("Database", function () {
 					unique: true,
 				});
 
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				expect(await rejected(async () => await d.loadDatabase())).eq(true);
 				d.getAllData().length.should.equal(2);
-				d.indexes.z.tree.numberOfKeys.should.equal(2);
+				d.indexes.z.dict.numberOfKeys.should.equal(2);
 			});
 			it("If a unique constraint is not respected, ensureIndex will return an error and not create an index", async () => {
 				await d.insert({
@@ -1687,13 +1579,13 @@ describe("Database", function () {
 		describe("Indexing newly inserted documents", () => {
 			it("Newly inserted documents are indexed", (done) => {
 				d.ensureIndex({ fieldName: "z" });
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				d.insert({
 					a: 2,
 					z: "yes",
 				})
 					.then((newDoc) => {
-						d.indexes.z.tree.numberOfKeys.should.equal(1);
+						d.indexes.z.dict.numberOfKeys.should.equal(1);
 						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 						return d.insert({
 							a: 5,
@@ -1701,7 +1593,7 @@ describe("Database", function () {
 						});
 					})
 					.then((newDoc) => {
-						d.indexes.z.tree.numberOfKeys.should.equal(2);
+						d.indexes.z.dict.numberOfKeys.should.equal(2);
 						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc.docs);
 						done();
 					});
@@ -1709,15 +1601,15 @@ describe("Database", function () {
 			it("If multiple indexes are defined, the document is inserted in all of them", (done) => {
 				d.ensureIndex({ fieldName: "z" });
 				d.ensureIndex({ fieldName: "ya" });
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				d.insert({
 					a: 2,
 					z: "yes",
 					ya: "indeed",
 				})
 					.then((newDoc) => {
-						d.indexes.z.tree.numberOfKeys.should.equal(1);
-						d.indexes.ya.tree.numberOfKeys.should.equal(1);
+						d.indexes.z.dict.numberOfKeys.should.equal(1);
+						d.indexes.ya.dict.numberOfKeys.should.equal(1);
 						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 						assert.deepEqual(d.indexes.ya.getMatching("indeed"), newDoc.docs);
 						return d.insert({
@@ -1727,8 +1619,8 @@ describe("Database", function () {
 						});
 					})
 					.then((newDoc2) => {
-						d.indexes.z.tree.numberOfKeys.should.equal(2);
-						d.indexes.ya.tree.numberOfKeys.should.equal(2);
+						d.indexes.z.dict.numberOfKeys.should.equal(2);
+						d.indexes.ya.dict.numberOfKeys.should.equal(2);
 						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc2.docs);
 						assert.deepEqual(d.indexes.ya.getMatching("sure"), newDoc2.docs);
 						done();
@@ -1736,18 +1628,18 @@ describe("Database", function () {
 			});
 			it("Can insert two docs at the same key for a non unique index", (done) => {
 				d.ensureIndex({ fieldName: "z" });
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				d.insert({
 					a: 2,
 					z: "yes",
 				}).then((newDoc) => {
-					d.indexes.z.tree.numberOfKeys.should.equal(1);
+					d.indexes.z.dict.numberOfKeys.should.equal(1);
 					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 					d.insert({
 						a: 5,
 						z: "yes",
 					}).then((newDoc2) => {
-						d.indexes.z.tree.numberOfKeys.should.equal(1);
+						d.indexes.z.dict.numberOfKeys.should.equal(1);
 						assert.deepEqual(d.indexes.z.getMatching("yes"), [newDoc.docs[0], newDoc2.docs[0]]);
 						done();
 					});
@@ -1758,12 +1650,12 @@ describe("Database", function () {
 					fieldName: "z",
 					unique: true,
 				});
-				d.indexes.z.tree.numberOfKeys.should.equal(0);
+				d.indexes.z.dict.numberOfKeys.should.equal(0);
 				d.insert({
 					a: 2,
 					z: "yes",
 				}).then((newDoc) => {
-					d.indexes.z.tree.numberOfKeys.should.equal(1);
+					d.indexes.z.dict.numberOfKeys.should.equal(1);
 					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 					rejected(() =>
 						d.insert({
@@ -1773,7 +1665,7 @@ describe("Database", function () {
 					).then((res) => {
 						expect(res).eq(true);
 						// Index didn't change
-						d.indexes.z.tree.numberOfKeys.should.equal(1);
+						d.indexes.z.dict.numberOfKeys.should.equal(1);
 						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
 						// Data didn't change
 						assert.deepEqual(d.getAllData(), newDoc.docs);
@@ -1797,9 +1689,9 @@ describe("Database", function () {
 					nonu2: "yes2",
 					uni: "willfail",
 				});
-				d.indexes.nonu1.tree.numberOfKeys.should.equal(1);
-				d.indexes.uni.tree.numberOfKeys.should.equal(1);
-				d.indexes.nonu2.tree.numberOfKeys.should.equal(1);
+				d.indexes.nonu1.dict.numberOfKeys.should.equal(1);
+				d.indexes.uni.dict.numberOfKeys.should.equal(1);
+				d.indexes.nonu2.dict.numberOfKeys.should.equal(1);
 
 				expect(
 					await rejected(() =>
@@ -1811,9 +1703,9 @@ describe("Database", function () {
 					)
 				).eq(true);
 				// No index was modified
-				d.indexes.nonu1.tree.numberOfKeys.should.equal(1);
-				d.indexes.uni.tree.numberOfKeys.should.equal(1);
-				d.indexes.nonu2.tree.numberOfKeys.should.equal(1);
+				d.indexes.nonu1.dict.numberOfKeys.should.equal(1);
+				d.indexes.uni.dict.numberOfKeys.should.equal(1);
+				d.indexes.nonu2.dict.numberOfKeys.should.equal(1);
 				assert.deepEqual(d.indexes.nonu1.getMatching("yes"), newDoc.docs);
 				assert.deepEqual(d.indexes.uni.getMatching("willfail"), newDoc.docs);
 				assert.deepEqual(d.indexes.nonu2.getMatching("yes2"), newDoc.docs);
@@ -1823,12 +1715,12 @@ describe("Database", function () {
 					fieldName: "zzz",
 					unique: true,
 				});
-				d.indexes.zzz.tree.numberOfKeys.should.equal(0);
+				d.indexes.zzz.dict.numberOfKeys.should.equal(0);
 				const newDoc = await d.insert({
 					a: 2,
 					z: "yes",
 				});
-				d.indexes.zzz.tree.numberOfKeys.should.equal(1);
+				d.indexes.zzz.dict.numberOfKeys.should.equal(1);
 				assert.deepEqual(d.indexes.zzz.getMatching(undefined as any), newDoc.docs);
 				expect(
 					await rejected(() =>
@@ -2036,16 +1928,16 @@ describe("Database", function () {
 						)
 							.then(function (nr) {
 								nr.number.should.equal(1);
-								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								d.indexes.a.dict.numberOfKeys.should.equal(2);
 								(d.indexes.a.getMatching(456 as any)[0] as any)._id.should.equal(doc1._id);
 								(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
-								d.indexes.b.tree.numberOfKeys.should.equal(2);
+								d.indexes.b.dict.numberOfKeys.should.equal(2);
 								(d.indexes.b.getMatching("no")[0] as any)._id.should.equal(doc1._id);
 								(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
 								// The same pointers are shared between all indexes
-								d.indexes.a.tree.numberOfKeys.should.equal(2);
-								d.indexes.b.tree.numberOfKeys.should.equal(2);
-								d.indexes._id.tree.numberOfKeys.should.equal(2);
+								d.indexes.a.dict.numberOfKeys.should.equal(2);
+								d.indexes.b.dict.numberOfKeys.should.equal(2);
+								d.indexes._id.dict.numberOfKeys.should.equal(2);
 								(d.indexes.a.getMatching(456 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
 								(d.indexes.b.getMatching("no")[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
 								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
@@ -2061,18 +1953,18 @@ describe("Database", function () {
 							})
 							.then(function (nr) {
 								nr.number.should.equal(2);
-								d.indexes.a.tree.numberOfKeys.should.equal(2);
+								d.indexes.a.dict.numberOfKeys.should.equal(2);
 								(d.indexes.a.getMatching(466 as any)[0] as any)._id.should.equal(doc1._id);
 								(d.indexes.a.getMatching(12 as any)[0] as any)._id.should.equal(doc2._id);
-								d.indexes.b.tree.numberOfKeys.should.equal(1);
+								d.indexes.b.dict.numberOfKeys.should.equal(1);
 								d.indexes.b.getMatching("same").length.should.equal(2);
 								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc1._id);
 								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc2._id);
 								// The same pointers are shared between all indexes
-								d.indexes.a.tree.numberOfKeys.should.equal(2);
-								d.indexes.b.tree.numberOfKeys.should.equal(1);
+								d.indexes.a.dict.numberOfKeys.should.equal(2);
+								d.indexes.b.dict.numberOfKeys.should.equal(1);
 								d.indexes.b.getAll().length.should.equal(2);
-								d.indexes._id.tree.numberOfKeys.should.equal(2);
+								d.indexes._id.dict.numberOfKeys.should.equal(2);
 								(d.indexes.a.getMatching(466 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
 								(d.indexes.a.getMatching(12 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
 								// Can't test the pointers in b as their order is randomized, but it is the same as with a
@@ -2158,15 +2050,15 @@ describe("Database", function () {
 									_id: _doc3._id,
 								});
 								// All indexes left unchanged and pointing to the same docs
-								d.indexes.a.tree.numberOfKeys.should.equal(3);
+								d.indexes.a.dict.numberOfKeys.should.equal(3);
 								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
 								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
 								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
-								d.indexes.b.tree.numberOfKeys.should.equal(3);
+								d.indexes.b.dict.numberOfKeys.should.equal(3);
 								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
 								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
 								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
-								d.indexes.c.tree.numberOfKeys.should.equal(3);
+								d.indexes.c.dict.numberOfKeys.should.equal(3);
 								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
 								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
 								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
@@ -2257,15 +2149,15 @@ describe("Database", function () {
 									_id: _doc3._id,
 								});
 								// All indexes left unchanged and pointing to the same docs
-								d.indexes.a.tree.numberOfKeys.should.equal(3);
+								d.indexes.a.dict.numberOfKeys.should.equal(3);
 								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
 								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
 								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
-								d.indexes.b.tree.numberOfKeys.should.equal(3);
+								d.indexes.b.dict.numberOfKeys.should.equal(3);
 								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
 								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
 								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
-								d.indexes.c.tree.numberOfKeys.should.equal(3);
+								d.indexes.c.dict.numberOfKeys.should.equal(3);
 								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
 								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
 								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
@@ -2362,16 +2254,16 @@ describe("Database", function () {
 							d.remove({ a: 1 })
 								.then(function (nr) {
 									nr.number.should.equal(1);
-									d.indexes.a.tree.numberOfKeys.should.equal(2);
+									d.indexes.a.dict.numberOfKeys.should.equal(2);
 									(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
 									(d.indexes.a.getMatching(3 as any)[0] as any)._id.should.equal(doc3._id);
-									d.indexes.b.tree.numberOfKeys.should.equal(2);
+									d.indexes.b.dict.numberOfKeys.should.equal(2);
 									(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
 									(d.indexes.b.getMatching("coin")[0] as any)._id.should.equal(doc3._id);
 									// The same pointers are shared between all indexes
-									d.indexes.a.tree.numberOfKeys.should.equal(2);
-									d.indexes.b.tree.numberOfKeys.should.equal(2);
-									d.indexes._id.tree.numberOfKeys.should.equal(2);
+									d.indexes.a.dict.numberOfKeys.should.equal(2);
+									d.indexes.b.dict.numberOfKeys.should.equal(2);
+									d.indexes._id.dict.numberOfKeys.should.equal(2);
 									(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
 									(d.indexes.b.getMatching("si")[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
 									(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc3._id!)[0]);
@@ -2380,9 +2272,9 @@ describe("Database", function () {
 								})
 								.then(function (nr) {
 									nr.number.should.equal(2);
-									d.indexes.a.tree.numberOfKeys.should.equal(0);
-									d.indexes.b.tree.numberOfKeys.should.equal(0);
-									d.indexes._id.tree.numberOfKeys.should.equal(0);
+									d.indexes.a.dict.numberOfKeys.should.equal(0);
+									d.indexes.b.dict.numberOfKeys.should.equal(0);
+									d.indexes._id.dict.numberOfKeys.should.equal(0);
 									done();
 								});
 						});
@@ -2589,11 +2481,13 @@ describe("Database", function () {
 			d.insert({
 				bad: ["a", "b"],
 			}).then(function () {
-				d.getCandidates({
-					bad: {
-						$in: ["a", "b"],
-					},
-				}).then(function (res) {
+				Promise.resolve(
+					d.getCandidates({
+						bad: {
+							$in: ["a", "b"],
+						},
+					})
+				).then(function (res) {
 					res.length.should.equal(1);
 					done();
 				});

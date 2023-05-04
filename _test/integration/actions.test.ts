@@ -85,7 +85,7 @@ describe("Actions", async () => {
 					throw e;
 				});
 		});
-		
+
 		it("Deferred indexedDB actions", async function () {
 			let ddb = new Database<Employee>({
 				ref: "deferred",
@@ -96,16 +96,27 @@ describe("Actions", async () => {
 			let docs: Employee[] = [];
 			let i = 10;
 			while (i--) docs.push(Employee.new({}));
-			
+
 			await ddb.insert(docs);
-			(await ddb._datastore.persistence.data.keys()).length.should.eq(0);			
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(0);
 			await wait(11);
 			(await ddb._datastore.persistence.data.keys()).length.should.eq(docs.length);
 
 			await ddb.delete({}, true);
-			(await ddb._datastore.persistence.data.keys()).length.should.eq(docs.length);			
+			(await ddb._datastore.persistence.data.keys()).length.should.eq(docs.length);
 			await wait(11);
 			(await ddb._datastore.persistence.data.keys()).length.should.eq(0);
+		});
+
+		it("Defining indexes on initialization", async () => {
+			let db = new Database<Employee>({ ref: "testdatabase", indexes: ["age", "female", "male"] });
+			await db.loaded;
+			const indexes = Object.keys(db._datastore.indexes);
+			indexes.length.should.eq(4);
+			indexes.should.include("_id");
+			indexes.should.include("age");
+			indexes.should.include("female");
+			indexes.should.include("male");
 		});
 	});
 

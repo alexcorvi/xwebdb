@@ -13,7 +13,7 @@ export const memoryStores: {
 		[key: string]: string;
 	};
 } = {};
-const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i));
+const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i*15));
 export const memoryAdapter = () => (name: string) => {
 	name = name.replace(/_\d+$/, ""); // replacer is to make the sync demo work
 	if (!memoryStores[name]) memoryStores[name] = {};
@@ -74,25 +74,25 @@ describe("Live Queries", () => {
 		ref: "db_1",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 0,
 		},
 	});
 	let d2 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_2",
 		sync: {
 			syncToRemote: memoryAdapter(),
-			syncInterval: 0,
 		},
 	});
 	beforeEach(async () => {
 		Object.keys(memoryStores).forEach((dbName) => {
 			memoryStores[dbName] = {};
 		});
+		await d1.remove({}, true);
+		await d2.remove({}, true);
 		await d1._datastore.persistence.deleteEverything();
 		await d2._datastore.persistence.deleteEverything();
 		await d1._datastore.loadDatabase();
-		d1._datastore.getAllData().length.should.equal(0);
 		await d2._datastore.loadDatabase();
+		d1._datastore.getAllData().length.should.equal(0);
 		d2._datastore.getAllData().length.should.equal(0);
 
 		await d1.insert([

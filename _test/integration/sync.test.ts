@@ -2420,7 +2420,7 @@ describe("Database Syncing", () => {
 				s3.diff.should.eq(-1);
 			}
 
-			await wait(100);
+			await wait(20);
 			{
 				// not invalidated .. still needs more time
 				const s1 = await d1.sync();
@@ -2436,7 +2436,7 @@ describe("Database Syncing", () => {
 				s2.diff.should.eq(-1);
 			}
 
-			await wait(400);
+			await wait(480);
 			{
 				// invalidated
 				const s1 = await d1.sync();
