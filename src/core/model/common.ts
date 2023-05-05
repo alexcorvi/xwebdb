@@ -64,11 +64,11 @@ export function clone<T>(obj: T, model: typeof Doc, strictKeys: boolean = false)
 	if (Array.isArray(obj)) return obj.map((sub) => clone(sub, model, strictKeys)) as any;
 	if (typeof obj === "object") {
 		let res: keyedObject = {};
-		Object.entries(obj).forEach(([key, val]) => {
+		for (const [key,val] of Object.entries(obj)) {
 			if (!strictKeys || (key[0] !== "$" && key.indexOf(".") === -1)) {
 				res[key] = clone(val, model, strictKeys);
 			}
-		});
+		}
 		if (res.hasOwnProperty("_id")) {
 			return model.new(res) as any;
 		} else {
