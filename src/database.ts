@@ -1,3 +1,8 @@
+/**
+ * Main user API to the database
+ * exposing only strongly typed methods and relevant configurations
+ */
+
 import { Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { addLive, kill, liveUpdate } from "./core/live";
@@ -12,9 +17,7 @@ import {
 	UpsertOperators,
 	NFP,
 } from "./types"; // for some reason using @types will disable some type checks
-
 let deepOperators = modifiersKeys as (keyof UpdateOperators<{}>)[];
-
 export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	ref: string;
 	model?: C;
@@ -29,13 +32,21 @@ export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	};
 	deferPersistence?: number;
 	stripDefaults?: boolean;
-	indexes?: (NOP<D>)[];
+	indexes?: NOP<D>[];
 }
 
 export class Database<S extends Doc> {
 	private ref: string;
 	private model: typeof Doc;
+	/**
+	 * set to "public" so we can allow some level of access to core methods and properties
+	 */
 	public _datastore: Datastore<S, typeof Doc>;
+	/**
+	 * Creating a database is creating a reference for it
+	 * However, the database will be loading existing data in the background
+	 * use this promise to ensure that the database has actually loaded all the preexisting data
+	 */
 	public loaded: Promise<boolean>;
 
 	constructor(options: DatabaseConfigurations<typeof Doc, S>) {
@@ -66,6 +77,11 @@ export class Database<S extends Doc> {
 		return res;
 	}
 
+	/**
+	 * Get live queries (observable)
+	 * can be bidirectionally live (to and from DB)
+	 * or either from or to DB
+	*/
 	public async live(
 		filter: Filter<S> = {},
 		{
@@ -298,6 +314,9 @@ export class Database<S extends Doc> {
 		return {};
 	}
 
+	/**
+	 * Synchronies the database with remote source using the remote adapter
+	*/
 	async sync() {
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
@@ -307,6 +326,13 @@ export class Database<S extends Doc> {
 		return await this._datastore.persistence.sync.sync();
 	}
 
+	/**
+	 * Forcefully sync the database with remote source using the remote adapter
+	 * bypassing: 	A. a check to see whether other sync action is in progress
+	 * 				B. a check to see whether there are deferred writes/deletes
+	 * 				C. a check to see whether local DB and remote source have same key hashes
+	 * Use this with caution, and only if you know what you're doing
+	*/
 	async forceSync() {
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
@@ -316,6 +342,10 @@ export class Database<S extends Doc> {
 		return await this._datastore.persistence.sync._sync(true);
 	}
 
+	/**
+	 * true: there's a sync in progress
+	 * false: there's no sync in progress
+	*/
 	get syncInProgress() {
 		return this._datastore.persistence.syncInProgress;
 	}
