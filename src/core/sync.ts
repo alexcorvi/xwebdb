@@ -3,7 +3,6 @@ import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
 import { Index } from "./indexes";
 import * as modelling from "./model/";
-import { liveUpdate } from "./live";
 
 type diff = { key: string; value: string };
 
@@ -292,7 +291,7 @@ export class Sync {
 		await this.setR$();
 		await this.p.loadDatabase();
 		try {
-			liveUpdate();
+			this.p.db.live.update();
 		} catch (e) {
 			console.error(
 				`XWebDB: Could not do live updates due to an error:`,

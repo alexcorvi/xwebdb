@@ -7,7 +7,7 @@ import * as types from "../types";
 import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
-import { liveUpdate } from "./live";
+import { Live } from "./live";
 
 type MongoDBQuery = Record<string, any>;
 
@@ -41,6 +41,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 	ref: string = "db";
 	timestampData = false;
 	persistence: Persistence<G, C>;
+	live: Live = new Live(this);
 	// rename to something denotes that it's an internal thing
 	q: Q = new Q(1);
 	indexes: { [key: string]: Index<G[keyof G], G> } = {
@@ -377,7 +378,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			throw error;
 		}
 		try {
-			liveUpdate();
+			this.live.update();
 		} catch (e) {
 			console.error(`XWebDB: Could not do live updates due to an error:`, e);
 		}
@@ -475,7 +476,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			// Change the docs in memory
 			this.updateIndexes(modifications);
 			try {
-				liveUpdate();
+				this.live.update();
 			} catch (e) {
 				console.error(`XWebDB: Could not do live updates due to an error:`, e);
 			}
@@ -531,7 +532,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			}
 		});
 		try {
-			liveUpdate();
+			this.live.update();
 		} catch (e) {
 			console.error(`XWebDB: Could not do live updates due to an error:`, e);
 		}

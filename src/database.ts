@@ -5,7 +5,6 @@
 
 import { Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { addLive, kill, liveUpdate } from "./core/live";
 import { modifiersKeys, toDotNotation } from "./core/model/";
 import {
 	NOP,
@@ -150,7 +149,7 @@ export class Database<S extends Doc> {
 				}
 				const results = Object.values(operations).map((operation) => operation());
 				Promise.all(results).catch((e) => {
-					liveUpdate();
+					this._datastore.live.update(); // reversing updates to observable
 					console.error(
 						`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`,
 						e
@@ -161,10 +160,8 @@ export class Database<S extends Doc> {
 		}
 
 		if (fromDB) {
-			fromDBuid = addLive({
-				queryFilter: filter,
-				queryOptions: { skip, limit, project, sort },
-				database: this,
+			fromDBuid = this._datastore.live.addLive({
+				query: filter,
 				toDBObserver,
 				observable: ob,
 			});
@@ -172,12 +169,12 @@ export class Database<S extends Doc> {
 
 		return {
 			...ob,
-			async kill(w) {
+			kill: async (w) => {
 				if (w === "toDB" || !w) {
 					await ob.unobserve(toDBObserver);
 				}
 				if (w === "fromDB" || !w) {
-					kill(fromDBuid);
+					this._datastore.live.kill(fromDBuid);
 				}
 			},
 		};
