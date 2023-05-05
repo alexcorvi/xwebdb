@@ -3,7 +3,7 @@
  * Except for minor differences.
  * 		1.	It can hold multiple values per key
  * 		2.	Binary search for insertion & deletion
- * 
+ *
  * Complexity Notations:
  * 		# Get: O(1)
  * 		# Insert: O(log n)
@@ -13,7 +13,7 @@
 type CompareFunction<K> = (a: K, b: K) => number;
 
 // handles conversion of keys into strings if they aren't of a comparable type
-function unify<A>(key: A):A  {
+function unify<A>(key: A): A {
 	let t = typeof key;
 	if (t === "number" || t === "string" || t === "bigint") {
 		return key as any;
@@ -40,7 +40,7 @@ export class Dictionary<D extends object> {
 		this.unique = unique;
 	}
 	has(key: D[keyof D]) {
-		return this.documents.has(unify(key))
+		return this.documents.has(unify(key));
 	}
 	insert(key: D[keyof D], document: D) {
 		key = unify(key);
@@ -64,11 +64,10 @@ export class Dictionary<D extends object> {
 		}
 		list.push(document);
 	}
-	get(key: D[keyof D]): D[] {
-		key = unify(key);
-		return this.documents.get(key) || [];
+	get(key: D[keyof D] | D[keyof D][]): D[] {
+		if (Array.isArray(key)) return key.map((x) => this.get(unify(x))).flat(1);
+		return this.documents.get(unify(key)) || [];
 	}
-
 	public delete(key: D[keyof D], document: D): boolean {
 		key = unify(key);
 		const index = this.binarySearch(key);
@@ -117,7 +116,7 @@ export class Dictionary<D extends object> {
 	}
 
 	$in(keys: D[keyof D][]): D[] {
-		keys = keys.map(x=>unify(x));
+		keys = keys.map((x) => unify(x));
 		let matched: D[] = [];
 		for (let index = 0; index < keys.length; index++) {
 			let key = unify(keys[index]);
@@ -127,7 +126,7 @@ export class Dictionary<D extends object> {
 	}
 
 	$nin(dismissKeys: D[keyof D][]): D[] {
-		dismissKeys = dismissKeys.map(x=>unify(x));
+		dismissKeys = dismissKeys.map((x) => unify(x));
 		let values: D[] = [];
 		for (let index = 0; index < this.keys.length; index++) {
 			let k = unify(this.keys[index]);

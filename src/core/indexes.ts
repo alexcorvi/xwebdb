@@ -248,28 +248,4 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 			this.update(revert);
 		}
 	}
-
-	/**
-	 * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
-	 */
-	getMatching(input: Key | Key[]): S[] {
-		if (!Array.isArray(input)) {
-			return this.dict.get(input);
-		} else {
-			let res: S[] = [];
-			input.forEach((item) => {
-				this.dict.get(item).forEach((singleRes) => {
-					if (!singleRes || !singleRes._id) {
-						return;
-					}
-					res.push(singleRes);
-				});
-			});
-			return res.filter((x, i) => res.indexOf(x) === i);
-		}
-	}
-
-	getAll() {
-		return this.dict.all;
-	}
 }
