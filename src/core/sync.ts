@@ -1,3 +1,36 @@
+/**
+ * This is the synchronization class that uses the remote sync adapter
+ * to send and receive data.
+ * How it does it:
+ * 
+ * Considering that the persistence layer is actually a key/value store
+ * It sets the key to: {ID}_{Rev}
+ * where 	{ID}: is document ID
+ * 			{Rev}: is document revision
+ * 
+ * And each database (local & remote) has a special document ($H)
+ * where it stores a hash of the existing revisions
+ * 
+ * When calling the _sync() method:
+ * 1. it compares the local and remote hash if they are equal, it stops
+ * 2. gets the difference between the two databases
+ * 3. resolves conflicts by last-write wins algorithm (can't be otherwise)
+ * 4. resolves errors that can be caused by unique violation constraints (also by last-write wins)
+ * 5. uploads and downloads documents
+ * 6. documents that win overwrite documents that lose
+ * 7. sets local and remote hash of the keys
+ * 
+ * This is a very simple synchronization protocol, but it has the following advantages
+ * 		A. it uses the least amount of data overhead
+ * 			i.e. there's no need for compression, logs, compaction...etc.
+ * 		B. there's no need for custom conflict resolution strategies
+ * 
+ * However, there's drawbacks:
+ * 		A. Can't use custom conflict resolution strategies if there's a need
+ * 		B. updates on different fields of the documents can't get merged (last write-wins always)
+ * 		C. Can't get a history of the document (do we need it?)
+*/
+
 import { Persistence, persistenceLine } from "./persistence";
 import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
@@ -31,11 +64,17 @@ export class Sync {
 		this.rdata.setItem("$H", "$H" + hash + "_" + this.ts());
 	}
 
-	// time signature
+	// time signature, added to the hash so we can invalidate the hash
+	// after a specific amount of time
 	private ts() {
 		return Math.floor(Date.now() / this.p.invalidateHash);
 	}
 
+	/**
+	 * This method sits in-front of the actually _sync method
+	 * It checks whether there's an already a sync in progress
+	 * and whether there are deferred writes or deletes
+	*/
 	sync() {
 		return new Promise<{
 			sent: number;
@@ -164,6 +203,18 @@ export class Sync {
 		return false;
 	}
 
+	/**
+	 * Compare the local and remote hash
+	 * if there's a difference:
+	 * 		A. get a diff of the keys
+	 * 		B. decide which documents to upload and to download (using the above strategy)
+	 * 		C. Sets remote and local hash
+	 * 		D. returns the number of sent and received documents
+	 * 			in addition to a number indicating whether this method actually did a sync
+	 * 			-1: hashes are equal, didn't do anything
+	 * 			0: hashes are different, but keys are equal, just updated the hashes
+	 * 			1: found a diff in documents and did a full synchronization process.
+	*/
 	async _sync(force: boolean = false): Promise<{
 		sent: number;
 		received: number;

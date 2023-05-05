@@ -1,3 +1,14 @@
+/**
+ * A task queue that makes sure that methods are run sequentially
+ * It's used on all inserts/deletes/updates of the database.
+ * it also has the following advantages:
+ *		A. ability to set concurrency
+ *			(used on remote sync adapters to limit concurrent API calls)
+ *		B. ability to pause and resume operations
+ *			(used when loading database from persistence layer)
+ * 
+ * Methods and API are self-explanatory
+ */
 export class Q {
 	private _queue: (() => Promise<any>)[] = [];
 	private _pause: boolean = false;
@@ -26,12 +37,12 @@ export class Q {
 					this._ongoingCount--;
 					this._next();
 					resolve(val);
-                    return val;
+					return val;
 				} catch (err) {
-                    this._ongoingCount--;
+					this._ongoingCount--;
 					this._next();
 					reject(err);
-                    return null;
+					return null;
 				}
 			};
 
@@ -53,7 +64,7 @@ export class Q {
 		return this._ongoingCount;
 	}
 
-    private _resolveEmpty = () => Promise.resolve();
+	private _resolveEmpty = () => Promise.resolve();
 
 	private _next() {
 		if (this._ongoingCount >= this._concurrency || this._pause) {

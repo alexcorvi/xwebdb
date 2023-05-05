@@ -16,6 +16,7 @@ type WritableKeysOf<T> = {
 	> &
 		(T[P] extends Function ? never : P);
 }[keyof T];
+// exclude getters
 type WritablePart<T> = Pick<T, WritableKeysOf<T>>;
 // pick non getters or functions
 export type NFGP<T> = T extends Array<infer U>

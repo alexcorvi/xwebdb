@@ -1,3 +1,18 @@
+/**
+ * Creating an an observable array
+*/
+
+export interface ObservableArray<A extends object> {
+	// actually observable array
+	observable: Observable<A>;
+	// call a callback function when the array changes (i.e. creates an observer)
+	observe: (observer: Observer<A>) => void;
+	// removes a specific (or all) observers (i.e. callbacks)
+	unobserve: (observers?: Observer<A> | Observer<A>[]) => Promise<Observer<A>[]>;
+	// do something to the array without notifying the observers
+	silently: (work: (o: Observable<A>) => any) => void;
+}
+
 type Observable<T extends object> = T & { [oMetaKey]: OMetaBase<T> };
 type ChangeType = "insert" | "update" | "delete" | "reverse" | "shuffle";
 type PrepareFunction<T extends object> = (
@@ -15,13 +30,6 @@ interface MetaProperties<T> {
 
 interface Observer<T> {
 	(changes: Change<T>[]): void;
-}
-
-export interface ObservableArray<A extends object> {
-	observable: Observable<A>;
-	observe: (observer: Observer<A>) => void;
-	unobserve: (observers?: Observer<A> | Observer<A>[]) => Promise<Observer<A>[]>;
-	silently: (work: (o: Observable<A>) => any) => void;
 }
 
 const INSERT = "insert";
@@ -93,9 +101,9 @@ function callObservers<T extends object>(oMeta: OMetaBase<T>, changes: Change<T>
 					queueMicrotask(callObserversFromMT.bind(currentObservable));
 				}
 				let rb: [Observer<T>, Change<T>[]] | undefined;
-				for (const btch of currentObservable.batches) {
-					if (btch[0] === target) {
-						rb = btch;
+				for (const batch of currentObservable.batches) {
+					if (batch[0] === target) {
+						rb = batch;
 						break;
 					}
 				}
@@ -260,7 +268,7 @@ function proxiedUnshift<T extends any[]>(this: Observable<T>) {
 
 	return unshiftResult;
 }
-function proxiedReverse<T extends any[]>(this: Observable<T>) {
+function proxiedReverse<T extends any[]>(this: Observable<T>): Observable<T> {
 	const oMeta = this[oMetaKey],
 		target = oMeta.target;
 	let i, l, item;
@@ -421,7 +429,7 @@ function proxiedSplice<T extends any[]>(this: Observable<T>) {
 		spliceContent = new Array(splLen),
 		tarLen = target.length;
 
-	//	observify the newcomers
+	//	make newcomers observable
 	for (let i = 0; i < splLen; i++) {
 		spliceContent[i] = getObservedOf(arguments[i], i, oMeta);
 	}
@@ -438,7 +446,7 @@ function proxiedSplice<T extends any[]>(this: Observable<T>) {
 		spliceResult = Reflect.apply(target.splice, target, spliceContent),
 		newTarLen = target.length;
 
-	//	reindex the paths
+	//	re-index the paths
 	let tmpObserved;
 	for (let i = 0, item; i < newTarLen; i++) {
 		item = target[i];

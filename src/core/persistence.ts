@@ -1,3 +1,8 @@
+/**
+ * Persistence layer (IndexedDB) class
+ * writes, deletes and reads from IndexedDB
+*/
+
 import * as u from "./customUtils";
 import { Datastore, EnsureIndexOptions } from "./datastore";
 import { Index } from "./indexes";
@@ -133,6 +138,9 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		}
 	}
 
+	/**
+	 * serializes & writes a new index using the $$ notation.
+	*/
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
 		return await this.writeData(
 			newIndexes.map((x) => [
@@ -142,9 +150,12 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		);
 	}
 
+	/**
+	 * Copies, strips all default data, and serializes documents then writes it.
+	*/
 	async writeNewData(newDocs: G[]) {
 		if(this.stripDefaults) {
-			newDocs = model.deserialize(model.serialize({t:newDocs})).t // avoid triggering live queries;
+			newDocs = model.deserialize(model.serialize({t:newDocs})).t // avoid triggering live queries when stripping default
 			for (let index = 0; index < newDocs.length; index++) {
 				let doc = newDocs[index]
 				if(doc._stripDefaults) {
@@ -158,6 +169,11 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		);
 	}
 
+	/**
+	 * Processing single line (i.e. value) from IndexedDB
+	 * returns type of line: "index" | "doc" | "corrupt"
+	 * and what to do with it: "add" (to indexes) | "remove" (from indexes)
+	*/
 	treatSingleLine(line: string): persistenceLine {
 		let treatedLine: any;
 		try {
@@ -218,8 +234,9 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 
 	/**
 	 * Load the database
-	 * 1) Create all indexes
-	 * 2) Insert all data
+	 * 1. Reset all indexes
+	 * 2. Create all indexes
+	 * 3. Add data to indexes
 	 */
 	async loadDatabase() {
 		this.db.q.pause();
@@ -283,6 +300,10 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		return true;
 	}
 
+	/**
+	 * Reads data from the database
+	 * (excluding $H: keys hash and documents that actually $deleted)
+	*/
 	async readData(event: PersistenceEvent) {
 		const all = await this.data.values();
 		for (let i = 0; i < all.length; i++) {
@@ -293,6 +314,18 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		event.emit("end", "");
 	}
 
+	/**
+	 * Given that IndexedDB documents ID has the following structure:
+	 * {ID}_{Rev}
+	 * 		where 	{ID} is the actual document ID
+	 * 				{Rev} is a random string of two characters + timestamp
+	 * 
+	 * Deletes data (in bulk)
+	 * by
+	 * 		1. getting all the document (or index) old revisions and deleting them
+	 * 		2. then setting a new document with the same ID but a newer rev with the $deleted value
+	 * 		3. then updating the keys hash
+	*/
 	async deleteData(_ids: string[]) {
 		if (!this.RSA) {
 			await this.data.dels(_ids);
@@ -319,6 +352,19 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		if (this.sync) await this.sync.setL$(keys);
 		return _ids;
 	}
+	
+	/**
+	 * Given that IndexedDB documents ID has the following structure:
+	 * {ID}_{Rev}
+	 * 		where 	{ID} is the actual document ID
+	 * 				{Rev} is a random string of two characters + timestamp
+	 * 
+	 * writes data (in bulk) (inserts & updates)
+	 * by: 	1. getting all the document (or index) old revisions and deleting them
+	 * 		2. then setting a new document with the same ID but a newer rev with the new value
+	 * 			(i.e. a serialized version of the document)
+	 * 		3. then updating the keys hash
+	*/
 	async writeData(input: [string, string][]) {
 		if (!this.RSA) {
 			await this.data.sets(input);
@@ -347,9 +393,11 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		if (this.sync) await this.sync.setR$(keys);
 		return input.map((x) => x[0]);
 	}
+
+
 	/**
 	 * Deletes all data
-	 * deletions will not be syncable
+	 * deletions will NOT sync
 	 */
 	async deleteEverything() {
 		await this.data.clear();

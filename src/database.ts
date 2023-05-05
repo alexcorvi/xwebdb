@@ -80,7 +80,7 @@ export class Database<S extends Doc> {
 	 * Get live queries (observable)
 	 * can be bidirectionally live (to and from DB)
 	 * or either from or to DB
-	*/
+	 */
 	public async live(
 		filter: Filter<S> = {},
 		{
@@ -313,7 +313,7 @@ export class Database<S extends Doc> {
 
 	/**
 	 * Synchronies the database with remote source using the remote adapter
-	*/
+	 */
 	async sync() {
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
@@ -329,7 +329,7 @@ export class Database<S extends Doc> {
 	 * 				B. a check to see whether there are deferred writes/deletes
 	 * 				C. a check to see whether local DB and remote source have same key hashes
 	 * Use this with caution, and only if you know what you're doing
-	*/
+	 */
 	async forceSync() {
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
@@ -342,7 +342,7 @@ export class Database<S extends Doc> {
 	/**
 	 * true: there's a sync in progress
 	 * false: there's no sync in progress
-	*/
+	 */
 	get syncInProgress() {
 		return this._datastore.persistence.syncInProgress;
 	}
