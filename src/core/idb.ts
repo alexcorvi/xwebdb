@@ -156,6 +156,21 @@ export class IDB<T> {
 			return items;
 		});
 	}
+
+	valuesSequential(itemCallback: (item: T) => void, endCallback: ()=>void) {
+		this.store("readonly", async (store) => {
+			const cursor = store.openCursor();
+			cursor.onsuccess = function (ev) {
+				if(this.result) {
+					itemCallback(this.result.value);
+					this.result.continue();
+				} else {
+					endCallback();
+				}
+			};
+		});
+	}
+
 	async length() {
 		return (await this.keys()).length
 	}

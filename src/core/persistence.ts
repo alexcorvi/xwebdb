@@ -1,7 +1,7 @@
 /**
  * Persistence layer (IndexedDB) class
  * writes, deletes and reads from IndexedDB
-*/
+ */
 
 import * as u from "./customUtils";
 import { Datastore, EnsureIndexOptions } from "./datastore";
@@ -77,9 +77,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	encode = (s: string) => s;
 	decode = (s: string) => s;
 	stripDefaults: boolean = false;
-	private _model:
-		| typeof Doc
-		| undefined;
+	private _model: typeof Doc | undefined;
 	constructor(options: PersistenceOptions<G, C>) {
 		this._model = options.model;
 		this.db = options.db;
@@ -112,9 +110,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		}
 
 		this.corruptAlertThreshold =
-			options.corruptAlertThreshold !== undefined
-				? options.corruptAlertThreshold
-				: 0.1;
+			options.corruptAlertThreshold !== undefined ? options.corruptAlertThreshold : 0.1;
 
 		// encode and decode hooks with some basic sanity checks
 		if (options.encode && !options.decode) {
@@ -140,25 +136,22 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 
 	/**
 	 * serializes & writes a new index using the $$ notation.
-	*/
+	 */
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
 		return await this.writeData(
-			newIndexes.map((x) => [
-				x.$$indexCreated.fieldName,
-				this.encode(model.serialize(x)),
-			])
+			newIndexes.map((x) => [x.$$indexCreated.fieldName, this.encode(model.serialize(x))])
 		);
 	}
 
 	/**
 	 * Copies, strips all default data, and serializes documents then writes it.
-	*/
+	 */
 	async writeNewData(newDocs: G[]) {
-		if(this.stripDefaults) {
-			newDocs = model.deserialize(model.serialize({t:newDocs})).t // avoid triggering live queries when stripping default
+		if (this.stripDefaults) {
+			newDocs = model.deserialize(model.serialize({ t: newDocs })).t; // avoid triggering live queries when stripping default
 			for (let index = 0; index < newDocs.length; index++) {
-				let doc = newDocs[index]
-				if(doc._stripDefaults) {
+				let doc = newDocs[index];
+				if (doc._stripDefaults) {
 					newDocs[index] = doc._stripDefaults();
 				}
 			}
@@ -173,7 +166,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * Processing single line (i.e. value) from IndexedDB
 	 * returns type of line: "index" | "doc" | "corrupt"
 	 * and what to do with it: "add" (to indexes) | "remove" (from indexes)
-	*/
+	 */
 	treatSingleLine(line: string): persistenceLine {
 		let treatedLine: any;
 		try {
@@ -188,10 +181,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 				data: false,
 			};
 		}
-		if (
-			treatedLine._id &&
-			!(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)
-		) {
+		if (treatedLine._id && !(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)) {
 			if (treatedLine.$$deleted === true) {
 				return {
 					type: "doc",
@@ -266,9 +256,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		for (let index = 0; index < indexes.length; index++) {
 			const line = indexes[index];
 			if (line.status === "add") {
-				this.db.indexes[line.data.fieldName] = new Index(
-					line.data.data
-				);
+				this.db.indexes[line.data.fieldName] = new Index(line.data.data);
 			}
 			if (line.status === "remove") {
 				delete this.db.indexes[line.data.fieldName];
@@ -303,15 +291,20 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	/**
 	 * Reads data from the database
 	 * (excluding $H: keys hash and documents that actually $deleted)
-	*/
-	async readData(event: PersistenceEvent) {
-		const all = await this.data.values();
-		for (let i = 0; i < all.length; i++) {
-			const line = all[i];
-			if (!line.startsWith("$H") && line !== "$deleted")
-				event.emit("readLine", line);
-		}
-		event.emit("end", "");
+	 */
+	readData(event: PersistenceEvent): Promise<null> {
+		return new Promise((resolve, reject) => {
+			this.data.valuesSequential(
+				(line) => {
+					if (!line.startsWith("$H") && line !== "$deleted")
+						event.emit("readLine", line);
+				},
+				() => {
+					event.emit("end", "");
+					resolve(null);
+				}
+			);
+		});
 	}
 
 	/**
@@ -319,13 +312,13 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * {ID}_{Rev}
 	 * 		where 	{ID} is the actual document ID
 	 * 				{Rev} is a random string of two characters + timestamp
-	 * 
+	 *
 	 * Deletes data (in bulk)
 	 * by
 	 * 		1. getting all the document (or index) old revisions and deleting them
 	 * 		2. then setting a new document with the same ID but a newer rev with the $deleted value
 	 * 		3. then updating the keys hash
-	*/
+	 */
 	async deleteData(_ids: string[]) {
 		if (!this.RSA) {
 			await this.data.dels(_ids);
@@ -337,10 +330,8 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 
 		for (let index = 0; index < _ids.length; index++) {
 			const _id = _ids[index];
-			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(_id + "_")) || "";
-			const newRev =
-				Math.random().toString(36).substring(2, 4) + Date.now();
+			const oldIDRev = keys.find((key) => key.toString().startsWith(_id + "_")) || "";
+			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
 			oldIDRevs.push(oldIDRev);
 			newIDRevs.push(newIDRev);
@@ -352,19 +343,19 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		if (this.sync) await this.sync.setL$(keys);
 		return _ids;
 	}
-	
+
 	/**
 	 * Given that IndexedDB documents ID has the following structure:
 	 * {ID}_{Rev}
 	 * 		where 	{ID} is the actual document ID
 	 * 				{Rev} is a random string of two characters + timestamp
-	 * 
+	 *
 	 * writes data (in bulk) (inserts & updates)
 	 * by: 	1. getting all the document (or index) old revisions and deleting them
 	 * 		2. then setting a new document with the same ID but a newer rev with the new value
 	 * 			(i.e. a serialized version of the document)
 	 * 		3. then updating the keys hash
-	*/
+	 */
 	async writeData(input: [string, string][]) {
 		if (!this.RSA) {
 			await this.data.sets(input);
@@ -377,11 +368,8 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		for (let index = 0; index < input.length; index++) {
 			const element = input[index];
 			const oldIDRev =
-				keys.find((key) =>
-					key.toString().startsWith(element[0] + "_")
-				) || "";
-			const newRev =
-				Math.random().toString(36).substring(2, 4) + Date.now();
+				keys.find((key) => key.toString().startsWith(element[0] + "_")) || "";
+			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = element[0] + "_" + newRev;
 			oldIDRevs.push(oldIDRev);
 			newIDRevsData.push([newIDRev, element[1]]);
@@ -393,7 +381,6 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		if (this.sync) await this.sync.setR$(keys);
 		return input.map((x) => x[0]);
 	}
-
 
 	/**
 	 * Deletes all data
