@@ -1,3 +1,7 @@
+/**
+ * Promise-base interface for interacting with indexedDB
+ */
+
 export type UseStore = <T>(
 	txMode: IDBTransactionMode,
 	callback: (store: IDBObjectStore) => T | PromiseLike<T>
@@ -118,7 +122,6 @@ export class IDB<T> {
 
 	/**
 	 * Get all keys in the store.
-	 *
 	 */
 	keys(): Promise<string[]> {
 		return this.store("readonly", async (store) => {
@@ -162,6 +165,14 @@ export class IDB<T> {
 					endCallback();
 				}
 			};
+		});
+	}
+
+	async startsWith(prefix: string) {
+		return this.store("readonly", async (store) => {
+			const range = IDBKeyRange.bound(prefix, prefix + "\uffff", false, true);
+			let a = await this.pr(store.openKeyCursor(range));
+			return a?.key.toString();
 		});
 	}
 
