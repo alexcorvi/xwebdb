@@ -378,7 +378,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		}
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevsData);
-		if (this.sync) await this.sync.setR$(keys);
+		if (this.sync) await this.sync.setL$(keys);
 		return input.map((x) => x[0]);
 	}
 
