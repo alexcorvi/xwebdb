@@ -68,7 +68,7 @@ export class Dictionary<D extends object> {
 		if (Array.isArray(key)) return key.map((x) => this.get(unify(x))).flat(1);
 		return this.documents.get(unify(key)) || [];
 	}
-	public delete(key: D[keyof D], document: D): boolean {
+	delete(key: D[keyof D], document: D): boolean {
 		key = unify(key);
 		const index = this.binarySearch(key);
 		if (index === -1) {
@@ -83,7 +83,7 @@ export class Dictionary<D extends object> {
 		return true;
 	}
 
-	public findInsertionIndex(key: D[keyof D]): number {
+	findInsertionIndex(key: D[keyof D]): number {
 		key = unify(key);
 		let low = 0;
 		let high = this.keys.length;
@@ -98,7 +98,7 @@ export class Dictionary<D extends object> {
 		return low;
 	}
 
-	private binarySearch(key: D[keyof D]): number {
+	binarySearch(key: D[keyof D]): number {
 		key = unify(key);
 		let low = 0;
 		let high = this.keys.length - 1;
