@@ -15,8 +15,8 @@ export class IDB<T> {
 		request.onupgradeneeded = () => request.result.createObjectStore(name);
 		const dbp = this.pr(request);
 
-		this.store = (txMode, callback) =>
-			dbp.then((db) => callback(db.transaction(name, txMode).objectStore(name)));
+		this.store = (txMode , callback) =>
+			dbp.then((db) => callback(db.transaction(name, txMode, { durability: "relaxed" }).objectStore(name)));
 	}
 
 	private pr<T>(req: IDBRequest<T> | IDBTransaction): Promise<T> {
