@@ -298,10 +298,8 @@ export class Sync {
 					})
 				);
 			}
-			const oldIDRev =
-				localKeys.find((key) =>
-					key.toString().startsWith(diff.key.split("_")[0] + "_")
-				) || "";
+			const diff_id_ = diff.key.split("_")[0] + "_";
+			const oldIDRev = localKeys.find((key) => key.startsWith(diff_id_)) || "";
 			if (oldIDRev) downRemove.push(oldIDRev);
 			downSet.push([diff.key, diff.value]);
 		}
@@ -313,10 +311,8 @@ export class Sync {
 		const upSet: { key: string; value: string }[] = [];
 		for (let index = 0; index < localDiffs.length; index++) {
 			const diff = localDiffs[index];
-			const oldIDRev =
-				remoteKeys.find((key) =>
-					key.toString().startsWith(diff.key.split("_")[0] + "_")
-				) || "";
+			const diff_id_ = diff.key.split("_")[0] + "_";
+			const oldIDRev = remoteKeys.find((key) => key.startsWith(diff_id_)) || "";
 			if (oldIDRev) upRemove.push(oldIDRev);
 			upSet.push({ key: diff.key, value: diff.value });
 		}
