@@ -51,17 +51,20 @@ export class Sync {
 	}
 
 	// set local hash
-	async setL$(keys?: string[]) {
-		if (!keys) keys = (await this.p.data.keys()) as string[];
-		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
-		this.p.data.set("$H", "$H" + hash + "_" + this.ts());
+	async setL$(unique: string) {
+		await this.p.data.set("$H", "$H" + unique + "_" + this.ts());
 	}
 
 	// set remote hash
-	async setR$(keys?: string[]) {
-		if (!keys) keys = (await this.rdata.keys()) as string[];
-		const hash = u.xxh(JSON.stringify(keys.sort(asc))).toString();
-		this.rdata.setItem("$H", "$H" + hash + "_" + this.ts());
+	async setR$(unique: string) {
+		await this.rdata.setItem("$H", "$H" + unique + "_" + this.ts());
+	}
+
+	// unifrom value for both local and remote hash
+	async unify$H() {
+		const unique = Math.random().toString(36).substring(2);
+		await this.setL$(unique);
+		await this.setR$(unique);
 	}
 
 	// time signature, added to the hash so we can invalidate the hash
@@ -273,8 +276,7 @@ export class Sync {
 		}
 
 		if (remoteDiffs.length === 0 && localDiffs.length === 0) {
-			await this.setL$();
-			await this.setR$();
+			await this.setL$(rHash.split("_")[0].substring(2));
 			return { sent: 0, received: 0, diff: 0 };
 		}
 
@@ -322,7 +324,6 @@ export class Sync {
 		}
 		await this.p.data.dels(downRemove);
 		await this.p.data.sets(downSet);
-		await this.setL$();
 
 		// uploading
 		const upRemove: string[] = [];
@@ -338,16 +339,15 @@ export class Sync {
 		}
 		await this.rdata.removeItems(upRemove);
 		await this.rdata.setItems(upSet);
-		await this.setR$();
+
 		await this.p.loadDatabase();
 		try {
 			this.p.db.live.update();
 		} catch (e) {
-			console.error(
-				`XWebDB: Could not do live updates due to an error:`,
-				e
-			);
+			console.error(`XWebDB: Could not do live updates due to an error:`, e);
 		}
+
+		await this.unify$H();
 		return {
 			sent: localDiffs.length,
 			received: remoteDiffs.length,

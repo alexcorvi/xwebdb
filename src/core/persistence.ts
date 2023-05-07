@@ -324,23 +324,19 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			await this.data.dels(_ids);
 			return _ids;
 		}
-		const keys = await this.data.keys();
 		const oldIDRevs: string[] = [];
 		const newIDRevs: string[] = [];
-
 		for (let index = 0; index < _ids.length; index++) {
 			const _id = _ids[index];
-			const oldIDRev = keys.find((key) => key.toString().startsWith(_id + "_")) || "";
+			const oldIDRev = (await this.data.startsWith(_id + "_")) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
 			oldIDRevs.push(oldIDRev);
 			newIDRevs.push(newIDRev);
-			keys.splice(keys.indexOf(oldIDRev), 1);
-			keys.push(newIDRev);
 		}
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
-		if (this.sync) await this.sync.setL$(keys);
+		if (this.sync) await this.sync.setL$("updated");
 		return _ids;
 	}
 
@@ -361,24 +357,20 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			await this.data.sets(input);
 			return input.map((x) => x[0]);
 		}
-		const keys = await this.data.keys();
 		const oldIDRevs: string[] = [];
 		const newIDRevsData: [string, string][] = [];
 
 		for (let index = 0; index < input.length; index++) {
 			const element = input[index];
-			const oldIDRev =
-				keys.find((key) => key.toString().startsWith(element[0] + "_")) || "";
+			const oldIDRev = (await this.data.startsWith(element[0] + "_")) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = element[0] + "_" + newRev;
 			oldIDRevs.push(oldIDRev);
 			newIDRevsData.push([newIDRev, element[1]]);
-			keys.splice(keys.indexOf(oldIDRev), 1);
-			keys.push(newIDRev);
 		}
 		await this.data.dels(oldIDRevs);
 		await this.data.sets(newIDRevsData);
-		if (this.sync) await this.sync.setL$(keys);
+		if (this.sync) await this.sync.setL$("updated");
 		return input.map((x) => x[0]);
 	}
 
