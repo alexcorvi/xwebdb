@@ -31,15 +31,6 @@ export function uid(): string {
 	);
 }
 
-export function randomString(len: number = 8) {
-	return Array.from(new Uint8Array(120))
-		.map((x) => Math.random().toString(36))
-		.join("")
-		.split("0.")
-		.join("")
-		.substring(0, len);
-}
-
 
 /**
  * XXHash32

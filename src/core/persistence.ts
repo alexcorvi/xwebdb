@@ -126,7 +126,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this.encode = options.encode || this.encode;
 		this.decode = options.decode || this.decode;
 
-		let randomString = u.randomString(113);
+		let randomString = u.uid();
 		if (this.decode(this.encode(randomString)) !== randomString) {
 			throw new Error(
 				"XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
