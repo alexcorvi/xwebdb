@@ -78,41 +78,32 @@ export class Sync {
 	 * and whether there are deferred writes or deletes
 	 */
 	sync() {
-		return new Promise<{
-			sent: number;
-			received: number;
-			diff: -1 | 0 | 1;
-		}>((resolve, reject) => {
-			let interval = setInterval(async () => {
-				if (
-					!this.p.syncInProgress || // should not sync when there's already a sync in progress
-					this.p.db.deferredDeletes.length +
-						this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
-				) {
-					clearInterval(interval);
+		if (
+			this.p.syncInProgress || // should not sync when there's already a sync in progress
+			this.p.db.deferredDeletes.length + this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
+		) {
+			return new Promise<{ sent: number; received: number; diff: number }>((resolve) => {
+				setTimeout(() => resolve(this.sync()), 0);
+			});
+		} else
+			return new Promise<{ sent: number; received: number; diff: number }>(
+				async (resolve, reject) => {
 					this.p.syncInProgress = true;
-					let syncResult: {
-						sent: number;
-						received: number;
-						diff: -1 | 0 | 1;
-					} = { sent: 0, received: 0, diff: -1 };
-					let err = undefined;
-					try {
-						syncResult = await this._sync();
-					} catch (e) {
-						err = Error(e as any);
-					}
-					this.p.syncInProgress = false;
-					if (err) reject(err);
-					else resolve(syncResult);
+					this._sync()
+						.then((sRes) => {
+							resolve(sRes);
+						})
+						.catch(reject)
+						.finally(() => {
+							this.p.syncInProgress = false;
+						});
 				}
-			}, 1);
-		});
+			);
 	}
 
 	/**
 	 * When finding a diff, decide what to do with it:
-	 * "this" means docs that should be uploaded 
+	 * "this" means docs that should be uploaded
 	 * "that" means docs that should be downloaded		--> or vice versa
 	 * A. if there's a conflict (a key should be downloaded & uploaded at the same sync instance)
 	 * 		Decide a winner:
