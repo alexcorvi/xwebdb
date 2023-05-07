@@ -233,12 +233,11 @@ export class Sync {
 			return { sent: 0, received: 0, diff: -1 };
 		}
 
-		const remoteKeys = (await this.rdata!.keys())
-			.filter((x) => x !== "$H")
-			.sort(asc);
-		const localKeys = ((await this.p.data.keys()) as string[])
-			.filter((x) => x !== "$H")
-			.sort(asc);
+		const remoteKeys = (await this.rdata!.keys()).sort(asc);
+		const localKeys = ((await this.p.data.keys()) as string[]).sort(asc);
+
+		remoteKeys.splice(remoteKeys.indexOf("$H"), 1); // removing $H
+		localKeys.splice(localKeys.indexOf("$H"), 1);
 
 		const remoteDiffs: diff[] = [];
 		const localDiffs: diff[] = [];
