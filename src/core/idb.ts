@@ -12,9 +12,7 @@ export class IDB<T> {
 		const dbp = this.pr(request);
 
 		this.store = (txMode, callback) =>
-			dbp.then((db) =>
-				callback(db.transaction(name, txMode).objectStore(name))
-			);
+			dbp.then((db) => callback(db.transaction(name, txMode).objectStore(name)));
 	}
 
 	private pr<T>(req: IDBRequest<T> | IDBTransaction): Promise<T> {
@@ -131,9 +129,7 @@ export class IDB<T> {
 
 			const items: string[] = [];
 
-			await this.eachCursor(store, (cursor) =>
-				items.push(cursor.key as string)
-			);
+			await this.eachCursor(store, (cursor) => items.push(cursor.key as string));
 			return items;
 		});
 	}
@@ -150,18 +146,16 @@ export class IDB<T> {
 
 			const items: T[] = [];
 
-			await this.eachCursor(store, (cursor) =>
-				items.push(cursor.value as T)
-			);
+			await this.eachCursor(store, (cursor) => items.push(cursor.value as T));
 			return items;
 		});
 	}
 
-	valuesSequential(itemCallback: (item: T) => void, endCallback: ()=>void) {
+	valuesSequential(itemCallback: (item: T) => void, endCallback: () => void) {
 		this.store("readonly", async (store) => {
 			const cursor = store.openCursor();
-			cursor.onsuccess = function (ev) {
-				if(this.result) {
+			cursor.onsuccess = function () {
+				if (this.result) {
 					itemCallback(this.result.value);
 					this.result.continue();
 				} else {
@@ -172,6 +166,6 @@ export class IDB<T> {
 	}
 
 	async length() {
-		return (await this.keys()).length
+		return (await this.keys()).length;
 	}
 }
