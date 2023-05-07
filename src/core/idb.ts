@@ -170,9 +170,9 @@ export class IDB<T> {
 
 	async startsWith(prefix: string) {
 		return this.store("readonly", async (store) => {
-			const range = IDBKeyRange.bound(prefix, prefix + "\uffff", false, true);
-			let a = await this.pr(store.openKeyCursor(range));
-			return a?.key.toString();
+			return await this.pr(
+				store.getKey(IDBKeyRange.bound(prefix, prefix + "\uffff", false, true))
+			);
 		});
 	}
 
