@@ -292,19 +292,13 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * Reads data from the database
 	 * (excluding $H: keys hash and documents that actually $deleted)
 	 */
-	readData(event: PersistenceEvent): Promise<null> {
-		return new Promise((resolve, reject) => {
-			this.data.valuesSequential(
-				(line) => {
-					if (!line.startsWith("$H") && line !== "$deleted")
-						event.emit("readLine", line);
-				},
-				() => {
-					event.emit("end", "");
-					resolve(null);
-				}
-			);
-		});
+	async readData(event: PersistenceEvent) {
+		let all = await this.data.values();
+		for (let index = 0; index < all.length; index++) {
+			const line = all[index];
+			if (!line.startsWith("$H") && line !== "$deleted") event.emit("readLine", line);
+		}
+		event.emit("end", "");
 	}
 
 	/**
