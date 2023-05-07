@@ -181,7 +181,7 @@ export class Dictionary<D extends object> {
 				break;
 			}
 		}
-		matchedIndexes.sort(this.comparator);
+		matchedIndexes.sort((a,b)=>a === b ? 0 : a > b ? 1 : -1);
 		let data: D[] = [];
 		for (let i = 0; i < matchedIndexes.length; i++) {
 			const foundIndex = matchedIndexes[i];
