@@ -89,8 +89,8 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this.invalidateHash = options.invalidateHash || 0;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
-			const rdata = this.RSA(this.ref);
-			this.sync = new Sync(this, rdata);
+			const remoteData = this.RSA(this.ref);
+			this.sync = new Sync(this, remoteData);
 		}
 
 		if (this.RSA && this.syncInterval) {
@@ -115,12 +115,12 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		// encode and decode hooks with some basic sanity checks
 		if (options.encode && !options.decode) {
 			throw new Error(
-				"XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
+				"XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent data loss"
 			);
 		}
 		if (!options.encode && options.decode) {
 			throw new Error(
-				"XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss"
+				"XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent data loss"
 			);
 		}
 		this.encode = options.encode || this.encode;
@@ -129,7 +129,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		let randomString = u.uid();
 		if (this.decode(this.encode(randomString)) !== randomString) {
 			throw new Error(
-				"XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss"
+				"XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent data loss"
 			);
 		}
 	}
