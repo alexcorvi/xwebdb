@@ -87,7 +87,7 @@ export class Sync {
 			});
 		} else
 			return new Promise<{ sent: number; received: number; diff: number }>(
-				async (resolve, reject) => {
+				(resolve, reject) => {
 					this.p.syncInProgress = true;
 					this._sync()
 						.then((sRes) => {
