@@ -2,15 +2,15 @@
  * This is the synchronization class that uses the remote sync adapter
  * to send and receive data.
  * How it does it:
- * 
+ *
  * Considering that the persistence layer is actually a key/value store
  * It sets the key to: {ID}_{Rev}
  * where 	{ID}: is document ID
  * 			{Rev}: is document revision
- * 
+ *
  * And each database (local & remote) has a special document ($H)
  * where it stores a hash of the existing revisions
- * 
+ *
  * When calling the _sync() method:
  * 1. it compares the local and remote hash if they are equal, it stops
  * 2. gets the difference between the two databases
@@ -19,20 +19,19 @@
  * 5. uploads and downloads documents
  * 6. documents that win overwrite documents that lose
  * 7. sets local and remote hash of the keys
- * 
+ *
  * This is a very simple synchronization protocol, but it has the following advantages
  * 		A. it uses the least amount of data overhead
  * 			i.e. there's no need for compression, logs, compaction...etc.
  * 		B. there's no need for custom conflict resolution strategies
- * 
+ *
  * However, there's drawbacks:
  * 		A. Can't use custom conflict resolution strategies if there's a need
  * 		B. updates on different fields of the documents can't get merged (last write-wins always)
  * 		C. Can't get a history of the document (do we need it?)
-*/
+ */
 
 import { Persistence, persistenceLine } from "./persistence";
-import * as u from "./customUtils";
 import { remoteStore } from "./adapters/type";
 import { Index } from "./indexes";
 import * as modelling from "./model/";
@@ -77,7 +76,7 @@ export class Sync {
 	 * This method sits in-front of the actually _sync method
 	 * It checks whether there's an already a sync in progress
 	 * and whether there are deferred writes or deletes
-	*/
+	 */
 	sync() {
 		return new Promise<{
 			sent: number;
@@ -120,7 +119,7 @@ export class Sync {
 	 * 			"this" wins: remove it from "that" and add it to "this"
 	 * 			"that" wins: don't do anything
 	 * B. No conflict: add it regularly
-	 * 
+	 *
 	 * in total: this adds and removes from two arrays,
 	 * one array is of docs that should be uploaded
 	 * and one of docs that should be downloaded
@@ -134,9 +133,7 @@ export class Sync {
 		const _id = key.split("_")[0];
 		const rev = key.split("_")[1];
 		const thisTime = Number(rev.substring(2));
-		const conflictingIndex = thatDiffs.findIndex((x) =>
-			x.key.startsWith(_id + "_")
-		);
+		const conflictingIndex = thatDiffs.findIndex((x) => x.key.startsWith(_id + "_"));
 		if (conflictingIndex > -1) {
 			const conflicting = thatDiffs[conflictingIndex];
 			const conflictingRev = conflicting.key.split("_")[1];
@@ -179,12 +176,8 @@ export class Sync {
 				line.data._id = null;
 				this.p.db.addToIndexes(line.data);
 			} else {
-				this.p.db.indexes[line.data.fieldName] = new Index(
-					line.data.data
-				);
-				this.p.db.indexes[line.data.fieldName].insert(
-					this.p.db.getAllData()
-				);
+				this.p.db.indexes[line.data.fieldName] = new Index(line.data.data);
+				this.p.db.indexes[line.data.fieldName].insert(this.p.db.getAllData());
 			}
 		} catch (e) {
 			if (line.type === "doc") {
@@ -217,7 +210,7 @@ export class Sync {
 	 * 			-1: hashes are equal, didn't do anything
 	 * 			0: hashes are different, but keys are equal, just updated the hashes
 	 * 			1: found a diff in documents and did a full synchronization process.
-	*/
+	 */
 	async _sync(force: boolean = false): Promise<{
 		sent: number;
 		received: number;
@@ -230,8 +223,7 @@ export class Sync {
 		if (
 			!force &&
 			hashTime === timeSignature &&
-			(lHash === rHash ||
-				(lHash === "0" && (rHash || "").indexOf("10009") > -1))
+			(lHash === rHash || (lHash === "0" && (rHash || "").indexOf("10009") > -1))
 		) {
 			return { sent: 0, received: 0, diff: -1 };
 		}
