@@ -331,7 +331,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			const oldIDRev = (await this.data.startsWith(_id + "_")) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
-			oldIDRevs.push(oldIDRev);
+			oldIDRevs.push(oldIDRev.toString());
 			newIDRevs.push(newIDRev);
 		}
 		await this.data.dels(oldIDRevs);
@@ -365,7 +365,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			const oldIDRev = (await this.data.startsWith(element[0] + "_")) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = element[0] + "_" + newRev;
-			oldIDRevs.push(oldIDRev);
+			oldIDRevs.push(oldIDRev.toString());
 			newIDRevsData.push([newIDRev, element[1]]);
 		}
 		await this.data.dels(oldIDRevs);
