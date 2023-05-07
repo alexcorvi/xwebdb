@@ -9,6 +9,7 @@ import {
 	modelling,
 	adapters,
 	observable,
+	Dictionary
 } from "./core";
 import { Database } from "./database";
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
@@ -23,6 +24,7 @@ const _internal = {
 	Q,
 	Persistence,
 	PersistenceEvent,
+	Dictionary
 };
 
 export { Database, Doc, SubDoc, mapSubModel, adapters, _internal };

@@ -7,3 +7,4 @@ export { Persistence, PersistenceEvent } from "./persistence";
 export { Q } from "./q";
 export * as adapters from "./adapters"
 export * as observable from "./observable"
+export { Dictionary } from "./dictionary"
