@@ -27,7 +27,7 @@ export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	sync?: {
 		syncToRemote?: (name: string) => remoteStore;
 		syncInterval?: number;
-		invalidateHash?: number;
+		invalidate$H?: number;
 	};
 	deferPersistence?: number;
 	stripDefaults?: boolean;
@@ -61,7 +61,7 @@ export class Database<S extends Doc> {
 			timestampData: options.timestampData,
 			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
-			invalidateHash: options.sync ? options.sync.invalidateHash : undefined,
+			invalidate$H: options.sync ? options.sync.invalidate$H : undefined,
 			defer: options.deferPersistence,
 			stripDefaults: options.stripDefaults || false,
 		});
@@ -327,7 +327,7 @@ export class Database<S extends Doc> {
 	 * Forcefully sync the database with remote source using the remote adapter
 	 * bypassing: 	A. a check to see whether other sync action is in progress
 	 * 				B. a check to see whether there are deferred writes/deletes
-	 * 				C. a check to see whether local DB and remote source have same key hashes
+	 * 				C. a check to see whether local DB and remote source have same $H
 	 * Use this with caution, and only if you know what you're doing
 	 */
 	async forceSync() {

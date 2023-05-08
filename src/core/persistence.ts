@@ -57,7 +57,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	model?: typeof Doc;
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
-	invalidateHash?: number;
+	invalidate$H?: number;
 	stripDefaults?: boolean;
 }
 
@@ -72,7 +72,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	syncInterval = 0;
 	syncInProgress = false;
 	sync?: Sync;
-	invalidateHash: number = 0;
+	invalidate$H: number = 0;
 	corruptAlertThreshold: number = 0.1;
 	encode = (s: string) => s;
 	decode = (s: string) => s;
@@ -86,7 +86,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
-		this.invalidateHash = options.invalidateHash || 0;
+		this.invalidate$H = options.invalidate$H || 0;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
 			const remoteData = this.RSA(this.ref);
@@ -290,7 +290,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 
 	/**
 	 * Reads data from the database
-	 * (excluding $H: keys hash and documents that actually $deleted)
+	 * (excluding $H and documents that actually $deleted)
 	 */
 	async readData(event: PersistenceEvent) {
 		let all = await this.data.values();
@@ -311,7 +311,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * by
 	 * 		1. getting all the document (or index) old revisions and deleting them
 	 * 		2. then setting a new document with the same ID but a newer rev with the $deleted value
-	 * 		3. then updating the keys hash
+	 * 		3. then setting $H to a value indicating that a sync operation should progress
 	 */
 	async deleteData(_ids: string[]) {
 		if (!this.RSA) {
@@ -344,7 +344,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * by: 	1. getting all the document (or index) old revisions and deleting them
 	 * 		2. then setting a new document with the same ID but a newer rev with the new value
 	 * 			(i.e. a serialized version of the document)
-	 * 		3. then updating the keys hash
+	 * 		3. then setting $H to a value indicating that a sync operation should progress
 	 */
 	async writeData(input: [string, string][]) {
 		if (!this.RSA) {

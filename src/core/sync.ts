@@ -9,16 +9,16 @@
  * 			{Rev}: is document revision
  *
  * And each database (local & remote) has a special document ($H)
- * where it stores a hash of the existing revisions
+ * where it stores a value that once not equal between two DBs they should sync
  *
  * When calling the _sync() method:
- * 1. it compares the local and remote hash if they are equal, it stops
+ * 1. it compares the local and remote $H if they are equal, it stops
  * 2. gets the difference between the two databases
  * 3. resolves conflicts by last-write wins algorithm (can't be otherwise)
  * 4. resolves errors that can be caused by unique violation constraints (also by last-write wins)
  * 5. uploads and downloads documents
  * 6. documents that win overwrite documents that lose
- * 7. sets local and remote hash of the keys
+ * 7. sets local and remote $H
  *
  * This is a very simple synchronization protocol, but it has the following advantages
  * 		A. it uses the least amount of data overhead
@@ -49,27 +49,27 @@ export class Sync {
 		this.rdata = rdata;
 	}
 
-	// set local hash
+	// set local $H
 	async setL$(unique: string) {
 		await this.p.data.set("$H", "$H" + unique + "_" + this.ts());
 	}
 
-	// set remote hash
+	// set remote $H
 	async setR$(unique: string) {
 		await this.rdata.setItem("$H", "$H" + unique + "_" + this.ts());
 	}
 
-	// unifrom value for both local and remote hash
+	// unifrom value for both local and remote $H
 	async unify$H() {
 		const unique = Math.random().toString(36).substring(2);
 		await this.setL$(unique);
 		await this.setR$(unique);
 	}
 
-	// time signature, added to the hash so we can invalidate the hash
+	// time signature, added to the $H so we can invalidate it
 	// after a specific amount of time
 	private ts() {
-		return Math.floor(Date.now() / this.p.invalidateHash);
+		return Math.floor(Date.now() / this.p.invalidate$H);
 	}
 
 	/**
@@ -191,15 +191,15 @@ export class Sync {
 	}
 
 	/**
-	 * Compare the local and remote hash
+	 * Compare the local and remote $H
 	 * if there's a difference:
 	 * 		A. get a diff of the keys
 	 * 		B. decide which documents to upload and to download (using the above strategy)
-	 * 		C. Sets remote and local hash
+	 * 		C. Sets remote and local $H
 	 * 		D. returns the number of sent and received documents
 	 * 			in addition to a number indicating whether this method actually did a sync
-	 * 			-1: hashes are equal, didn't do anything
-	 * 			0: hashes are different, but keys are equal, just updated the hashes
+	 * 			-1: $H are equal, didn't do anything
+	 * 			0: $H are different, but keys are equal, just updated the $H
 	 * 			1: found a diff in documents and did a full synchronization process.
 	 */
 	async _sync(force: boolean = false): Promise<{
@@ -208,13 +208,13 @@ export class Sync {
 		diff: -1 | 0 | 1;
 	}> {
 		const timeSignature = this.ts().toString();
-		const rHash = (await this.rdata!.getItem("$H")) || "0";
-		const lHash = (await this.p.data.get("$H")) || "0";
-		const hashTime = lHash.split("_")[1];
+		const r$H = (await this.rdata!.getItem("$H")) || "0";
+		const l$H = (await this.p.data.get("$H")) || "0";
+		const $HTime = l$H.split("_")[1];
 		if (
 			!force &&
-			hashTime === timeSignature &&
-			(lHash === rHash || (lHash === "0" && (rHash || "").indexOf("10009") > -1))
+			$HTime === timeSignature &&
+			(l$H === r$H || (l$H === "0" && (r$H || "").indexOf("10009") > -1))
 		) {
 			return { sent: 0, received: 0, diff: -1 };
 		}
@@ -259,7 +259,7 @@ export class Sync {
 		}
 
 		if (remoteDiffs.length === 0 && localDiffs.length === 0) {
-			await this.setL$(rHash.split("_")[0].substring(2));
+			await this.setL$(r$H.split("_")[0].substring(2));
 			return { sent: 0, received: 0, diff: 0 };
 		}
 
