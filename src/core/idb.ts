@@ -63,29 +63,6 @@ export class IDB<T> {
 	}
 
 	/**
-	 * Get multiple values by their keys
-	 *
-	 * @param keys
-	 */
-	gets(keys: string[]): Promise<T[]> {
-		return this.store("readonly", (store) =>
-			Promise.all(keys.map((key) => this.pr(store.get(key))))
-		);
-	}
-
-	/**
-	 * Delete a particular key from the store.
-	 *
-	 * @param key
-	 */
-	del(key: string): Promise<void> {
-		return this.store("readwrite", (store) => {
-			store.delete(key);
-			return this.pr(store.transaction);
-		});
-	}
-
-	/**
 	 * Delete multiple keys at once.
 	 *
 	 * @param keys List of keys to delete.
@@ -151,20 +128,6 @@ export class IDB<T> {
 
 			await this.eachCursor(store, (cursor) => items.push(cursor.value as T));
 			return items;
-		});
-	}
-
-	valuesSequential(itemCallback: (item: T) => void, endCallback: () => void) {
-		this.store("readonly", async (store) => {
-			const cursor = store.openCursor();
-			cursor.onsuccess = function () {
-				if (this.result) {
-					itemCallback(this.result.value);
-					this.result.continue();
-				} else {
-					endCallback();
-				}
-			};
 		});
 	}
 
