@@ -15,10 +15,17 @@ export class IDB<T> {
 		request.onupgradeneeded = () => request.result.createObjectStore(name);
 		const dbp = this.pr(request);
 
-		this.store = (txMode , callback) =>
-			dbp.then((db) => callback(db.transaction(name, txMode, { durability: "relaxed" }).objectStore(name)));
+		this.store = (txMode, callback) =>
+			dbp.then((db) =>
+				callback(
+					db.transaction(name, txMode, { durability: "relaxed" }).objectStore(name)
+				)
+			);
 	}
 
+	/**
+	 * Converts IDB requests/transactions to promises.
+	 */
 	private pr<T>(req: IDBRequest<T> | IDBTransaction): Promise<T> {
 		return new Promise<T>((resolve, reject) => {
 			// @ts-ignore - file size hacks
@@ -29,8 +36,22 @@ export class IDB<T> {
 	}
 
 	/**
+	 * Converts cursor iterations to promises
+	 */
+	private eachCursor(
+		store: IDBObjectStore,
+		callback: (cursor: IDBCursorWithValue) => void
+	): Promise<void> {
+		store.openCursor().onsuccess = function () {
+			if (!this.result) return;
+			callback(this.result);
+			this.result.continue();
+		};
+		return this.pr(store.transaction);
+	}
+
+	/**
 	 * Get a value by its key.
-	 * @param key
 	 */
 	get(key: string): Promise<T | undefined> {
 		return this.store("readonly", (store) => this.pr(store.get(key)));
@@ -38,9 +59,6 @@ export class IDB<T> {
 
 	/**
 	 * Set a value with a key.
-	 *
-	 * @param key
-	 * @param value
 	 */
 	set(key: string, value: string): Promise<void> {
 		return this.store("readwrite", (store) => {
@@ -52,8 +70,6 @@ export class IDB<T> {
 	/**
 	 * Set multiple values at once. This is faster than calling set() multiple times.
 	 * It's also atomic – if one of the pairs can't be added, none will be added.
-	 *
-	 * @param entries Array of entries, where each entry is an array of `[key, value]`.
 	 */
 	sets(entries: [string, string][]): Promise<void> {
 		return this.store("readwrite", (store) => {
@@ -65,7 +81,6 @@ export class IDB<T> {
 	/**
 	 * Delete multiple keys at once.
 	 *
-	 * @param keys List of keys to delete.
 	 */
 	dels(keys: string[]): Promise<void> {
 		return this.store("readwrite", (store: IDBObjectStore) => {
@@ -83,18 +98,6 @@ export class IDB<T> {
 			store.clear();
 			return this.pr(store.transaction);
 		});
-	}
-
-	private eachCursor(
-		store: IDBObjectStore,
-		callback: (cursor: IDBCursorWithValue) => void
-	): Promise<void> {
-		store.openCursor().onsuccess = function () {
-			if (!this.result) return;
-			callback(this.result);
-			this.result.continue();
-		};
-		return this.pr(store.transaction);
 	}
 
 	/**
@@ -131,6 +134,9 @@ export class IDB<T> {
 		});
 	}
 
+	/**
+	 * Gets 1 key that starts with a specific index
+	*/
 	async startsWith(prefix: string) {
 		return this.store("readonly", async (store) => {
 			return await this.pr(
@@ -139,6 +145,9 @@ export class IDB<T> {
 		});
 	}
 
+	/**
+	 * Get length of the DB
+	*/
 	async length() {
 		return (await this.keys()).length;
 	}
