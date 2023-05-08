@@ -439,7 +439,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 
 		const cursor = new Cursor(this, query);
 		cursor.limit(1);
-		const res = await cursor.__exec_unsafe();
+		const res = cursor.__exec_unsafe();
 		if (res.length > 0) {
 			let numReplaced = 0;
 			const candidates = this.getCandidates(query);
