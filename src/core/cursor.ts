@@ -1,10 +1,11 @@
+/**
+ * Cursor class is responsible for querying documents
+ * as well as sorting, skipping, limiting, and projections
+ */
+
 import { Datastore } from "./datastore";
 import * as model from "./model/";
 import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
-
-/**
- * Create a new cursor for this collection
- */
 export class Cursor<G extends Doc, C extends typeof Doc> {
 	private db: Datastore<G, C>;
 	private _query: { [key: string]: any };
@@ -105,55 +106,28 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	}
 
 	/**
-	 * Get all matching elements
-	 * Will return pointers to matched elements (shallow copies), returning full copies is the role of find or findOne
-	 *
+	 * Executes the query
+	 * Will return pointers to matched elements (shallow copies)
+	 * hence its called "unsafe"
 	 */
 	__exec_unsafe() {
 		let res: G[] = [];
-		let added = 0;
-		let skipped = 0;
 		const candidates = this.db.getCandidates(this._query);
 		for (let i = 0; i < candidates.length; i++) {
 			if (model.match(candidates[i], this._query)) {
-				// If a sort is defined, wait for the results to be sorted before applying limit and skip
-				if (!this._sort) {
-					if (this._skip && this._skip > skipped) {
-						skipped++;
-					} else {
-						res.push(candidates[i]);
-						added++;
-						if (this._limit && this._limit <= added) {
-							break;
-						}
-					}
-				} else {
-					res.push(candidates[i]);
-				}
+				res.push(candidates[i]);
 			}
 		}
 
 		// Apply all sorts
 		if (this._sort) {
-			let keys = Object.keys(this._sort);
-
-			// Sorting
-			const criteria: { key: string; direction: number }[] = [];
-			for (let i = 0; i < keys.length; i++) {
-				let key = keys[i];
-				criteria.push({ key, direction: (this._sort as any)[key] });
-			}
 			res.sort((a, b) => {
-				let criterion;
-				let compare;
-				let i;
-				for (i = 0; i < criteria.length; i++) {
-					criterion = criteria[i];
-					compare =
-						criterion.direction *
+				for (const [key, direction] of Object.entries(this._sort || {})) {
+					let compare =
+						direction *
 						model.compare(
-							model.fromDotNotation(a, criterion.key),
-							model.fromDotNotation(b, criterion.key)
+							model.fromDotNotation(a, key),
+							model.fromDotNotation(b, key)
 						);
 					if (compare !== 0) {
 						return compare;
@@ -161,18 +135,27 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 				}
 				return 0;
 			});
+		}
 
-			// Applying limit and skip
+		// Applying limit and skip
+		if (this._limit || this._skip) {
 			const limit = this._limit || res.length;
 			const skip = this._skip || 0;
 			res = res.slice(skip, skip + limit);
 		}
+
 		// Apply projection
-		res = this._project(res);
+		if(this._projection) {
+			res = this._project(res);
+		}
 		return res;
 	}
 
-	async exec() {
+
+	/**
+	 * Executes the query safely (i.e. cloning documents)
+	*/
+	exec() {
 		const originalsArr = this.__exec_unsafe();
 		const res: G[] = [];
 		for (let index = 0; index < originalsArr.length; index++) {
