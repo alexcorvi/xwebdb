@@ -1,6 +1,5 @@
 import {
 	Persistence,
-	PersistenceEvent,
 	Cursor,
 	Q,
 	customUtils,
@@ -23,7 +22,6 @@ const _internal = {
 	modelling,
 	Q,
 	Persistence,
-	PersistenceEvent,
 	Dictionary
 };
 

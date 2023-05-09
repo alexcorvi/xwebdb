@@ -2,19 +2,25 @@
  * Promise-base interface for interacting with indexedDB
  */
 
+import { Doc } from "../types";
+import { EnsureIndexOptions } from "./datastore";
+
+export type Line = Partial<Doc & { $$indexCreated?: EnsureIndexOptions }> & Record<string, any>;
+
 export type UseStore = <T>(
 	txMode: IDBTransactionMode,
 	callback: (store: IDBObjectStore) => T | PromiseLike<T>
 ) => Promise<T>;
 
-export class IDB<T> {
+export class IDB {
 	private store: UseStore;
 
 	constructor(name: string) {
 		const request = indexedDB.open(name);
-		request.onupgradeneeded = () => request.result.createObjectStore(name);
+		request.onupgradeneeded = function () {
+			this.result.createObjectStore(name).createIndex("idIndex", "_id", { unique: true });
+		};
 		const dbp = this.pr(request);
-
 		this.store = (txMode, callback) =>
 			dbp.then((db) =>
 				callback(
@@ -53,14 +59,14 @@ export class IDB<T> {
 	/**
 	 * Get a value by its key.
 	 */
-	get(key: string): Promise<T | undefined> {
+	get(key: string): Promise<Line | undefined> {
 		return this.store("readonly", (store) => this.pr(store.get(key)));
 	}
 
 	/**
 	 * Set a value with a key.
 	 */
-	set(key: string, value: string): Promise<void> {
+	set(key: string, value: Line): Promise<void> {
 		return this.store("readwrite", (store) => {
 			store.put(value, key);
 			return this.pr(store.transaction);
@@ -71,7 +77,7 @@ export class IDB<T> {
 	 * Set multiple values at once. This is faster than calling set() multiple times.
 	 * It's also atomic – if one of the pairs can't be added, none will be added.
 	 */
-	sets(entries: [string, string][]): Promise<void> {
+	sets(entries: [string, Line][]): Promise<void> {
 		return this.store("readwrite", (store) => {
 			entries.forEach((entry) => store.put(entry[1], entry[0]));
 			return this.pr(store.transaction);
@@ -120,34 +126,32 @@ export class IDB<T> {
 	/**
 	 * Get all values in the store.
 	 */
-	values(): Promise<T[]> {
+	values(): Promise<Line[]> {
 		return this.store("readonly", async (store) => {
 			// Fast path for modern browsers
 			if (store.getAll) {
-				return this.pr(store.getAll() as IDBRequest<T[]>);
+				return this.pr(store.getAll() as IDBRequest<Line[]>);
 			}
 
-			const items: T[] = [];
+			const items: Line[] = [];
 
-			await this.eachCursor(store, (cursor) => items.push(cursor.value as T));
+			await this.eachCursor(store, (cursor) => items.push(cursor.value as Line));
 			return items;
 		});
 	}
 
 	/**
-	 * Gets 1 key that starts with a specific index
+	 * Get key by ID (since keys are ID_REV)
 	*/
-	async startsWith(prefix: string) {
-		return this.store("readonly", async (store) => {
-			return await this.pr(
-				store.getKey(IDBKeyRange.bound(prefix, prefix + "\uffff", false, true))
-			);
+	async byID(_id: string) {
+		return this.store("readonly", (store) => {
+			return this.pr(store.index("idIndex").getKey(_id));
 		});
 	}
 
 	/**
 	 * Get length of the DB
-	*/
+	 */
 	async length() {
 		return (await this.keys()).length;
 	}

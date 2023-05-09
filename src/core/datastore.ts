@@ -25,7 +25,6 @@ export interface DataStoreOptions<G extends typeof Doc> {
 	timestampData?: boolean;
 	syncToRemote?: (name: string) => remoteStore;
 	syncInterval?: number;
-	invalidate$H?: number;
 	model?: G;
 	defer?: number;
 	stripDefaults?: boolean;
@@ -68,7 +67,6 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			corruptAlertThreshold: options.corruptAlertThreshold || 0,
 			syncToRemote: options.syncToRemote,
 			syncInterval: options.syncInterval,
-			invalidate$H: options.invalidate$H,
 			stripDefaults: options.stripDefaults,
 		});
 		this.initIndexes = options.indexes || [];

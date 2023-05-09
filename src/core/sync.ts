@@ -31,12 +31,14 @@
  * 		C. Can't get a history of the document (do we need it?)
  */
 
-import { Persistence, persistenceLine } from "./persistence";
+import { Persistence } from "./persistence";
 import { remoteStore } from "./adapters/type";
 import { Index } from "./indexes";
 import * as modelling from "./model/";
+import { Line } from "./idb";
+import { uid } from "./customUtils";
 
-type diff = { key: string; value: string };
+type diff = { key: string; value: Line };
 
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
 
@@ -51,25 +53,19 @@ export class Sync {
 
 	// set local $H
 	async setL$(unique: string) {
-		await this.p.data.set("$H", "$H" + unique + "_" + this.ts());
+		await this.p.data.set("$H", { _id: "$H" + unique });
 	}
 
 	// set remote $H
 	async setR$(unique: string) {
-		await this.rdata.setItem("$H", "$H" + unique + "_" + this.ts());
+		await this.rdata.setItem("$H", JSON.stringify({ _id: "$H" + unique }));
 	}
 
-	// unifrom value for both local and remote $H
+	// uniform value for both local and remote $H
 	async unify$H() {
 		const unique = Math.random().toString(36).substring(2);
 		await this.setL$(unique);
 		await this.setR$(unique);
-	}
-
-	// time signature, added to the $H so we can invalidate it
-	// after a specific amount of time
-	private ts() {
-		return Math.floor(Date.now() / this.p.invalidate$H);
 	}
 
 	/**
@@ -117,7 +113,7 @@ export class Sync {
 	 */
 	private async decide(
 		key: string,
-		getter: (x: string) => Promise<string>,
+		getter: (x: string) => Promise<Line>,
 		thisDiffs: diff[],
 		thatDiffs: diff[]
 	) {
@@ -137,7 +133,8 @@ export class Sync {
 					value: (await getter(key)) || "",
 				});
 			}
-			// otherwise .. don't add this diff
+			// otherwise .. don't add this diff, and keep that diff
+			// (i.e. do nothing here)
 		} else {
 			thisDiffs.push({
 				key: key,
@@ -152,41 +149,46 @@ export class Sync {
 	 * or by creating a new index (if it's an index)
 	 */
 	private UCV(
-		input: string
+		input: Line
 	):
 		| { type: "doc"; prop: string; value: string }
 		| { type: "index"; fieldName: string; sparse: boolean }
 		| false {
-		let line: persistenceLine = this.p.treatSingleLine(input);
-		if (line.status === "remove") return false;
 		try {
-			if (line.type === "doc") {
+			if (!input.$$indexCreated) {
+				input = modelling.clone(input, this.p._model)
+				// i.e. document
 				// don't cause UCV by _id (without this line all updates would trigger UCV)
 				// _id UCVs conflicts are only natural
-				// and solved by the fact that they are persisted on the same index
-				line.data._id = null;
-				this.p.db.addToIndexes(line.data);
+				// and solved by the fact that they are persisted on the same key
+				input._id = uid();
+				this.p.db.addToIndexes(input);
+				this.p.db.removeFromIndexes(input);
 			} else {
-				this.p.db.indexes[line.data.fieldName] = new Index(line.data.data);
-				this.p.db.indexes[line.data.fieldName].insert(this.p.db.getAllData());
+				this.p.db.indexes[input.$$indexCreated.fieldName] = new Index(
+					input.$$indexCreated
+				);
+				this.p.db.indexes[input.$$indexCreated.fieldName].insert(
+					this.p.db.getAllData()
+				);
+				delete this.p.db.indexes[input.$$indexCreated.fieldName];
 			}
 		} catch (e) {
-			if (line.type === "doc") {
+			if (!input.$$indexCreated) {
 				return {
 					type: "doc",
 					prop: (e as any).prop,
 					value: (e as any).key,
 				};
 			} else {
-				delete this.p.db.indexes[line.data.fieldName];
+				delete this.p.db.indexes[input.$$indexCreated.fieldName];
 				return {
 					type: "index",
-					fieldName: line.data.fieldName,
-					sparse: !!line.data.data.sparse,
+					fieldName: input.$$indexCreated.fieldName,
+					sparse: !!input.$$indexCreated.sparse,
 				};
 			}
 		}
-		this.p.db.removeFromIndexes(line.data);
 		return false;
 	}
 
@@ -207,15 +209,9 @@ export class Sync {
 		received: number;
 		diff: -1 | 0 | 1;
 	}> {
-		const timeSignature = this.ts().toString();
 		const r$H = (await this.rdata!.getItem("$H")) || "0";
-		const l$H = (await this.p.data.get("$H")) || "0";
-		const $HTime = l$H.split("_")[1];
-		if (
-			!force &&
-			$HTime === timeSignature &&
-			(l$H === r$H || (l$H === "0" && (r$H || "").indexOf("10009") > -1))
-		) {
+		const l$H = JSON.stringify((await this.p.data.get("$H")) || 0);
+		if (!force && (l$H === r$H || (l$H === "0" && (r$H || "").indexOf("10009") > -1))) {
 			return { sent: 0, received: 0, diff: -1 };
 		}
 
@@ -243,7 +239,8 @@ export class Sync {
 				ri++;
 				await this.decide(
 					rv,
-					(x: string) => this.rdata.getItem(x),
+					async (x: string) =>
+						modelling.deserialize(this.p.decode(await this.rdata.getItem(x))),
 					remoteDiffs,
 					localDiffs
 				);
@@ -251,7 +248,7 @@ export class Sync {
 				li++;
 				await this.decide(
 					lv,
-					(x: string) => this.p.data.get(x) as any,
+					async (x: string) => (await this.p.data.get(x))!,
 					localDiffs,
 					remoteDiffs
 				);
@@ -259,13 +256,14 @@ export class Sync {
 		}
 
 		if (remoteDiffs.length === 0 && localDiffs.length === 0) {
-			await this.setL$(r$H.split("_")[0].substring(2));
+			// set local $H to remote $H value
+			await this.setL$(r$H.replace(/.*\$H(.*)"}/,"$1"));
 			return { sent: 0, received: 0, diff: 0 };
 		}
 
 		// downloading
 		const downRemove: string[] = [];
-		const downSet: [string, string][] = [];
+		const downSet: [string, Line][] = [];
 		for (let index = 0; index < remoteDiffs.length; index++) {
 			const diff = remoteDiffs[index];
 			const UCV = this.UCV(diff.value);
@@ -277,26 +275,24 @@ export class Sync {
 				const uniqueProp = UCV.prop;
 				await this.p.data.set(
 					localKeys.find((x) => x.startsWith(uniqueProp + "_")) || "",
-					this.p.encode(
-						modelling.serialize({
-							$$indexCreated: {
-								fieldName: uniqueProp,
-								unique: false,
-								sparse: this.p.db.indexes[uniqueProp].sparse,
-							},
-						})
-					)
+					{
+						_id: uniqueProp,
+						$$indexCreated: {
+							fieldName: uniqueProp,
+							unique: false,
+							sparse: this.p.db.indexes[uniqueProp].sparse,
+						},
+					}
 				);
 			} else if (UCV && UCV.type === "index") {
-				diff.value = this.p.encode(
-					modelling.serialize({
-						$$indexCreated: {
-							fieldName: UCV.fieldName,
-							unique: false,
-							sparse: UCV.sparse,
-						},
-					})
-				);
+				diff.value = {
+					$$indexCreated: {
+						fieldName: UCV.fieldName,
+						unique: false,
+						sparse: UCV.sparse,
+					},
+					_id: UCV.fieldName,
+				};
 			}
 			const diff_id_ = diff.key.split("_")[0] + "_";
 			const oldIDRev = localKeys.find((key) => key.startsWith(diff_id_)) || "";
@@ -314,7 +310,7 @@ export class Sync {
 			const diff_id_ = diff.key.split("_")[0] + "_";
 			const oldIDRev = remoteKeys.find((key) => key.startsWith(diff_id_)) || "";
 			if (oldIDRev) upRemove.push(oldIDRev);
-			upSet.push({ key: diff.key, value: diff.value });
+			upSet.push({ key: diff.key, value: this.p.encode(modelling.serialize(diff.value)) });
 		}
 		await this.rdata.removeItems(upRemove);
 		await this.rdata.setItems(upSet);

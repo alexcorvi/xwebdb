@@ -79,6 +79,8 @@ class BaseModel {
 */
 export class Doc extends BaseModel {
 	_id: string = customUtils.uid();
+	_rev?: string;
+	$$deleted?: true;
 	updatedAt?: Date;
 	createdAt?: Date;
 }

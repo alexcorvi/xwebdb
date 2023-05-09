@@ -9,45 +9,8 @@ import { Index } from "./indexes";
 import * as model from "./model/";
 import { Doc } from "../types";
 import { remoteStore } from "./adapters/type";
-import { IDB } from "./idb";
+import { IDB, Line } from "./idb";
 import { Sync } from "./sync";
-
-export type persistenceLine = {
-	type: "index" | "doc" | "corrupt";
-	status: "add" | "remove";
-	data: any;
-};
-
-type PersistenceEventCallback = (message: string) => Promise<void>;
-
-type PersistenceEventEmits = "readLine" | "writeLine" | "end";
-
-export class PersistenceEvent {
-	callbacks: {
-		readLine: Array<PersistenceEventCallback>;
-		writeLine: Array<PersistenceEventCallback>;
-		end: Array<PersistenceEventCallback>;
-	} = {
-		readLine: [],
-		writeLine: [],
-		end: [],
-	};
-
-	on(event: PersistenceEventEmits, cb: PersistenceEventCallback) {
-		if (!this.callbacks[event]) this.callbacks[event] = [];
-		this.callbacks[event].push(cb);
-	}
-
-	async emit(event: PersistenceEventEmits, data: string) {
-		let cbs = this.callbacks[event];
-		if (cbs) {
-			for (let i = 0; i < cbs.length; i++) {
-				const cb = cbs[i];
-				await cb(data);
-			}
-		}
-	}
-}
 
 interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
@@ -57,7 +20,6 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 	model?: typeof Doc;
 	syncInterval?: number;
 	syncToRemote?: (name: string) => remoteStore;
-	invalidate$H?: number;
 	stripDefaults?: boolean;
 }
 
@@ -67,26 +29,25 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 export class Persistence<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
 	ref: string = "";
-	data: IDB<string>;
+	data: IDB;
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
 	syncInProgress = false;
 	sync?: Sync;
-	invalidate$H: number = 0;
 	corruptAlertThreshold: number = 0.1;
 	encode = (s: string) => s;
 	decode = (s: string) => s;
 	stripDefaults: boolean = false;
-	private _model: typeof Doc | undefined;
+	_model: typeof Doc = Doc;
+	shouldEncode: boolean = false;
 	constructor(options: PersistenceOptions<G, C>) {
-		this._model = options.model;
+		this._model = options.model || this._model;
 		this.db = options.db;
 		this.ref = this.db.ref;
 		this.stripDefaults = options.stripDefaults || false;
 		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
-		this.invalidate$H = options.invalidate$H || 0;
 		this.syncInterval = options.syncInterval || 0;
 		if (this.RSA) {
 			const remoteData = this.RSA(this.ref);
@@ -132,6 +93,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 				"XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent data loss"
 			);
 		}
+		this.shouldEncode = !!options.encode && !!options.decode;
 	}
 
 	/**
@@ -139,7 +101,10 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 */
 	async writeNewIndex(newIndexes: { $$indexCreated: EnsureIndexOptions }[]) {
 		return await this.writeData(
-			newIndexes.map((x) => [x.$$indexCreated.fieldName, this.encode(model.serialize(x))])
+			newIndexes.map((x) => [
+				x.$$indexCreated.fieldName,
+				{ _id: x.$$indexCreated.fieldName, ...x },
+			])
 		);
 	}
 
@@ -147,79 +112,16 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * Copies, strips all default data, and serializes documents then writes it.
 	 */
 	async writeNewData(newDocs: G[]) {
-		if (this.stripDefaults) {
-			newDocs = model.deserialize(model.serialize({ t: newDocs })).t; // avoid triggering live queries when stripping default
-			for (let index = 0; index < newDocs.length; index++) {
-				let doc = newDocs[index];
-				if (doc._stripDefaults) {
-					newDocs[index] = doc._stripDefaults();
-				}
+		// stripping defaults
+		newDocs = model.deserialize(model.serialize({ t: newDocs })).t; // avoid triggering live queries when stripping default
+		for (let index = 0; index < newDocs.length; index++) {
+			let doc = newDocs[index];
+			if (doc._stripDefaults) {
+				newDocs[index] = doc._stripDefaults();
 			}
 		}
 
-		return await this.writeData(
-			newDocs.map((x) => [x._id || "", this.encode(model.serialize(x))])
-		);
-	}
-
-	/**
-	 * Processing single line (i.e. value) from IndexedDB
-	 * returns type of line: "index" | "doc" | "corrupt"
-	 * and what to do with it: "add" (to indexes) | "remove" (from indexes)
-	 */
-	treatSingleLine(line: string): persistenceLine {
-		let treatedLine: any;
-		try {
-			treatedLine = model.deserialize(this.decode(line));
-			if (this._model) {
-				treatedLine = this._model.new(treatedLine);
-			}
-		} catch (e) {
-			return {
-				type: "corrupt",
-				status: "remove",
-				data: false,
-			};
-		}
-		if (treatedLine._id && !(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)) {
-			if (treatedLine.$$deleted === true) {
-				return {
-					type: "doc",
-					status: "remove",
-					data: { _id: treatedLine._id },
-				};
-			} else {
-				return {
-					type: "doc",
-					status: "add",
-					data: treatedLine,
-				};
-			}
-		} else if (
-			treatedLine.$$indexCreated &&
-			treatedLine.$$indexCreated.fieldName !== undefined
-		) {
-			return {
-				type: "index",
-				status: "add",
-				data: {
-					fieldName: treatedLine.$$indexCreated.fieldName,
-					data: treatedLine.$$indexCreated,
-				},
-			};
-		} else if (typeof treatedLine.$$indexRemoved === "string") {
-			return {
-				type: "index",
-				status: "remove",
-				data: { fieldName: treatedLine.$$indexRemoved },
-			};
-		} else {
-			return {
-				type: "corrupt",
-				status: "remove",
-				data: true,
-			};
-		}
+		return await this.writeData(newDocs.map((x) => [x._id, x]));
 	}
 
 	/**
@@ -235,43 +137,30 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		let processed = 0;
 		let err: any;
 
-		const indexes: persistenceLine[] = [];
-		const data: persistenceLine[] = [];
+		const data: Doc[] = [];
 
-		const eventEmitter = new PersistenceEvent();
-		eventEmitter.on("readLine", async (line) => {
+		const persisted = await this.readData();
+		for (let index = 0; index < persisted.length; index++) {
 			processed++;
-			const treatedLine = this.treatSingleLine(line);
-			if (treatedLine.type === "doc") {
-				data.push(treatedLine);
-			} else if (treatedLine.type === "index") {
-				indexes.push(treatedLine);
-			} else if (!treatedLine.data) {
+			const line = persisted[index];
+			if (line === null) {
 				corrupt++;
+				continue;
 			}
-		});
-		await this.readData(eventEmitter);
-
-		// treat indexes first
-		for (let index = 0; index < indexes.length; index++) {
-			const line = indexes[index];
-			if (line.status === "add") {
-				this.db.indexes[line.data.fieldName] = new Index(line.data.data);
-			}
-			if (line.status === "remove") {
-				delete this.db.indexes[line.data.fieldName];
+			if (line.$$indexCreated) {
+				this.db.indexes[line.$$indexCreated.fieldName] = new Index({
+					fieldName: line.$$indexCreated.fieldName as any,
+					unique: line.$$indexCreated.unique,
+					sparse: line.$$indexCreated.sparse,
+				});
+			} else {
+				data.push(this._model.new(line));
 			}
 		}
 
-		// then data
 		for (let index = 0; index < data.length; index++) {
 			const line = data[index];
-			if (line.status === "add") {
-				this.db.addToIndexes(line.data);
-			}
-			if (line.status === "remove") {
-				this.db.removeFromIndexes(line.data);
-			}
+			this.db.addToIndexes(line as G);
 		}
 
 		if (processed > 0 && corrupt / processed > this.corruptAlertThreshold) {
@@ -292,13 +181,25 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * Reads data from the database
 	 * (excluding $H and documents that actually $deleted)
 	 */
-	async readData(event: PersistenceEvent) {
+	async readData() {
 		let all = await this.data.values();
+		let res: (Line | null)[] = [];
 		for (let index = 0; index < all.length; index++) {
-			const line = all[index];
-			if (!line.startsWith("$H") && line !== "$deleted") event.emit("readLine", line);
+			let line = all[index];
+			// corrupt
+			if (typeof line !== "object" || line === null) {
+				res.push(null);
+				continue;
+			}
+			// skip $H & deleted documents
+			if ((line._id && line._id.startsWith("$H")) || line.$$deleted) continue;
+			// skip lines that is neither an index nor document
+			if (line._id === undefined && line.$$indexCreated === undefined) continue;
+			// decode encoded
+			if (line._encoded) line = model.deserialize(this.decode(line._encoded));
+			res.push(line);
 		}
-		event.emit("end", "");
+		return res;
 	}
 
 	/**
@@ -319,17 +220,17 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			return _ids;
 		}
 		const oldIDRevs: string[] = [];
-		const newIDRevs: string[] = [];
+		const newIDRevs: [string, { _id: string; _rev: string; $$deleted: true }][] = [];
 		for (let index = 0; index < _ids.length; index++) {
 			const _id = _ids[index];
-			const oldIDRev = (await this.data.startsWith(_id + "_")) || "";
+			const oldIDRev = (await this.data.byID(_id)) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = _id + "_" + newRev;
 			oldIDRevs.push(oldIDRev.toString());
-			newIDRevs.push(newIDRev);
+			newIDRevs.push([newIDRev, { _id, _rev: newRev, $$deleted: true }]);
 		}
 		await this.data.dels(oldIDRevs);
-		await this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
+		await this.data.sets(newIDRevs);
 		if (this.sync) await this.sync.setL$("updated");
 		return _ids;
 	}
@@ -346,20 +247,33 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * 			(i.e. a serialized version of the document)
 	 * 		3. then setting $H to a value indicating that a sync operation should progress
 	 */
-	async writeData(input: [string, string][]) {
+	async writeData(input: [string, Line][]) {
 		if (!this.RSA) {
+			if (this.shouldEncode)
+				input = input.map((x) => [
+					x[0],
+					{ _id: x[1]._id, _encoded: this.encode(model.serialize(x[1])) },
+				]);
 			await this.data.sets(input);
 			return input.map((x) => x[0]);
 		}
 		const oldIDRevs: string[] = [];
-		const newIDRevsData: [string, string][] = [];
+		const newIDRevsData: [string, Line][] = [];
 
 		for (let index = 0; index < input.length; index++) {
 			const element = input[index];
-			const oldIDRev = (await this.data.startsWith(element[0] + "_")) || "";
+			const oldIDRev = (await this.data.byID(element[0])) || "";
 			const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
 			const newIDRev = element[0] + "_" + newRev;
+			element[1]._rev = newRev;
 			oldIDRevs.push(oldIDRev.toString());
+			if (this.shouldEncode) {
+				element[1] = {
+					_encoded: this.encode(model.serialize(element[1])),
+					_id: element[1]._id,
+					_rev: element[1]._rev,
+				};
+			}
 			newIDRevsData.push([newIDRev, element[1]]);
 		}
 		await this.data.dels(oldIDRevs);

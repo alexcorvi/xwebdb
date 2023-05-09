@@ -27,7 +27,6 @@ export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	sync?: {
 		syncToRemote?: (name: string) => remoteStore;
 		syncInterval?: number;
-		invalidate$H?: number;
 	};
 	deferPersistence?: number;
 	stripDefaults?: boolean;
@@ -61,7 +60,6 @@ export class Database<S extends Doc> {
 			timestampData: options.timestampData,
 			syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
-			invalidate$H: options.sync ? options.sync.invalidate$H : undefined,
 			defer: options.deferPersistence,
 			stripDefaults: options.stripDefaults || false,
 		});
