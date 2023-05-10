@@ -316,7 +316,7 @@ export class Sync {
 		await this.rdata.removeItems(upRemove);
 		await this.rdata.setItems(upSet);
 
-		await this.p.loadDatabase();
+		await this.p.db.loadDatabase();
 		try {
 			this.p.db.live.update();
 		} catch (e) {
