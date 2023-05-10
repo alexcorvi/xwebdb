@@ -133,8 +133,9 @@ export class Sync {
 					value: (await getter(key)) || "",
 				});
 			}
+			// else { }
 			// otherwise .. don't add this diff, and keep that diff
-			// (i.e. do nothing here)
+			// (i.e. do nothing here, no else)
 		} else {
 			thisDiffs.push({
 				key: key,
