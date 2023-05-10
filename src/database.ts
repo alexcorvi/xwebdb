@@ -302,7 +302,7 @@ export class Database<S extends Doc> {
 	}
 
 	/**
-	 * Reload database from the persistence layer (if it exists)
+	 * Reload database from the persistence layer
 	 */
 	async reload(): Promise<{}> {
 		await this._datastore.persistence.loadDatabase();
