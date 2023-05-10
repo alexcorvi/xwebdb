@@ -29,7 +29,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 export class Persistence<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
 	ref: string = "";
-	data: IDB;
+	data = new IDB(this.ref);
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
 	syncInProgress = false;
@@ -45,7 +45,6 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this.db = options.db;
 		this.ref = this.db.ref;
 		this.stripDefaults = options.stripDefaults || false;
-		this.data = new IDB(this.ref);
 
 		this.RSA = options.syncToRemote;
 		this.syncInterval = options.syncInterval || 0;
