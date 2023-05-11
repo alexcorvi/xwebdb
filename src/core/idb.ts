@@ -64,6 +64,15 @@ export class IDB {
 	}
 
 	/**
+	 * Get values for a given set of keys
+	*/
+	async getBulk(keys: string[]): Promise<(Line | undefined)[]> {
+		return this.store("readonly", async (store) => {
+			return Promise.all(keys.map((x) => this.pr(store.get(x))));
+		});
+	}
+
+	/**
 	 * Set a value with a key.
 	 */
 	set(key: string, value: Line): Promise<void> {
