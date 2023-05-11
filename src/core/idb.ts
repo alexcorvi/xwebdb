@@ -77,7 +77,7 @@ export class IDB {
 	 * Set multiple values at once. This is faster than calling set() multiple times.
 	 * It's also atomic – if one of the pairs can't be added, none will be added.
 	 */
-	sets(entries: [string, Line][]): Promise<void> {
+	setBulk(entries: [string, Line][]): Promise<void> {
 		return this.store("readwrite", (store) => {
 			entries.forEach((entry) => store.put(entry[1], entry[0]));
 			return this.pr(store.transaction);
@@ -88,7 +88,7 @@ export class IDB {
 	 * Delete multiple keys at once.
 	 *
 	 */
-	dels(keys: string[]): Promise<void> {
+	delBulk(keys: string[]): Promise<void> {
 		return this.store("readwrite", (store: IDBObjectStore) => {
 			keys.forEach((key: string) => store.delete(key));
 			return this.pr(store.transaction);
@@ -142,7 +142,7 @@ export class IDB {
 
 	/**
 	 * Get key by ID (since keys are ID_REV)
-	*/
+	 */
 	async byID(_id: string) {
 		return this.store("readonly", (store) => {
 			return this.pr(store.index("idIndex").getKey(_id));

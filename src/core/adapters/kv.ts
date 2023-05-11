@@ -3,9 +3,8 @@ import { remoteAdapter, remoteStore } from "./type";
 
 const savedNS: { [endpoint: string]: { [title: string]: string } } = {};
 
-export const kvAdapter: remoteAdapter =
-	(endpoint: string, token: string) => (name: string) =>
-		new Namespace({ endpoint, token, name });
+export const kvAdapter: remoteAdapter = (endpoint: string, token: string) => (name: string) =>
+	new Namespace({ endpoint, token, name });
 
 async function kvRequest(
 	instance: Namespace,
@@ -80,7 +79,6 @@ class Namespace implements remoteStore {
 		this.endpoint = endpoint;
 		this.connect();
 	}
-
 	// basically trying to get the ID of the namespace
 	// from the array above or remotely
 	// or creating a new namespace
@@ -110,25 +108,18 @@ class Namespace implements remoteStore {
 		savedNS[this.endpoint][this.name] = id;
 		this.id = id;
 	}
-
 	async listStores(): Promise<{ id: string; name: string }[]> {
 		const namespaces: { id: string; name: string }[] = [];
 		let currentPage = 1;
 		let totalPages = 1;
 		while (totalPages >= currentPage) {
 			const res = await kvRequest(this, "GET", `?page=${currentPage}`);
-			if (
-				typeof res === "string" ||
-				!res.success ||
-				!Array.isArray(res.result)
-			) {
+			if (typeof res === "string" || !res.success || !Array.isArray(res.result)) {
 				throw new Error(
 					"XWebDB: Error while listing namespaces: " + JSON.stringify(res)
 				);
 			} else {
-				const resNamespaces: { id: string; title: string }[] = (
-					res as any
-				).result;
+				const resNamespaces: { id: string; title: string }[] = (res as any).result;
 				for (let index = 0; index < resNamespaces.length; index++) {
 					const element = resNamespaces[index];
 					namespaces.push({ id: element.id, name: element.title });
@@ -139,68 +130,42 @@ class Namespace implements remoteStore {
 		}
 		return namespaces;
 	}
-
 	async createStore(title: string) {
-		const res = await kvRequest(
-			this,
-			"POST",
-			"",
-			JSON.stringify({ title })
-		);
-		if (
-			typeof res === "string" ||
-			!res.success ||
-			Array.isArray(res.result)
-		) {
-			throw new Error(
-				"XWebDB: Error while creating namespace: " + JSON.stringify(res)
-			);
+		const res = await kvRequest(this, "POST", "", JSON.stringify({ title }));
+		if (typeof res === "string" || !res.success || Array.isArray(res.result)) {
+			throw new Error("XWebDB: Error while creating namespace: " + JSON.stringify(res));
 		} else {
 			return res.result.id;
 		}
 	}
-
-	async removeStore() {
+	async clear() {
 		if (!this.id) await this.connect();
 		const res = await kvRequest(this, "DELETE", this.id);
 		if (typeof res === "string" || !res.success) {
-			throw new Error(
-				"XWebDB: Error while deleting namespace: " + JSON.stringify(res)
-			);
+			throw new Error("XWebDB: Error while deleting namespace: " + JSON.stringify(res));
 		} else {
 			return true;
 		}
 	}
-	async removeItem(itemID: string) {
+	async del(itemID: string) {
 		if (!this.id) await this.connect();
-		const res = await kvRequest(
-			this,
-			"DELETE",
-			`${this.id}/values/${itemID}`
-		);
+		const res = await kvRequest(this, "DELETE", `${this.id}/values/${itemID}`);
 		if (typeof res === "string" || !res.success) {
-			throw new Error(
-				"XWebDB: Error while deleting item: " + JSON.stringify(res)
-			);
+			throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
 		} else {
 			return true;
 		}
 	}
-	async setItem(itemID: string, itemData: string) {
+	async set(itemID: string, itemData: string) {
 		if (!this.id) await this.connect();
-		const res = await kvRequest(
-			this,
-			"PUT",
-			`${this.id}/values/${itemID}`,
-			itemData
-		);
+		const res = await kvRequest(this, "PUT", `${this.id}/values/${itemID}`, itemData);
 		if (typeof res === "string" || !res.success) {
 			throw new Error("XWebDB: Error while setting item: " + JSON.stringify(res));
 		} else {
 			return true;
 		}
 	}
-	async getItem(itemID: string): Promise<string> {
+	async get(itemID: string): Promise<string> {
 		if (!this.id) await this.connect();
 		const res = await kvRequest(
 			this,
@@ -225,14 +190,8 @@ class Namespace implements remoteStore {
 				"GET",
 				`${this.id}/keys${cursor ? `?cursor=${cursor}` : ""}`
 			);
-			if (
-				typeof res === "string" ||
-				!res.success ||
-				!Array.isArray(res.result)
-			) {
-				throw new Error(
-					"XWebDB: Error while listing keys: " + JSON.stringify(res)
-				);
+			if (typeof res === "string" || !res.success || !Array.isArray(res.result)) {
+				throw new Error("XWebDB: Error while listing keys: " + JSON.stringify(res));
 			} else {
 				const arr: any[] = res.result;
 				for (let index = 0; index < arr.length; index++) {
@@ -244,18 +203,15 @@ class Namespace implements remoteStore {
 		} while (cursor);
 		return keys;
 	}
-	async removeItems(items: string[]) {
+	async delBulk(items: string[]) {
 		if (!this.id) await this.connect();
 		// deal with 10,000 limit
-		const dividedItems = items.reduce<(typeof items)[]>(
-			(arr, item, index) => {
-				const sub = Math.floor(index / 9999);
-				if (!arr[sub]) arr[sub] = [];
-				arr[sub].push(item);
-				return arr;
-			},
-			[]
-		);
+		const dividedItems = items.reduce<(typeof items)[]>((arr, item, index) => {
+			const sub = Math.floor(index / 9999);
+			if (!arr[sub]) arr[sub] = [];
+			arr[sub].push(item);
+			return arr;
+		}, []);
 		let results: boolean[] = [];
 		for (let index = 0; index < dividedItems.length; index++) {
 			const batch = dividedItems[index];
@@ -266,29 +222,23 @@ class Namespace implements remoteStore {
 				JSON.stringify(batch)
 			);
 			if (typeof res === "string" || !res.success) {
-				throw new Error(
-					"XWebDB: Error while deleting item: " + JSON.stringify(res)
-				);
+				throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
 			} else {
 				results.push(true);
 			}
 		}
 		return results;
 	}
-
-	async setItems(items: { key: string; value: string }[]) {
+	async setBulk(couples: [string, string][]) {
 		// deal with 10,000 limit
 		if (!this.id) await this.connect();
 
-		const dividedItems = items.reduce<(typeof items)[]>(
-			(arr, item, index) => {
-				const sub = Math.floor(index / 9999);
-				if (!arr[sub]) arr[sub] = [];
-				arr[sub].push(item);
-				return arr;
-			},
-			[]
-		);
+		const dividedItems = couples.reduce<(typeof couples)[]>((arr, item, index) => {
+			const sub = Math.floor(index / 9999);
+			if (!arr[sub]) arr[sub] = [];
+			arr[sub].push(item);
+			return arr;
+		}, []);
 		let results: boolean[] = [];
 
 		for (let index = 0; index < dividedItems.length; index++) {
@@ -297,12 +247,10 @@ class Namespace implements remoteStore {
 				this,
 				"PUT",
 				`${this.id}/bulk`,
-				JSON.stringify(batch)
+				JSON.stringify(batch.map((x) => ({ key: x[0], value: x[1] })))
 			);
 			if (typeof res === "string" || !res.success) {
-				throw new Error(
-					"XWebDB: Error while deleting item: " + JSON.stringify(res)
-				);
+				throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
 			} else {
 				results.push(true);
 			}
@@ -310,7 +258,7 @@ class Namespace implements remoteStore {
 
 		return results;
 	}
-	async getItems(keys: string[]) {
+	async getBulk(keys: string[]) {
 		if (keys.length === 0) return [];
 		// Cloudflare, sadly, still doesn't bulk gets!
 		// so we're just looping through the given keys
@@ -320,14 +268,13 @@ class Namespace implements remoteStore {
 		const valuesPromises: Promise<string>[] = [];
 		for (let index = 0; index < keys.length; index++) {
 			const key = keys[index];
-			valuesPromises.push(q.add(() => this.getItem(key)));
+			valuesPromises.push(q.add(() => this.get(key)));
 		}
 		const values = await Promise.all(valuesPromises);
-		const result: { key: string; value: string }[] = [];
+		const result: string[] = [];
 		for (let index = 0; index < keys.length; index++) {
-			let key = keys[index];
 			let value = values[index];
-			result.push({ key, value });
+			result.push(value);
 		}
 		return result;
 	}
