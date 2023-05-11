@@ -29,7 +29,7 @@ interface PersistenceOptions<G extends Doc, C extends typeof Doc> {
 export class Persistence<G extends Doc, C extends typeof Doc> {
 	db: Datastore<G, C>;
 	ref: string = "";
-	data = new IDB(this.ref);
+	data: IDB;
 	RSA?: (name: string) => remoteStore;
 	syncInterval = 0;
 	syncInProgress = false;
@@ -44,6 +44,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 		this._model = options.model || this._model;
 		this.db = options.db;
 		this.ref = this.db.ref;
+		this.data = new IDB(this.ref);
 		this.stripDefaults = options.stripDefaults || false;
 
 		this.RSA = options.syncToRemote;
@@ -215,7 +216,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 */
 	async deleteData(_ids: string[]) {
 		if (!this.RSA) {
-			await this.data.dels(_ids);
+			await this.data.delBulk(_ids);
 			return _ids;
 		}
 		const oldIDRevs: string[] = [];
@@ -228,8 +229,8 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			oldIDRevs.push(oldIDRev.toString());
 			newIDRevs.push([newIDRev, { _id, _rev: newRev, $$deleted: true }]);
 		}
-		await this.data.dels(oldIDRevs);
-		await this.data.sets(newIDRevs);
+		await this.data.delBulk(oldIDRevs);
+		await this.data.setBulk(newIDRevs);
 		if (this.sync) await this.sync.setL$("updated");
 		return _ids;
 	}
@@ -253,7 +254,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 					x[0],
 					{ _id: x[1]._id, _encoded: this.encode(model.serialize(x[1])) },
 				]);
-			await this.data.sets(input);
+			await this.data.setBulk(input);
 			return input.map((x) => x[0]);
 		}
 		const oldIDRevs: string[] = [];
@@ -275,8 +276,8 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 			}
 			newIDRevsData.push([newIDRev, element[1]]);
 		}
-		await this.data.dels(oldIDRevs);
-		await this.data.sets(newIDRevsData);
+		await this.data.delBulk(oldIDRevs);
+		await this.data.setBulk(newIDRevsData);
 		if (this.sync) await this.sync.setL$("updated");
 		return input.map((x) => x[0]);
 	}
