@@ -38,8 +38,6 @@ import * as modelling from "./model/";
 import { Line } from "./idb";
 import { uid } from "./customUtils";
 
-type diff = { key: string; value: Line };
-
 const asc = (a: string, b: string) => (a > b ? 1 : -1);
 
 export class Sync {
@@ -58,7 +56,7 @@ export class Sync {
 
 	// set remote $H
 	async setR$(unique: string) {
-		await this.rdata.setItem("$H", JSON.stringify({ _id: "$H" + unique }));
+		await this.rdata.set("$H", JSON.stringify({ _id: "$H" + unique }));
 	}
 
 	// uniform value for both local and remote $H
@@ -111,36 +109,25 @@ export class Sync {
 	 * one array is of docs that should be uploaded
 	 * and one of docs that should be downloaded
 	 */
-	private async decide(
-		key: string,
-		getter: (x: string) => Promise<Line>,
-		thisDiffs: diff[],
-		thatDiffs: diff[]
-	) {
+	private async decide(key: string, thisDiffs: string[], thatDiffs: string[]) {
 		const _id = key.split("_")[0];
 		const rev = key.split("_")[1];
 		const thisTime = Number(rev.substring(2));
-		const conflictingIndex = thatDiffs.findIndex((x) => x.key.startsWith(_id + "_"));
+		const conflictingIndex = thatDiffs.findIndex((x) => x.startsWith(_id + "_"));
 		if (conflictingIndex > -1) {
 			const conflicting = thatDiffs[conflictingIndex];
-			const conflictingRev = conflicting.key.split("_")[1];
+			const conflictingRev = conflicting.split("_")[1];
 			const conflictingTime = Number(conflictingRev.substring(2));
 			if (thisTime > conflictingTime) {
 				// this wins
 				thatDiffs.splice(conflictingIndex, 1); // removing that
-				thisDiffs.push({
-					key: key,
-					value: (await getter(key)) || "",
-				});
+				thisDiffs.push(key);
 			}
 			// else { }
 			// otherwise .. don't add this diff, and keep that diff
 			// (i.e. do nothing here, no else)
 		} else {
-			thisDiffs.push({
-				key: key,
-				value: (await getter(key)) || "",
-			});
+			thisDiffs.push(key);
 		}
 	}
 
@@ -157,7 +144,7 @@ export class Sync {
 		| false {
 		try {
 			if (!input.$$indexCreated) {
-				input = modelling.clone(input, this.p._model)
+				input = modelling.clone(input, this.p._model);
 				// i.e. document
 				// don't cause UCV by _id (without this line all updates would trigger UCV)
 				// _id UCVs conflicts are only natural
@@ -210,7 +197,7 @@ export class Sync {
 		received: number;
 		diff: -1 | 0 | 1;
 	}> {
-		const r$H = (await this.rdata!.getItem("$H")) || "0";
+		const r$H = (await this.rdata!.get("$H")) || "0";
 		const l$H = JSON.stringify((await this.p.data.get("$H")) || 0);
 		if (!force && (l$H === r$H || (l$H === "0" && (r$H || "").indexOf("10009") > -1))) {
 			return { sent: 0, received: 0, diff: -1 };
@@ -222,8 +209,8 @@ export class Sync {
 		remoteKeys.splice(remoteKeys.indexOf("$H"), 1); // removing $H
 		localKeys.splice(localKeys.indexOf("$H"), 1);
 
-		const remoteDiffs: diff[] = [];
-		const localDiffs: diff[] = [];
+		const remoteDiffsKeys: string[] = [];
+		const localDiffsKeys: string[] = [];
 
 		const rl = remoteKeys.length;
 		let ri = 0;
@@ -238,36 +225,30 @@ export class Sync {
 				continue;
 			} else if (li === ll || asc(lv, rv) > 0) {
 				ri++;
-				await this.decide(
-					rv,
-					async (x: string) =>
-						modelling.deserialize(this.p.decode(await this.rdata.getItem(x))),
-					remoteDiffs,
-					localDiffs
-				);
+				await this.decide(rv, remoteDiffsKeys, localDiffsKeys);
 			} else {
 				li++;
-				await this.decide(
-					lv,
-					async (x: string) => (await this.p.data.get(x))!,
-					localDiffs,
-					remoteDiffs
-				);
+				await this.decide(lv, localDiffsKeys, remoteDiffsKeys);
 			}
 		}
 
-		if (remoteDiffs.length === 0 && localDiffs.length === 0) {
+		if (remoteDiffsKeys.length === 0 && localDiffsKeys.length === 0) {
 			// set local $H to remote $H value
-			await this.setL$(r$H.replace(/.*\$H(.*)"}/,"$1"));
+			await this.setL$(r$H.replace(/.*\$H(.*)"}/, "$1"));
 			return { sent: 0, received: 0, diff: 0 };
 		}
 
 		// downloading
 		const downRemove: string[] = [];
+		const downSetValues: Line[] = remoteDiffsKeys.length
+			? (await this.rdata.getBulk(remoteDiffsKeys)).map((x) =>
+					modelling.deserialize(this.p.decode(x || "{}"))
+			  )
+			: [];
 		const downSet: [string, Line][] = [];
-		for (let index = 0; index < remoteDiffs.length; index++) {
-			const diff = remoteDiffs[index];
-			const UCV = this.UCV(diff.value);
+		for (let index = 0; index < remoteDiffsKeys.length; index++) {
+			const diff = remoteDiffsKeys[index];
+			const UCV = this.UCV(downSetValues[index]);
 
 			// if unique constraint violations occurred
 			// make the key non-unique
@@ -286,7 +267,7 @@ export class Sync {
 					}
 				);
 			} else if (UCV && UCV.type === "index") {
-				diff.value = {
+				downSetValues[index] = {
 					$$indexCreated: {
 						fieldName: UCV.fieldName,
 						unique: false,
@@ -295,26 +276,35 @@ export class Sync {
 					_id: UCV.fieldName,
 				};
 			}
-			const diff_id_ = diff.key.split("_")[0] + "_";
+			const diff_id_ = diff.split("_")[0] + "_";
 			const oldIDRev = localKeys.find((key) => key.startsWith(diff_id_)) || "";
 			if (oldIDRev) downRemove.push(oldIDRev);
-			downSet.push([diff.key, diff.value]);
+			downSet.push([diff, downSetValues[index]]);
 		}
-		await this.p.data.dels(downRemove);
-		await this.p.data.sets(downSet);
+		await this.p.data.delBulk(downRemove);
+		await this.p.data.setBulk(downSet);
 
 		// uploading
 		const upRemove: string[] = [];
-		const upSet: { key: string; value: string }[] = [];
-		for (let index = 0; index < localDiffs.length; index++) {
-			const diff = localDiffs[index];
-			const diff_id_ = diff.key.split("_")[0] + "_";
+		const upSetValues: (Line | undefined)[] = localDiffsKeys.length
+			? await this.p.data.getBulk(localDiffsKeys)
+			: [];
+		const upSet: [string, string][] = [];
+
+		for (let index = 0; index < localDiffsKeys.length; index++) {
+			const diff = localDiffsKeys[index];
+			const diff_id_ = diff.split("_")[0] + "_";
 			const oldIDRev = remoteKeys.find((key) => key.startsWith(diff_id_)) || "";
 			if (oldIDRev) upRemove.push(oldIDRev);
-			upSet.push({ key: diff.key, value: this.p.encode(modelling.serialize(diff.value)) });
+			upSet.push([
+				diff,
+				upSetValues[index]
+					? this.p.encode(modelling.serialize(upSetValues[index]))
+					: "",
+			]);
 		}
-		await this.rdata.removeItems(upRemove);
-		await this.rdata.setItems(upSet);
+		await this.rdata.delBulk(upRemove);
+		await this.rdata.setBulk(upSet);
 
 		await this.p.db.loadDatabase();
 		try {
@@ -325,8 +315,8 @@ export class Sync {
 
 		await this.unify$H();
 		return {
-			sent: localDiffs.length,
-			received: remoteDiffs.length,
+			sent: localDiffsKeys.length,
+			received: remoteDiffsKeys.length,
 			diff: 1,
 		};
 	}
