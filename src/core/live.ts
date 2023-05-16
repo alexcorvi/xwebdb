@@ -10,7 +10,7 @@ import {
 	Doc,
 	Filter,
 } from "../types";
-import { xxh, uid } from "./customUtils";
+import { dHash, uid } from "./customUtils";
 import { Datastore } from "./datastore";
 import { ObservableArray, Change } from "./observable";
 
@@ -22,7 +22,7 @@ interface LiveQuery<S extends Doc> {
 }
 
 function hash<T extends { _id: string }>(res: T[]) {
-	return xxh(JSON.stringify(res));
+	return dHash(JSON.stringify(res));
 }
 
 export class Live {

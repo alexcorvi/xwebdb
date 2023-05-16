@@ -35,43 +35,14 @@ export function uid(): string {
 	);
 }
 
-
 /**
- * XXHash32
-*/
-export function xxh(str: string, seed = 0) {
-	const encoder = new TextEncoder();
-	const input = encoder.encode(str);
-	const prime = 0x9e3779b1;
-	let hash = seed + 0xdeadbeef;
-	let len = input.length;
-
-	for (let i = 0; i + 4 <= len; i += 4) {
-		let word =
-			(input[i] |
-				(input[i + 1] << 8) |
-				(input[i + 2] << 16) |
-				(input[i + 3] << 24)) >>>
-			0;
-		hash += word * prime;
-		hash = Math.imul(hash, prime);
+ * simple hashing function (djb2 implementation)
+ */
+export function dHash(str: string) {
+	var len = str.length;
+	var hash = -1;
+	for (var idx = 0; idx < len; ++idx) {
+	  hash = ((hash << 5) + hash + str.charCodeAt(idx)) & 0xFFFFFFFF;
 	}
-
-	if (len & 3) {
-		let lastBytes = input.slice(len - (len & 3));
-		let word = 0;
-		for (let i = 0; i < lastBytes.length; i++) {
-			word += lastBytes[i] << (i * 8);
-		}
-		hash += word * prime;
-		hash = Math.imul(hash, prime);
-	}
-
-	hash ^= hash >>> 15;
-	hash = Math.imul(hash, prime);
-	hash ^= hash >>> 13;
-	hash = Math.imul(hash, prime);
-	hash ^= hash >>> 16;
-
 	return hash >>> 0;
-}
+  }
