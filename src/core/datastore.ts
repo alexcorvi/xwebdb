@@ -253,16 +253,6 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 		}
 	}
 
-	private _isBasicType(value: any) {
-		return (
-			typeof value === "string" ||
-			typeof value === "number" ||
-			typeof value === "boolean" ||
-			value instanceof Date ||
-			value === null
-		);
-	}
-
 	fromDict(query: MongoDBQuery) {
 		let qClone: MongoDBQuery = JSON.parse(JSON.stringify(query));
 		let entries = Object.entries(qClone);
