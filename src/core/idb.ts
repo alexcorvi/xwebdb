@@ -1,5 +1,6 @@
 /**
  * Promise-base interface for interacting with indexedDB
+ * This is where actual operations to IndexedDB occurs
  */
 
 import { Doc } from "../types";
