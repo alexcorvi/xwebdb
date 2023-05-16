@@ -44,7 +44,8 @@ export class Dictionary<D extends object> {
 	}
 	insert(key: D[keyof D], document: D) {
 		key = unify(key);
-		if (this.documents.get(key) && this.unique) {
+		let list = this.documents.get(key);
+		if (list && this.unique) {
 			const err = new Error(
 				`XWebDB: Can't insert key ${key}, it violates the unique constraint`
 			) as any;
@@ -57,7 +58,6 @@ export class Dictionary<D extends object> {
 		if (this.keys[index] !== key) {
 			this.keys.splice(index, 0, key);
 		}
-		let list = this.documents.get(key);
 		if (!list) {
 			list = [];
 			this.documents.set(key, list);
