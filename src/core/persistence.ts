@@ -1,6 +1,7 @@
 /**
- * Persistence layer (IndexedDB) class
- * writes, deletes and reads from IndexedDB
+ * Persistence layer class
+ * Actual IndexedDB operations are in "idb.ts"
+ * This class mainly process data and prepares it prior idb.ts
  */
 
 import * as u from "./customUtils";
@@ -182,7 +183,7 @@ export class Persistence<G extends Doc, C extends typeof Doc> {
 	 * (excluding $H and documents that actually $deleted)
 	 */
 	async readData() {
-		let all = await this.data.values();
+		let all = await this.data.documents();
 		let res: (Line | null)[] = [];
 		for (let index = 0; index < all.length; index++) {
 			let line = all[index];

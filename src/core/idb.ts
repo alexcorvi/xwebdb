@@ -8,12 +8,24 @@ import { EnsureIndexOptions } from "./datastore";
 
 export type Line = Partial<Doc & { $$indexCreated?: EnsureIndexOptions }> & Record<string, any>;
 
+interface PersistenceLayer {
+	get(key: string): Promise<Line | undefined>
+	getBulk(keys: string[]): Promise<(Line | undefined)[]>;
+	set(key: string, value: Line): Promise<void>;
+	setBulk(entries: [string, Line][]): Promise<void>;
+	delBulk(keys: string[]): Promise<void>;
+	clear(): Promise<void>;
+	keys(): Promise<string[]>;
+	documents(): Promise<Line[]>;
+	byID(_id: string): Promise<IDBValidKey | undefined>
+}
+
 export type UseStore = <T>(
 	txMode: IDBTransactionMode,
 	callback: (store: IDBObjectStore) => T | PromiseLike<T>
 ) => Promise<T>;
 
-export class IDB {
+export class IDB implements PersistenceLayer {
 	private store: UseStore;
 
 	constructor(name: string) {
@@ -134,9 +146,9 @@ export class IDB {
 	}
 
 	/**
-	 * Get all values in the store.
+	 * Get all documents in the store.
 	 */
-	values(): Promise<Line[]> {
+	documents(): Promise<Line[]> {
 		return this.store("readonly", async (store) => {
 			// Fast path for modern browsers
 			if (store.getAll) {
