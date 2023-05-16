@@ -1,16 +1,16 @@
-import { AvlTree } from "./avl";
+import { Dictionary } from "./dictionary";
 import { Doc } from "../types";
 interface Pair<Doc> {
     newDoc: Doc;
     oldDoc: Doc;
 }
-export declare class Index<Key, S extends Doc> {
-    fieldName: string;
+export declare class Index<Key extends S[keyof S], S extends Doc> {
+    fieldName: keyof S;
     unique: boolean;
     sparse: boolean;
-    tree: AvlTree<Key, S>;
+    dict: Dictionary<S>;
     constructor({ fieldName, unique, sparse, }: {
-        fieldName: string;
+        fieldName: keyof S;
         unique?: boolean;
         sparse?: boolean;
     });
@@ -50,11 +50,5 @@ export declare class Index<Key, S extends Doc> {
      * Revert an update
      */
     revertUpdate(oldDoc: S | Array<Pair<S>>, newDoc?: S): void;
-    /**
-     * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
-     */
-    getMatching(input: Key | Key[]): S[];
-    getAll(): S[];
-    getBetweenBounds(query: any): S[];
 }
 export {};

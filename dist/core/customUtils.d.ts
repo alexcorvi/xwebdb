@@ -1,6 +1,8 @@
-export declare function uid(): string;
-export declare function randomString(len?: number): string;
 /**
- * XXHash32
-*/
-export declare function xxh(str: string, seed?: number): number;
+ * Basic custom utilities that is used around the databases
+ */
+export declare function uid(): string;
+/**
+ * simple hashing function (djb2 implementation)
+ */
+export declare function dHash(str: string): number;

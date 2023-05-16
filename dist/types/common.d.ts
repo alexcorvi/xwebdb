@@ -14,11 +14,14 @@ type WritablePart<T> = Pick<T, WritableKeysOf<T>>;
 export type NFGP<T> = T extends Array<infer U> ? Array<NFGP<U>> : T extends object ? {
     [K in keyof WritablePart<T>]: NFGP<WritablePart<T>[K]>;
 } : T;
-export type RecursivePartial<T> = {
-    [P in keyof T]?: T[P] extends object ? RecursivePartial<T[P]> : T[P];
-};
 type NFPN<T> = {
     [K in keyof T]: T[K] extends Function ? never : K;
 }[keyof T];
 export type NFP<T> = Pick<T, NFPN<T>>;
+export type NOP<T> = {
+    [K in keyof T]: T[K] extends (object | undefined) ? never : K;
+}[keyof T];
+export type RecursivePartial<T> = {
+    [P in keyof T]?: T[P] extends object ? RecursivePartial<T[P]> : T[P];
+};
 export {};

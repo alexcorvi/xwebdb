@@ -5,11 +5,12 @@ import * as types from "../types";
 import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
+import { Live } from "./live";
+type MongoDBQuery = Record<string, any>;
 export interface EnsureIndexOptions {
     fieldName: string;
     unique?: boolean;
     sparse?: boolean;
-    expireAfterSeconds?: number;
 }
 export interface DataStoreOptions<G extends typeof Doc> {
     ref: string;
@@ -19,10 +20,10 @@ export interface DataStoreOptions<G extends typeof Doc> {
     timestampData?: boolean;
     syncToRemote?: (name: string) => remoteStore;
     syncInterval?: number;
-    invalidateHash?: number;
     model?: G;
-    defer: number;
-    stripDefaults: boolean;
+    defer?: number;
+    stripDefaults?: boolean;
+    indexes?: string[];
 }
 interface UpdateOptions {
     multi?: boolean;
@@ -34,13 +35,12 @@ export declare class Datastore<G extends types.Doc & {
     ref: string;
     timestampData: boolean;
     persistence: Persistence<G, C>;
+    live: Live;
     q: Q;
     indexes: {
-        [key: string]: Index<string, G>;
+        [key: string]: Index<G[keyof G], G>;
     };
-    ttlIndexes: {
-        [key: string]: number;
-    };
+    initIndexes: string[];
     model: C;
     defer: boolean;
     deferredWrites: G[];
@@ -87,13 +87,7 @@ export declare class Datastore<G extends types.Doc & {
      * If one update violates a constraint, all changes are rolled back
      */
     private updateIndexes;
-    private _isBasicType;
-    /**
-     * This will return the least number of candidates,
-     * using Index if possible
-     * when failing it will return all the database
-     */
-    private _leastCandidates;
+    fromDict(query: MongoDBQuery): G[] | null;
     /**
      * Return the list of candidates for a given query
      * Crude implementation for now, we return the candidates given by the first usable index if any
@@ -103,30 +97,15 @@ export declare class Datastore<G extends types.Doc & {
      *
      * Returned candidates will be scanned to find and remove all expired documents
      */
-    getCandidates(query: any, dontExpireStaleDocs?: boolean): Promise<G[]>;
+    getCandidates(query: MongoDBQuery): G[];
     /**
      * Insert a new document
      */
-    private _insert;
+    insert(newDoc: G | G[]): Promise<types.Result<G>>;
     /**
      * Create a new _id that's not already in use
      */
     private createNewId;
-    /**
-     * Prepare a document (or array of documents) to be inserted in a database
-     * Meaning adds _id and timestamps if necessary on a copy of newDoc to avoid any side effect on user input
-     */
-    private prepareDocumentForInsertion;
-    /**
-     * If newDoc is an array of documents, this will insert all documents in the cache
-     */
-    private _insertInCache;
-    /**
-     * If one insertion fails (e.g. because of a unique constraint), roll back all previous
-     * inserts and throws the error
-     */
-    private _insertMultipleDocsInCache;
-    insert(newDoc: G | G[]): Promise<types.Result<G>>;
     /**
      * Count all documents matching the query
      */

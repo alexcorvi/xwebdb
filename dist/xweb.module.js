@@ -1,3 +1,6 @@
+/**
+ * Basic custom utilities that is used around the databases
+ */
 const lut = [];
 for (let i = 0; i < 256; i++) {
     lut[i] = (i < 16 ? "0" : "") + i.toString(16);
@@ -28,54 +31,22 @@ function uid() {
         lut[(d3 >> 16) & 0xff] +
         lut[(d3 >> 24) & 0xff]);
 }
-function randomString(len = 8) {
-    return Array.from(new Uint8Array(120))
-        .map((x) => Math.random().toString(36))
-        .join("")
-        .split("0.")
-        .join("")
-        .substring(0, len);
-}
 /**
- * XXHash32
-*/
-function xxh(str, seed = 0) {
-    const encoder = new TextEncoder();
-    const input = encoder.encode(str);
-    const prime = 0x9e3779b1;
-    let hash = seed + 0xdeadbeef;
-    let len = input.length;
-    for (let i = 0; i + 4 <= len; i += 4) {
-        let word = (input[i] |
-            (input[i + 1] << 8) |
-            (input[i + 2] << 16) |
-            (input[i + 3] << 24)) >>>
-            0;
-        hash += word * prime;
-        hash = Math.imul(hash, prime);
+ * simple hashing function (djb2 implementation)
+ */
+function dHash(str) {
+    var len = str.length;
+    var hash = -1;
+    for (var idx = 0; idx < len; ++idx) {
+        hash = ((hash << 5) + hash + str.charCodeAt(idx)) & 0xFFFFFFFF;
     }
-    if (len & 3) {
-        let lastBytes = input.slice(len - (len & 3));
-        let word = 0;
-        for (let i = 0; i < lastBytes.length; i++) {
-            word += lastBytes[i] << (i * 8);
-        }
-        hash += word * prime;
-        hash = Math.imul(hash, prime);
-    }
-    hash ^= hash >>> 15;
-    hash = Math.imul(hash, prime);
-    hash ^= hash >>> 13;
-    hash = Math.imul(hash, prime);
-    hash ^= hash >>> 16;
     return hash >>> 0;
 }
 
 var customUtils = /*#__PURE__*/Object.freeze({
     __proto__: null,
     uid: uid,
-    randomString: randomString,
-    xxh: xxh
+    dHash: dHash
 });
 
 /**
@@ -166,11 +137,11 @@ function clone(obj, model, strictKeys = false) {
         return obj.map((sub) => clone(sub, model, strictKeys));
     if (typeof obj === "object") {
         let res = {};
-        Object.entries(obj).forEach(([key, val]) => {
+        for (const [key, val] of Object.entries(obj)) {
             if (!strictKeys || (key[0] !== "$" && key.indexOf(".") === -1)) {
                 res[key] = clone(val, model, strictKeys);
             }
-        });
+        }
         if (res.hasOwnProperty("_id")) {
             return model.new(res);
         }
@@ -259,7 +230,7 @@ function equal(a, b) {
     // objects are checked by serialization, placing inside temp to prevent any possible runtime errors
     let aS = serialize({ temp: a }, true);
     let bS = serialize({ temp: b }, true);
-    return aS === bS;
+    return aS === bS; // TODO: what if the order was incorrect? https://www.npmjs.com/package/json-stable-stringify
 }
 function comparable(a, b) {
     let ta = typeof a;
@@ -298,7 +269,7 @@ function compareArrays(a, b) {
 /**
  * Compare anything
  * type hierarchy is: undefined, null, number, strings, boolean, dates, arrays, objects
- * Return -1 if a < b, 1 if a > b and 0 if a = b
+ * Return -1 if a < b, 1 if a > b and 0 if a === b
  * (note that equality here is NOT the same as defined in areThingsEqual!)
  */
 function compare(a, b) {
@@ -380,7 +351,8 @@ const arrComparison = {
         return true;
     },
 };
-const comparisonFunctions = Object.assign({ $type: function (a, b) {
+const comparisonFunctions = {
+    $type: function (a, b) {
         if (["number", "boolean", "string", "undefined"].indexOf(b) > -1)
             return typeof a === b;
         else if (b === "array")
@@ -396,7 +368,14 @@ const comparisonFunctions = Object.assign({ $type: function (a, b) {
                 !Array.isArray(a));
         else
             return false;
-    }, $not: (a, b) => !match({ k: a }, { k: b }), $eq: (a, b) => equal(a, b), $lt: (a, b) => comparable(a, b) && a < b, $lte: (a, b) => comparable(a, b) && a <= b, $gt: (a, b) => comparable(a, b) && a > b, $gte: (a, b) => comparable(a, b) && a >= b, $mod: function (a, b) {
+    },
+    $not: (a, b) => !match({ k: a }, { k: b }),
+    $eq: (a, b) => equal(a, b),
+    $lt: (a, b) => comparable(a, b) && a < b,
+    $lte: (a, b) => comparable(a, b) && a <= b,
+    $gt: (a, b) => comparable(a, b) && a > b,
+    $gte: (a, b) => comparable(a, b) && a >= b,
+    $mod: function (a, b) {
         if (!Array.isArray(b)) {
             throw new Error("XWebDB: malformed mod, must be supplied with an array");
         }
@@ -404,29 +383,34 @@ const comparisonFunctions = Object.assign({ $type: function (a, b) {
             throw new Error("XWebDB: malformed mod, array length must be exactly two, a divisor and a remainder");
         }
         return a % b[0] === b[1];
-    }, $ne: function (a, b) {
+    },
+    $ne: function (a, b) {
         if (a === undefined)
             return true;
         return !equal(a, b);
-    }, $in: function (a, b) {
+    },
+    $in: function (a, b) {
         if (!Array.isArray(b))
             throw new Error("XWebDB: $in operator called with a non-array");
         for (let i = 0; i < b.length; i += 1)
             if (equal(a, b[i]))
                 return true;
         return false;
-    }, $nin: function (a, b) {
+    },
+    $nin: function (a, b) {
         if (!Array.isArray(b))
             throw new Error("XWebDB: $nin operator called with a non-array");
         return !comparisonFunctions.$in(a, b);
-    }, $regex: function (a, b) {
+    },
+    $regex: function (a, b) {
         if (!(b instanceof RegExp))
             throw new Error("XWebDB: $regex operator called with non regular expression");
         if (typeof a !== "string")
             return false;
         else
             return b.test(a);
-    }, $exists: function (value, exists) {
+    },
+    $exists: function (value, exists) {
         if (exists || exists === "")
             exists = true;
         else
@@ -435,7 +419,9 @@ const comparisonFunctions = Object.assign({ $type: function (a, b) {
             return !exists;
         else
             return exists;
-    } }, arrComparison);
+    },
+    ...arrComparison,
+};
 function logicalOperator(operator, obj, query) {
     if (!Array.isArray(query)) {
         throw new Error("XWebDB: $or/$nor/$and operators should be used with an array");
@@ -901,33 +887,9 @@ var modelling = /*#__PURE__*/Object.freeze({
     equal: equal
 });
 
-/******************************************************************************
-Copyright (c) Microsoft Corporation.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */
-
-function __awaiter(thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-}
-
 /**
- * Create a new cursor for this collection
+ * Cursor class is responsible for querying documents
+ * as well as sorting, skipping, limiting, and projections
  */
 class Cursor {
     constructor(db, query) {
@@ -1013,587 +975,243 @@ class Cursor {
         return res;
     }
     /**
-     * Get all matching elements
-     * Will return pointers to matched elements (shallow copies), returning full copies is the role of find or findOne
-     *
+     * Executes the query
+     * Will return pointers to matched elements (shallow copies)
+     * hence its called "unsafe"
      */
     __exec_unsafe() {
-        return __awaiter(this, void 0, void 0, function* () {
-            let res = [];
-            let added = 0;
-            let skipped = 0;
-            const candidates = yield this.db.getCandidates(this._query);
-            for (let i = 0; i < candidates.length; i++) {
-                if (match(candidates[i], this._query)) {
-                    // If a sort is defined, wait for the results to be sorted before applying limit and skip
-                    if (!this._sort) {
-                        if (this._skip && this._skip > skipped) {
-                            skipped++;
-                        }
-                        else {
-                            res.push(candidates[i]);
-                            added++;
-                            if (this._limit && this._limit <= added) {
-                                break;
-                            }
-                        }
-                    }
-                    else {
-                        res.push(candidates[i]);
+        let res = [];
+        const candidates = this.db.getCandidates(this._query);
+        for (let i = 0; i < candidates.length; i++) {
+            if (match(candidates[i], this._query)) {
+                res.push(candidates[i]);
+            }
+        }
+        // Apply all sorts
+        if (this._sort) {
+            res.sort((a, b) => {
+                for (const [key, direction] of Object.entries(this._sort || {})) {
+                    let compare$1 = direction *
+                        compare(fromDotNotation(a, key), fromDotNotation(b, key));
+                    if (compare$1 !== 0) {
+                        return compare$1;
                     }
                 }
-            }
-            // Apply all sorts
-            if (this._sort) {
-                let keys = Object.keys(this._sort);
-                // Sorting
-                const criteria = [];
-                for (let i = 0; i < keys.length; i++) {
-                    let key = keys[i];
-                    criteria.push({ key, direction: this._sort[key] });
-                }
-                res.sort((a, b) => {
-                    let criterion;
-                    let compare$1;
-                    let i;
-                    for (i = 0; i < criteria.length; i++) {
-                        criterion = criteria[i];
-                        compare$1 =
-                            criterion.direction *
-                                compare(fromDotNotation(a, criterion.key), fromDotNotation(b, criterion.key));
-                        if (compare$1 !== 0) {
-                            return compare$1;
-                        }
-                    }
-                    return 0;
-                });
-                // Applying limit and skip
-                const limit = this._limit || res.length;
-                const skip = this._skip || 0;
-                res = res.slice(skip, skip + limit);
-            }
-            // Apply projection
+                return 0;
+            });
+        }
+        // Applying limit and skip
+        if (this._limit || this._skip) {
+            const limit = this._limit || res.length;
+            const skip = this._skip || 0;
+            res = res.slice(skip, skip + limit);
+        }
+        // Apply projection
+        if (this._projection) {
             res = this._project(res);
-            return res;
-        });
+        }
+        return res;
     }
-    _exec() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.db.q.add(() => this.__exec_unsafe());
-        });
-    }
+    /**
+     * Executes the query safely (i.e. cloning documents)
+    */
     exec() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const originalsArr = yield this._exec();
-            const res = [];
-            for (let index = 0; index < originalsArr.length; index++) {
-                res.push(clone(originalsArr[index], this.db.model));
-            }
-            return res;
-        });
+        const originalsArr = this.__exec_unsafe();
+        const res = [];
+        for (let index = 0; index < originalsArr.length; index++) {
+            res.push(clone(originalsArr[index], this.db.model));
+        }
+        return res;
     }
 }
 
-class Node {
-    /**
-     * Creates a new AVL Tree node.
-     * @param key The key of the new node.
-     * @param value The value of the new node.
-     */
-    constructor(key, value) {
-        this.left = null;
-        this.right = null;
-        this.height = null;
-        this.value = [];
-        this.value.push(value);
-        this.key = key;
+/**
+ * This is a data structure that is much similar to SortedDictionary in C#
+ * Except for minor differences.
+ * 		1.	It can hold multiple values per key
+ * 		2.	Binary search for insertion & deletion
+ *
+ * Complexity Notations:
+ * 		# Get: O(1)
+ * 		# Insert: O(log n)
+ * 		# Delete: O(log n)
+ */
+// handles conversion of keys into strings if they aren't of a comparable type
+function unify(key) {
+    let t = typeof key;
+    if (t === "number" || t === "string" || t === "bigint") {
+        return key;
     }
-    /**
-     * Performs a right rotate on this node.
-     * @return The root of the sub-tree; the node where this node used to be.
-     * @throws If Node.left is null.
-     */
-    rotateRight() {
-        //     b                           a
-        //    / \                         / \
-        //   a   e -> b.rotateRight() -> c   b
-        //  / \                             / \
-        // c   d                           d   e
-        const other = this.left;
-        this.left = other.right;
-        other.right = this;
-        this.height = Math.max(this.leftHeight, this.rightHeight) + 1;
-        other.height = Math.max(other.leftHeight, this.height) + 1;
-        return other;
-    }
-    /**
-     * Performs a left rotate on this node.
-     * @return The root of the sub-tree; the node where this node used to be.
-     * @throws If Node.right is null.
-     */
-    rotateLeft() {
-        //   a                              b
-        //  / \                            / \
-        // c   b   -> a.rotateLeft() ->   a   e
-        //    / \                        / \
-        //   d   e                      c   d
-        const other = this.right;
-        this.right = other.left;
-        other.left = this;
-        this.height = Math.max(this.leftHeight, this.rightHeight) + 1;
-        other.height = Math.max(other.rightHeight, this.height) + 1;
-        return other;
-    }
-    /**
-     * Convenience function to get the height of the left child of the node,
-     * returning -1 if the node is null.
-     * @return The height of the left child, or -1 if it doesn't exist.
-     */
-    get leftHeight() {
-        if (this.left === null) {
-            return -1;
-        }
-        return this.left.height || 0;
-    }
-    /**
-     * Convenience function to get the height of the right child of the node,
-     * returning -1 if the node is null.
-     * @return The height of the right child, or -1 if it doesn't exist.
-     */
-    get rightHeight() {
-        if (this.right === null) {
-            return -1;
-        }
-        return this.right.height || 0;
-    }
-    executeOnEveryNode(fn) {
-        if (this.left) {
-            this.left.executeOnEveryNode(fn);
-        }
-        fn(this);
-        if (this.right) {
-            this.right.executeOnEveryNode(fn);
-        }
-    }
-    /**
-     * Get all data for a key between bounds
-     * Return it in key order
-     */
-    betweenBounds(query, lbm, ubm) {
-        let res = [];
-        if (!this.hasOwnProperty("key")) {
-            return [];
-        }
-        lbm = lbm || this.getLowerBoundMatcher(query);
-        ubm = ubm || this.getUpperBoundMatcher(query);
-        if (lbm(this.key) && this.left) {
-            res = res.concat(this.left.betweenBounds(query, lbm, ubm));
-        }
-        if (lbm(this.key) && ubm(this.key) && this.value) {
-            res = res.concat(this.value);
-        }
-        if (ubm(this.key) && this.right) {
-            res = res.concat(this.right.betweenBounds(query, lbm, ubm));
-        }
-        return res;
-    }
-    /**
-     * Return a function that tells whether a given key matches a lower bound
-     */
-    getLowerBoundMatcher(query) {
-        // No lower bound
-        if (!query.hasOwnProperty("$gt") && !query.hasOwnProperty("$gte")) {
-            return () => true;
-        }
-        if (query.hasOwnProperty("$gt") && query.hasOwnProperty("$gte")) {
-            if (this.compareKeys(query.$gte, query.$gt) === 0) {
-                return (key) => this.compareKeys(key, query.$gt) > 0;
-            }
-            if (this.compareKeys(query.$gte, query.$gt) > 0) {
-                return (key) => this.compareKeys(key, query.$gte) >= 0;
-            }
-            else {
-                return (key) => this.compareKeys(key, query.$gt) > 0;
-            }
-        }
-        if (query.hasOwnProperty("$gt")) {
-            return (key) => this.compareKeys(key, query.$gt) > 0;
-        }
-        else {
-            return (key) => this.compareKeys(key, query.$gte) >= 0;
-        }
-    }
-    /**
-     * Return a function that tells whether a given key matches an upper bound
-     */
-    getUpperBoundMatcher(query) {
-        // No lower bound
-        if (!query.hasOwnProperty("$lt") && !query.hasOwnProperty("$lte")) {
-            return () => true;
-        }
-        if (query.hasOwnProperty("$lt") && query.hasOwnProperty("$lte")) {
-            if (this.compareKeys(query.$lte, query.$lt) === 0) {
-                return (key) => this.compareKeys(key, query.$lt) < 0;
-            }
-            if (this.compareKeys(query.$lte, query.$lt) < 0) {
-                return (key) => this.compareKeys(key, query.$lte) <= 0;
-            }
-            else {
-                return (key) => this.compareKeys(key, query.$lt) < 0;
-            }
-        }
-        if (query.hasOwnProperty("$lt")) {
-            return (key) => this.compareKeys(key, query.$lt) < 0;
-        }
-        else {
-            return (key) => this.compareKeys(key, query.$lte) <= 0;
-        }
-    }
-    compareKeys(a, b) {
-        if (a > b) {
-            return 1;
-        }
-        if (a < b) {
-            return -1;
-        }
-        return 0;
-    }
-    numberOfKeys() {
-        let res = 1;
-        if (this.left) {
-            res += this.left.numberOfKeys();
-        }
-        if (this.right) {
-            res += this.right.numberOfKeys();
-        }
-        return res;
-    }
+    else
+        return JSON.stringify([[[key]]]);
 }
-class AvlTree {
-    /**
-     * Creates a new AVL Tree.
-     * @param _compare An optional custom compare function.
-     */
-    constructor(fieldName, compare, unique = false) {
-        this._root = null;
-        this._size = 0;
+class Dictionary {
+    constructor({ fieldName, unique, c, }) {
+        this.keys = [];
+        this.documents = new Map();
         this.unique = false;
-        this.fieldName = '';
-        this._compare = compare ? compare : this._defaultCompare;
-        this.unique = unique;
         this.fieldName = fieldName;
+        this.comparator = c;
+        this.unique = unique;
     }
-    /**
-     * Compares two keys with each other.
-     * @param a The first key to compare.
-     * @param b The second key to compare.
-     * @return -1, 0 or 1 if a < b, a == b or a > b respectively.
-     */
-    _defaultCompare(a, b) {
-        if (a > b) {
-            return 1;
-        }
-        if (a < b) {
-            return -1;
-        }
-        return 0;
+    has(key) {
+        return this.documents.has(unify(key));
     }
-    /**
-     * Inserts a new node with a specific key into the tree.
-     * @param key The key being inserted.
-     * @param value The value being inserted.
-     */
-    insert(key, value) {
-        this._root = this._insert(key, value, this._root);
-        this._size++;
-    }
-    /**
-     * Inserts a new node with a specific key into the tree.
-     * @param key The key being inserted.
-     * @param root The root of the tree to insert in.
-     * @return The new tree root.
-     */
-    _insert(key, value, root) {
-        // Perform regular BST insertion
-        if (root === null) {
-            return new Node(key, value);
-        }
-        if (this._compare(key, root.key) < 0) {
-            root.left = this._insert(key, value, root.left);
-        }
-        else if (this._compare(key, root.key) > 0) {
-            root.right = this._insert(key, value, root.right);
-        }
-        else if (!this.unique) {
-            root.value.push(value);
-            return root;
-        }
-        else {
-            // It's a duplicate so insertion failed, decrement size to make up for it
-            if (this.size > 0) {
-                this._size--;
-            }
+    insert(key, document) {
+        key = unify(key);
+        let list = this.documents.get(key);
+        if (list && this.unique) {
             const err = new Error(`XWebDB: Can't insert key ${key}, it violates the unique constraint`);
             err.key = key;
             err.prop = this.fieldName;
             err.errorType = "uniqueViolated";
             throw err;
         }
-        // Update height and rebalance tree
-        root.height = Math.max(root.leftHeight, root.rightHeight) + 1;
-        const balanceState = this._getBalanceState(root);
-        if (balanceState === 4 /* BalanceState.UNBALANCED_LEFT */) {
-            if (this._compare(key, root.left.key) < 0) {
-                // Left left case
-                root = root.rotateRight();
-            }
-            else {
-                // Left right case
-                root.left = root.left.rotateLeft();
-                return root.rotateRight();
-            }
+        const index = this.findInsertionIndex(key);
+        if (this.keys[index] !== key) {
+            this.keys.splice(index, 0, key);
         }
-        if (balanceState === 0 /* BalanceState.UNBALANCED_RIGHT */) {
-            if (this._compare(key, root.right.key) > 0) {
-                // Right right case
-                root = root.rotateLeft();
-            }
-            else {
-                // Right left case
-                root.right = root.right.rotateRight();
-                return root.rotateLeft();
-            }
+        if (!list) {
+            list = [];
+            this.documents.set(key, list);
         }
-        return root;
+        list.push(document);
     }
-    /**
-     * Deletes a node with a specific key from the tree.
-     * @param key The key being deleted.
-     */
-    delete(key, doc) {
-        this._root = this._delete(key, doc, this._root);
-        if (this.size > 0)
-            this._size--;
-    }
-    /**
-     * Deletes a node with a specific key from the tree.
-     * @param key The key being deleted.
-     * @param root The root of the tree to delete from.
-     * @return The new tree root.
-     */
-    _delete(key, doc, root) {
-        // Perform regular BST deletion
-        if (root === null) {
-            this._size++;
-            return root;
-        }
-        if (this._compare(key, root.key) < 0) {
-            // The key to be deleted is in the left sub-tree
-            root.left = this._delete(key, doc, root.left);
-        }
-        else if (this._compare(key, root.key) > 0) {
-            // The key to be deleted is in the right sub-tree
-            root.right = this._delete(key, doc, root.right);
-        }
-        else {
-            // root is the node to be deleted
-            if (root.value.length > 1) {
-                // removing item from array only
-                // not whole node
-                root.value.splice(root.value.indexOf(doc), 1);
-                return root;
-            }
-            if (!root.left && !root.right) {
-                root = null;
-            }
-            else if (!root.left && root.right) {
-                root = root.right;
-            }
-            else if (root.left && !root.right) {
-                root = root.left;
-            }
-            else {
-                // Node has 2 children, get the in-order successor
-                const inOrderSuccessor = this._minValueNode(root.right);
-                root.key = inOrderSuccessor.key;
-                root.value = inOrderSuccessor.value;
-                root.right = this._delete(inOrderSuccessor.key, doc, root.right);
-            }
-        }
-        if (root === null) {
-            return root;
-        }
-        // Update height and rebalance tree
-        root.height = Math.max(root.leftHeight, root.rightHeight) + 1;
-        const balanceState = this._getBalanceState(root);
-        if (balanceState === 4 /* BalanceState.UNBALANCED_LEFT */) {
-            // Left left case
-            if (this._getBalanceState(root.left) ===
-                2 /* BalanceState.BALANCED */ ||
-                this._getBalanceState(root.left) ===
-                    3 /* BalanceState.SLIGHTLY_UNBALANCED_LEFT */) {
-                return root.rotateRight();
-            }
-            // Left right case
-            // this._getBalanceState(root.left) === BalanceState.SLIGHTLY_UNBALANCED_RIGHT
-            root.left = root.left.rotateLeft();
-            return root.rotateRight();
-        }
-        if (balanceState === 0 /* BalanceState.UNBALANCED_RIGHT */) {
-            // Right right case
-            if (this._getBalanceState(root.right) ===
-                2 /* BalanceState.BALANCED */ ||
-                this._getBalanceState(root.right) ===
-                    1 /* BalanceState.SLIGHTLY_UNBALANCED_RIGHT */) {
-                return root.rotateLeft();
-            }
-            // Right left case
-            // this._getBalanceState(root.right) === BalanceState.SLIGHTLY_UNBALANCED_LEFT
-            root.right = root.right.rotateRight();
-            return root.rotateLeft();
-        }
-        return root;
-    }
-    /**
-     * Gets the value of a node within the tree with a specific key.
-     * @param key The key being searched for.
-     * @return The value of the node (which may be undefined), or null if it
-     * doesn't exist.
-     */
     get(key) {
-        if (this._root === null) {
-            return [];
-        }
-        const result = this._get(key, this._root);
-        if (result === null) {
-            return [];
-        }
-        if (!result.value) {
-            return [];
-        }
-        return result.value;
+        if (Array.isArray(key))
+            return key.map((x) => this.get(unify(x))).flat(1);
+        return this.documents.get(unify(key)) || [];
     }
-    /**
-     * Gets the value of a node within the tree with a specific key.
-     * @param key The key being searched for.
-     * @param root The root of the tree to search in.
-     * @return The value of the node or null if it doesn't exist.
-     */
-    _get(key, root) {
-        const result = this._compare(key, root.key);
-        if (result === 0) {
-            return root;
-        }
-        if (result < 0) {
-            if (!root.left) {
-                return null;
-            }
-            return this._get(key, root.left);
-        }
-        if (!root.right) {
-            return null;
-        }
-        return this._get(key, root.right);
-    }
-    /**
-     * Gets whether a node with a specific key is within the tree.
-     * @param key The key being searched for.
-     * @return Whether a node with the key exists.
-     */
-    contains(key) {
-        if (this._root === null) {
+    delete(key, document) {
+        key = unify(key);
+        const index = this.binarySearch(key);
+        if (index === -1) {
             return false;
         }
-        return !!this._get(key, this._root);
-    }
-    /**
-     * @return The minimum key in the tree or null if there are no nodes.
-     */
-    findMinimum() {
-        if (this._root === null) {
-            return null;
+        const bucket = this.documents.get(key) || [];
+        bucket.splice(bucket.indexOf(document), 1);
+        if (bucket.length === 0) {
+            this.keys.splice(index, 1);
+            this.documents.delete(key);
         }
-        return this._minValueNode(this._root).key;
+        return true;
     }
-    /**
-     * Gets the maximum key in the tree or null if there are no nodes.
-     */
-    findMaximum() {
-        if (this._root === null) {
-            return null;
+    findInsertionIndex(key) {
+        key = unify(key);
+        let low = 0;
+        let high = this.keys.length;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if (this.comparator(this.keys[mid], key) === -1) {
+                low = mid + 1;
+            }
+            else {
+                high = mid;
+            }
         }
-        return this._maxValueNode(this._root).key;
+        return low;
+    }
+    binarySearch(key) {
+        key = unify(key);
+        let low = 0;
+        let high = this.keys.length - 1;
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            if (this.comparator(this.keys[mid], key) === 0) {
+                return mid;
+            }
+            else if (this.comparator(this.keys[mid], key) === -1) {
+                low = mid + 1;
+            }
+            else {
+                high = mid - 1;
+            }
+        }
+        return -1;
+    }
+    $in(keys) {
+        keys = keys.map((x) => unify(x));
+        let matched = [];
+        for (let index = 0; index < keys.length; index++) {
+            let key = unify(keys[index]);
+            matched = matched.concat(this.get(key));
+        }
+        return matched.filter((x, i) => matched.indexOf(x) === i);
+    }
+    $nin(dismissKeys) {
+        dismissKeys = dismissKeys.map((x) => unify(x));
+        let values = [];
+        for (let index = 0; index < this.keys.length; index++) {
+            let k = unify(this.keys[index]);
+            if (!dismissKeys.includes(k))
+                values = values.concat(this.get(k));
+        }
+        return values;
+    }
+    $ne(dismissKey) {
+        dismissKey = unify(dismissKey);
+        let values = [];
+        for (let index = 0; index < this.keys.length; index++) {
+            const k = unify(this.keys[index]);
+            if (this.comparator(dismissKey, k) !== 0)
+                values = values.concat(this.get(k));
+        }
+        return values;
+    }
+    betweenBounds(gt, gtInclusive, lt, ltInclusive) {
+        let startIndex = 0;
+        let endIndex = this.keys.length - 1;
+        let matchedIndexes = [];
+        while (startIndex <= endIndex) {
+            let midIndex = Math.floor((startIndex + endIndex) / 2);
+            let current = this.keys[midIndex];
+            if (current < gt || (!gtInclusive && current === gt)) {
+                startIndex = midIndex + 1;
+            }
+            else if (current > lt || (!ltInclusive && current === lt)) {
+                endIndex = midIndex - 1;
+            }
+            else {
+                // Found a value in range
+                matchedIndexes.push(midIndex);
+                // Look for more values in range to the left of the current index
+                for (let i = midIndex - 1; i >= startIndex; i--) {
+                    let current = this.keys[i];
+                    if (current < gt || (!gtInclusive && current === gt)) {
+                        break;
+                    }
+                    matchedIndexes.push(i);
+                }
+                // Look for more values in range to the right of the current index
+                for (let i = midIndex + 1; i <= endIndex; i++) {
+                    let current = this.keys[i];
+                    if (current > lt || (!ltInclusive && current === lt)) {
+                        break;
+                    }
+                    matchedIndexes.push(i);
+                }
+                break;
+            }
+        }
+        matchedIndexes.sort((a, b) => a === b ? 0 : a > b ? 1 : -1);
+        let data = [];
+        for (let i = 0; i < matchedIndexes.length; i++) {
+            const foundIndex = matchedIndexes[i];
+            data = data.concat(this.get(this.keys[foundIndex]));
+        }
+        return data;
+    }
+    boundedQuery(query) {
+        return this.betweenBounds(query["$gt"] || query["$gte"], !!query["$gte"], query["$lt"] || query["$lte"], !!query["$lte"]);
+    }
+    get all() {
+        return Array.from(this.documents.values()).flat();
     }
     get numberOfKeys() {
-        var _a;
-        return ((_a = this._root) === null || _a === void 0 ? void 0 : _a.numberOfKeys()) || 0;
+        return this.keys.length;
     }
-    /**
-     * Gets the size of the tree.
-     */
     get size() {
-        return this._size;
-    }
-    /**
-     * Gets whether the tree is empty.
-     */
-    get isEmpty() {
-        return this._size === 0;
-    }
-    /**
-     * Gets the minimum value node, rooted in a particular node.
-     * @param root The node to search.
-     * @return The node with the minimum key in the tree.
-     */
-    _minValueNode(root) {
-        let current = root;
-        while (current.left) {
-            current = current.left;
-        }
-        return current;
-    }
-    /**
-     * Gets the maximum value node, rooted in a particular node.
-     * @param root The node to search.
-     * @return The node with the maximum key in the tree.
-     */
-    _maxValueNode(root) {
-        let current = root;
-        while (current.right) {
-            current = current.right;
-        }
-        return current;
-    }
-    /**
-     * Gets the balance state of a node, indicating whether the left or right
-     * sub-trees are unbalanced.
-     * @param node The node to get the difference from.
-     * @return The BalanceState of the node.
-     */
-    _getBalanceState(node) {
-        const heightDifference = node.leftHeight - node.rightHeight;
-        switch (heightDifference) {
-            case -2:
-                return 0 /* BalanceState.UNBALANCED_RIGHT */;
-            case -1:
-                return 1 /* BalanceState.SLIGHTLY_UNBALANCED_RIGHT */;
-            case 1:
-                return 3 /* BalanceState.SLIGHTLY_UNBALANCED_LEFT */;
-            case 2:
-                return 4 /* BalanceState.UNBALANCED_LEFT */;
-            default:
-                return 2 /* BalanceState.BALANCED */;
-        }
-    }
-    executeOnEveryNode(fn) {
-        if (!this._root)
-            return;
-        return this._root.executeOnEveryNode(fn);
-    }
-    betweenBounds(query, lbm, ubm) {
-        if (!this._root)
-            return [];
-        return this._root.betweenBounds(query, lbm, ubm);
+        return this.all.length;
     }
 }
 
@@ -1629,22 +1247,27 @@ function uniqueProjectedKeys(key) {
 }
 class Index {
     constructor({ fieldName, unique, sparse, }) {
-        this.fieldName = "";
         this.unique = false;
         this.sparse = false;
-        if (fieldName) {
-            this.fieldName = fieldName;
-        }
+        this.fieldName = fieldName;
         if (unique) {
             this.unique = unique;
         }
         if (sparse) {
             this.sparse = sparse;
         }
-        this.tree = new AvlTree(this.fieldName, compare, this.unique);
+        this.dict = new Dictionary({
+            unique: this.unique,
+            c: compare,
+            fieldName: this.fieldName,
+        });
     }
     reset() {
-        this.tree = new AvlTree(this.fieldName, compare, this.unique);
+        this.dict = new Dictionary({
+            unique: this.unique,
+            c: compare,
+            fieldName: this.fieldName,
+        });
     }
     /**
      * Insert a new document in the index
@@ -1662,7 +1285,7 @@ class Index {
             return;
         }
         if (!Array.isArray(key)) {
-            this.tree.insert(key, doc);
+            this.dict.insert(key, doc);
         }
         else {
             // If an insert fails due to a unique constraint, roll back all inserts before it
@@ -1671,7 +1294,7 @@ class Index {
             let failingIndex = -1;
             for (let i = 0; i < keys.length; i++) {
                 try {
-                    this.tree.insert(keys[i], doc);
+                    this.dict.insert(keys[i], doc);
                 }
                 catch (e) {
                     error = e;
@@ -1681,7 +1304,7 @@ class Index {
             }
             if (error) {
                 for (let i = 0; i < failingIndex; i++) {
-                    this.tree.delete(keys[i], doc);
+                    this.dict.delete(keys[i], doc);
                 }
                 throw error;
             }
@@ -1728,10 +1351,10 @@ class Index {
             return;
         }
         if (!Array.isArray(key)) {
-            this.tree.delete(key, doc);
+            this.dict.delete(key, doc);
         }
         else {
-            uniqueProjectedKeys(key).forEach((_key) => this.tree.delete(_key, doc));
+            uniqueProjectedKeys(key).forEach((_key) => this.dict.delete(_key, doc));
         }
     }
     /**
@@ -1802,728 +1425,23 @@ class Index {
             this.update(revert);
         }
     }
-    /**
-     * Get all documents in index whose key match value (if it is a Thing) or one of the elements of value (if it is an array of Things)
-     */
-    getMatching(input) {
-        if (!Array.isArray(input)) {
-            return this.tree.get(input);
-        }
-        else {
-            let res = [];
-            input.forEach((item) => {
-                this.tree.get(item).forEach((singleRes) => {
-                    if (!singleRes || !singleRes._id) {
-                        return;
-                    }
-                    res.push(singleRes);
-                });
-            });
-            return res.filter((x, i) => res.indexOf(x) === i);
-        }
-    }
-    getAll() {
-        let data = [];
-        this.tree.executeOnEveryNode(function (node) {
-            data = data.concat(node.value);
-        });
-        return data;
-    }
-    getBetweenBounds(query) {
-        return this.tree.betweenBounds(query);
-    }
 }
 
-class IDB {
-    constructor(name) {
-        const request = indexedDB.open(name);
-        request.onupgradeneeded = () => request.result.createObjectStore(name);
-        const dbp = this.pr(request);
-        this.store = (txMode, callback) => dbp.then((db) => callback(db.transaction(name, txMode).objectStore(name)));
-    }
-    pr(req) {
-        return new Promise((resolve, reject) => {
-            // @ts-ignore - file size hacks
-            req.oncomplete = req.onsuccess = () => resolve(req.result);
-            // @ts-ignore - file size hacks
-            req.onabort = req.onerror = () => reject(req.error);
-        });
-    }
-    /**
-     * Get a value by its key.
-     * @param key
-     */
-    get(key) {
-        return this.store("readonly", (store) => this.pr(store.get(key)));
-    }
-    /**
-     * Set a value with a key.
-     *
-     * @param key
-     * @param value
-     */
-    set(key, value) {
-        return this.store("readwrite", (store) => {
-            store.put(value, key);
-            return this.pr(store.transaction);
-        });
-    }
-    /**
-     * Set multiple values at once. This is faster than calling set() multiple times.
-     * It's also atomic – if one of the pairs can't be added, none will be added.
-     *
-     * @param entries Array of entries, where each entry is an array of `[key, value]`.
-     */
-    sets(entries) {
-        return this.store("readwrite", (store) => {
-            entries.forEach((entry) => store.put(entry[1], entry[0]));
-            return this.pr(store.transaction);
-        });
-    }
-    /**
-     * Get multiple values by their keys
-     *
-     * @param keys
-     */
-    gets(keys) {
-        return this.store("readonly", (store) => Promise.all(keys.map((key) => this.pr(store.get(key)))));
-    }
-    /**
-     * Delete a particular key from the store.
-     *
-     * @param key
-     */
-    del(key) {
-        return this.store("readwrite", (store) => {
-            store.delete(key);
-            return this.pr(store.transaction);
-        });
-    }
-    /**
-     * Delete multiple keys at once.
-     *
-     * @param keys List of keys to delete.
-     */
-    dels(keys) {
-        return this.store("readwrite", (store) => {
-            keys.forEach((key) => store.delete(key));
-            return this.pr(store.transaction);
-        });
-    }
-    /**
-     * Clear all values in the store.
-     *
-     */
-    clear() {
-        return this.store("readwrite", (store) => {
-            store.clear();
-            return this.pr(store.transaction);
-        });
-    }
-    eachCursor(store, callback) {
-        store.openCursor().onsuccess = function () {
-            if (!this.result)
-                return;
-            callback(this.result);
-            this.result.continue();
-        };
-        return this.pr(store.transaction);
-    }
-    /**
-     * Get all keys in the store.
-     *
-     */
-    keys() {
-        return this.store("readonly", (store) => __awaiter(this, void 0, void 0, function* () {
-            // Fast path for modern browsers
-            if (store.getAllKeys) {
-                return this.pr(store.getAllKeys());
-            }
-            const items = [];
-            yield this.eachCursor(store, (cursor) => items.push(cursor.key));
-            return items;
-        }));
-    }
-    /**
-     * Get all values in the store.
-     */
-    values() {
-        return this.store("readonly", (store) => __awaiter(this, void 0, void 0, function* () {
-            // Fast path for modern browsers
-            if (store.getAll) {
-                return this.pr(store.getAll());
-            }
-            const items = [];
-            yield this.eachCursor(store, (cursor) => items.push(cursor.value));
-            return items;
-        }));
-    }
-    length() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return (yield this.keys()).length;
-        });
-    }
-}
-
-const liveQueries = [];
-function hash(res) {
-    return xxh(JSON.stringify(res));
-}
-function addLive(q) {
-    q.id = uid();
-    liveQueries.push(q);
-    return q.id;
-}
-function liveUpdate() {
-    return __awaiter(this, void 0, void 0, function* () {
-        for (let index = 0; index < liveQueries.length; index++) {
-            const q = liveQueries[index];
-            const newRes = yield q.database.read(q.queryFilter, q.queryOptions);
-            const newHash = hash(newRes);
-            const oldHash = hash(q.observable.observable);
-            if (newHash === oldHash)
-                continue;
-            let u = yield q.observable.unobserve(q.toDBObserver);
-            q.observable.observable.splice(0);
-            q.observable.observable.push(...newRes);
-            if (u.length)
-                q.observable.observe(q.toDBObserver);
-        }
-    });
-}
-function kill(uid) {
-    const index = liveQueries.findIndex((q) => q.id === uid);
-    if (index > -1) {
-        liveQueries.splice(index, 1);
-    }
-}
-
-const asc = (a, b) => (a > b ? 1 : -1);
-class Sync {
-    constructor(persistence, rdata) {
-        this.p = persistence;
-        this.rdata = rdata;
-    }
-    setLocalHash(keys) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!keys)
-                keys = (yield this.p.data.keys());
-            const hash = xxh(JSON.stringify(keys.sort(asc))).toString();
-            this.p.data.set("$H", "$H" + hash + "_" + this.timeSignature());
-        });
-    }
-    setRemoteHash(keys) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!keys)
-                keys = (yield this.rdata.keys());
-            const hash = xxh(JSON.stringify(keys.sort(asc))).toString();
-            this.rdata.setItem("$H", "$H" + hash + "_" + this.timeSignature());
-        });
-    }
-    timeSignature() {
-        return Math.floor(Date.now() / this.p.invalidateHash);
-    }
-    sync() {
-        return new Promise((resolve, reject) => {
-            let interval = setInterval(() => __awaiter(this, void 0, void 0, function* () {
-                if (!this.p.syncInProgress || // should not sync when there's already a sync in progress
-                    this.p.db.deferredDeletes.length +
-                        this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
-                ) {
-                    clearInterval(interval);
-                    this.p.syncInProgress = true;
-                    let syncResult = { sent: 0, received: 0, diff: -1 };
-                    let err = undefined;
-                    try {
-                        syncResult = yield this._sync();
-                    }
-                    catch (e) {
-                        err = Error(e);
-                    }
-                    this.p.syncInProgress = false;
-                    if (err)
-                        reject(err);
-                    else
-                        resolve(syncResult);
-                }
-            }), 1);
-        });
-    }
-    brace(key, getter, thisDiffs, thatDiffs) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const _id = key.split("_")[0];
-            const rev = key.split("_")[1];
-            const thisTime = Number(rev.substring(2));
-            const conflictingIndex = thatDiffs.findIndex((x) => x.key.startsWith(_id + "_"));
-            if (conflictingIndex > -1) {
-                const conflicting = thatDiffs[conflictingIndex];
-                const conflictingRev = conflicting.key.split("_")[1];
-                const conflictingTime = Number(conflictingRev.substring(2));
-                if (thisTime > conflictingTime) {
-                    // this wins
-                    thatDiffs.splice(conflictingIndex, 1); // removing remote
-                    thisDiffs.push({
-                        key: key,
-                        value: (yield getter(key)) || "",
-                    });
-                }
-                // otherwise .. don't add to local diff
-            }
-            else {
-                thisDiffs.push({
-                    key: key,
-                    value: (yield getter(key)) || "",
-                });
-            }
-            return { thisDiffs, thatDiffs };
-        });
-    }
-    causesUCV(input) {
-        let line = this.p.treatSingleLine(input);
-        if (line.status === "remove")
-            return false;
-        try {
-            if (line.type === "doc") {
-                // don't cause UCV by _id (without this line all updates would trigger UCV)
-                // _id UCVs conflicts are only natural
-                // and solved by the fact that they are persisted on the same index
-                line.data._id = null;
-                this.p.db.addToIndexes(line.data);
-            }
-            else {
-                this.p.db.indexes[line.data.fieldName] = new Index(line.data.data);
-                this.p.db.indexes[line.data.fieldName].insert(this.p.db.getAllData());
-            }
-        }
-        catch (e) {
-            if (line.type === "doc") {
-                return {
-                    type: "doc",
-                    prop: e.prop,
-                    value: e.key,
-                };
-            }
-            else {
-                delete this.p.db.indexes[line.data.fieldName];
-                return {
-                    type: "index",
-                    fieldName: line.data.fieldName,
-                    sparse: !!line.data.data.sparse,
-                };
-            }
-        }
-        this.p.db.removeFromIndexes(line.data);
-        return false;
-    }
-    _sync(force = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const timeSignature = this.timeSignature().toString();
-            const rHash = (yield this.rdata.getItem("$H")) || "0";
-            const lHash = (yield this.p.data.get("$H")) || "0";
-            const hashTime = lHash.split("_")[1];
-            if (!force &&
-                hashTime === timeSignature &&
-                (lHash === rHash ||
-                    (lHash === "0" && (rHash || "").indexOf("10009") > -1))) {
-                return { sent: 0, received: 0, diff: -1 };
-            }
-            const remoteKeys = (yield this.rdata.keys())
-                .filter((x) => x !== "$H")
-                .sort(asc);
-            const localKeys = (yield this.p.data.keys())
-                .filter((x) => x !== "$H")
-                .sort(asc);
-            const remoteDiffs = [];
-            const localDiffs = [];
-            const rl = remoteKeys.length;
-            let ri = 0;
-            const ll = localKeys.length;
-            let li = 0;
-            while (ri < rl || li < ll) {
-                let rv = remoteKeys[ri];
-                let lv = localKeys[li];
-                if (rv === lv) {
-                    ri++;
-                    li++;
-                    continue;
-                }
-                else if (li === ll || asc(lv, rv) > 0) {
-                    ri++;
-                    yield this.brace(rv, (x) => this.rdata.getItem(x), remoteDiffs, localDiffs);
-                }
-                else {
-                    li++;
-                    yield this.brace(lv, (x) => this.p.data.get(x), localDiffs, remoteDiffs);
-                }
-            }
-            if (remoteDiffs.length === 0 && localDiffs.length === 0) {
-                yield this.setLocalHash();
-                yield this.setRemoteHash();
-                return { sent: 0, received: 0, diff: 0 };
-            }
-            // downloading
-            const downRemove = [];
-            const downSet = [];
-            for (let index = 0; index < remoteDiffs.length; index++) {
-                const diff = remoteDiffs[index];
-                const UCV = this.causesUCV(diff.value);
-                // if unique constraint violations occured
-                // make the key non-unique
-                // any other implementation would result in unjustified complexity
-                if (UCV && UCV.type === "doc") {
-                    const uniqueProp = UCV.prop;
-                    yield this.p.data.set(localKeys.find((x) => x.startsWith(uniqueProp + "_")) || "", this.p.encode(serialize({
-                        $$indexCreated: {
-                            fieldName: uniqueProp,
-                            unique: false,
-                            sparse: this.p.db.indexes[uniqueProp].sparse,
-                        },
-                    })));
-                }
-                else if (UCV && UCV.type === "index") {
-                    diff.value = this.p.encode(serialize({
-                        $$indexCreated: {
-                            fieldName: UCV.fieldName,
-                            unique: false,
-                            sparse: UCV.sparse,
-                        },
-                    }));
-                }
-                const oldIDRev = localKeys.find((key) => key.toString().startsWith(diff.key.split("_")[0] + "_")) || "";
-                if (oldIDRev)
-                    downRemove.push(oldIDRev);
-                downSet.push([diff.key, diff.value]);
-            }
-            yield this.p.data.dels(downRemove);
-            yield this.p.data.sets(downSet);
-            yield this.setLocalHash();
-            // uploading
-            const upRemove = [];
-            const upSet = [];
-            for (let index = 0; index < localDiffs.length; index++) {
-                const diff = localDiffs[index];
-                const oldIDRev = remoteKeys.find((key) => key.toString().startsWith(diff.key.split("_")[0] + "_")) || "";
-                if (oldIDRev)
-                    upRemove.push(oldIDRev);
-                upSet.push({ key: diff.key, value: diff.value });
-            }
-            yield this.rdata.removeItems(upRemove);
-            yield this.rdata.setItems(upSet);
-            yield this.setRemoteHash();
-            yield this.p.loadDatabase();
-            try {
-                liveUpdate();
-            }
-            catch (e) {
-                console.error(`XWebDB: Could not do live updates due to an error:`, e);
-            }
-            return {
-                sent: localDiffs.length,
-                received: remoteDiffs.length,
-                diff: 1,
-            };
-        });
-    }
-}
-
-class PersistenceEvent {
-    constructor() {
-        this.callbacks = {
-            readLine: [],
-            writeLine: [],
-            end: [],
-        };
-    }
-    on(event, cb) {
-        if (!this.callbacks[event])
-            this.callbacks[event] = [];
-        this.callbacks[event].push(cb);
-    }
-    emit(event, data) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let cbs = this.callbacks[event];
-            if (cbs) {
-                for (let i = 0; i < cbs.length; i++) {
-                    const cb = cbs[i];
-                    yield cb(data);
-                }
-            }
-        });
-    }
-}
 /**
- * Create a new Persistence object for database options.db
- */
-class Persistence {
-    constructor(options) {
-        this.ref = "";
-        this.syncInterval = 0;
-        this.syncInProgress = false;
-        this.invalidateHash = 0;
-        this.corruptAlertThreshold = 0.1;
-        this.encode = (s) => s;
-        this.decode = (s) => s;
-        this.stripDefaults = false;
-        this._model = options.model;
-        this.db = options.db;
-        this.ref = this.db.ref;
-        this.stripDefaults = options.stripDefaults;
-        this.data = new IDB(this.ref);
-        this.RSA = options.syncToRemote;
-        this.invalidateHash = options.invalidateHash || 0;
-        this.syncInterval = options.syncInterval || 0;
-        if (this.RSA) {
-            const rdata = this.RSA(this.ref);
-            this.sync = new Sync(this, rdata);
-        }
-        if (this.RSA && this.syncInterval) {
-            setInterval(() => __awaiter(this, void 0, void 0, function* () {
-                if (!this.syncInProgress) {
-                    let err = undefined;
-                    this.syncInProgress = true;
-                    try {
-                        yield this.sync._sync();
-                    }
-                    catch (e) {
-                        err = e;
-                    }
-                    this.syncInProgress = false;
-                    if (err)
-                        throw new Error(err);
-                }
-            }), this.syncInterval);
-        }
-        this.corruptAlertThreshold =
-            options.corruptAlertThreshold !== undefined
-                ? options.corruptAlertThreshold
-                : 0.1;
-        // encode and decode hooks with some basic sanity checks
-        if (options.encode && !options.decode) {
-            throw new Error("XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
-        }
-        if (!options.encode && options.decode) {
-            throw new Error("XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent dataloss");
-        }
-        this.encode = options.encode || this.encode;
-        this.decode = options.decode || this.decode;
-        let randomString$1 = randomString(113);
-        if (this.decode(this.encode(randomString$1)) !== randomString$1) {
-            throw new Error("XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent dataloss");
-        }
-    }
-    writeNewIndex(newIndexes) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield this.writeData(newIndexes.map((x) => [
-                x.$$indexCreated.fieldName,
-                this.encode(serialize(x)),
-            ]));
-        });
-    }
-    writeNewData(newDocs) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.stripDefaults && this._model) {
-                newDocs = deserialize(serialize({ t: newDocs })).t; // avoid triggering live queries;
-                for (let index = 0; index < newDocs.length; index++) {
-                    newDocs[index] = this._model.stripDefaults(newDocs[index]);
-                }
-            }
-            return yield this.writeData(newDocs.map((x) => [x._id || "", this.encode(serialize(x))]));
-        });
-    }
-    treatSingleLine(line) {
-        let treatedLine;
-        try {
-            treatedLine = deserialize(this.decode(line));
-            if (this._model) {
-                treatedLine = this._model.new(treatedLine);
-            }
-        }
-        catch (e) {
-            return {
-                type: "corrupt",
-                status: "remove",
-                data: false,
-            };
-        }
-        if (treatedLine._id &&
-            !(treatedLine.$$indexCreated || treatedLine.$$indexRemoved)) {
-            if (treatedLine.$$deleted === true) {
-                return {
-                    type: "doc",
-                    status: "remove",
-                    data: { _id: treatedLine._id },
-                };
-            }
-            else {
-                return {
-                    type: "doc",
-                    status: "add",
-                    data: treatedLine,
-                };
-            }
-        }
-        else if (treatedLine.$$indexCreated &&
-            treatedLine.$$indexCreated.fieldName !== undefined) {
-            return {
-                type: "index",
-                status: "add",
-                data: {
-                    fieldName: treatedLine.$$indexCreated.fieldName,
-                    data: treatedLine.$$indexCreated,
-                },
-            };
-        }
-        else if (typeof treatedLine.$$indexRemoved === "string") {
-            return {
-                type: "index",
-                status: "remove",
-                data: { fieldName: treatedLine.$$indexRemoved },
-            };
-        }
-        else {
-            return {
-                type: "corrupt",
-                status: "remove",
-                data: true,
-            };
-        }
-    }
-    /**
-     * Load the database
-     * 1) Create all indexes
-     * 2) Insert all data
-     */
-    loadDatabase() {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.db.q.pause();
-            this.db.resetIndexes(true);
-            let corrupt = 0;
-            let processed = 0;
-            const indexes = [];
-            const data = [];
-            const eventEmitter = new PersistenceEvent();
-            eventEmitter.on("readLine", (line) => __awaiter(this, void 0, void 0, function* () {
-                processed++;
-                const treatedLine = this.treatSingleLine(line);
-                if (treatedLine.type === "doc") {
-                    data.push(treatedLine);
-                }
-                else if (treatedLine.type === "index") {
-                    indexes.push(treatedLine);
-                }
-                else if (!treatedLine.data) {
-                    corrupt++;
-                }
-            }));
-            yield this.readData(eventEmitter);
-            // treat indexes first
-            for (let index = 0; index < indexes.length; index++) {
-                const line = indexes[index];
-                if (line.status === "add") {
-                    this.db.indexes[line.data.fieldName] = new Index(line.data.data);
-                }
-                if (line.status === "remove") {
-                    delete this.db.indexes[line.data.fieldName];
-                }
-            }
-            // then data
-            for (let index = 0; index < data.length; index++) {
-                const line = data[index];
-                if (line.status === "add") {
-                    this.db.addToIndexes(line.data);
-                }
-                if (line.status === "remove") {
-                    this.db.removeFromIndexes(line.data);
-                }
-            }
-            if (processed > 0 && corrupt / processed > this.corruptAlertThreshold) {
-                throw new Error(`XWebDB: More than ${Math.floor(100 * this.corruptAlertThreshold)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`);
-            }
-            this.db.q.start();
-            return true;
-        });
-    }
-    readData(event) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const all = yield this.data.values();
-            for (let i = 0; i < all.length; i++) {
-                const line = all[i];
-                if (!line.startsWith("$H") && line !== "$deleted")
-                    event.emit("readLine", line);
-            }
-            event.emit("end", "");
-        });
-    }
-    deleteData(_ids) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.RSA) {
-                yield this.data.dels(_ids);
-                return _ids;
-            }
-            const keys = yield this.data.keys();
-            const oldIDRevs = [];
-            const newIDRevs = [];
-            for (let index = 0; index < _ids.length; index++) {
-                const _id = _ids[index];
-                const oldIDRev = keys.find((key) => key.toString().startsWith(_id + "_")) || "";
-                const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
-                const newIDRev = _id + "_" + newRev;
-                oldIDRevs.push(oldIDRev);
-                newIDRevs.push(newIDRev);
-                keys.splice(keys.indexOf(oldIDRev), 1);
-                keys.push(newIDRev);
-            }
-            yield this.data.dels(oldIDRevs);
-            yield this.data.sets(newIDRevs.map((x) => [x, "$deleted"]));
-            if (this.sync)
-                yield this.sync.setLocalHash(keys);
-            return _ids;
-        });
-    }
-    writeData(input) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.RSA) {
-                yield this.data.sets(input);
-                return input.map((x) => x[0]);
-            }
-            const keys = yield this.data.keys();
-            const oldIDRevs = [];
-            const newIDRevsData = [];
-            for (let index = 0; index < input.length; index++) {
-                const element = input[index];
-                const oldIDRev = keys.find((key) => key.toString().startsWith(element[0] + "_")) || "";
-                const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
-                const newIDRev = element[0] + "_" + newRev;
-                oldIDRevs.push(oldIDRev);
-                newIDRevsData.push([newIDRev, element[1]]);
-                keys.splice(keys.indexOf(oldIDRev), 1);
-                keys.push(newIDRev);
-            }
-            yield this.data.dels(oldIDRevs);
-            yield this.data.sets(newIDRevsData);
-            if (this.sync)
-                yield this.sync.setLocalHash(keys);
-            return input.map((x) => x[0]);
-        });
-    }
-    /**
-     * Deletes all data
-     * deletions will not be syncable
-     */
-    deleteEverything() {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield this.data.clear();
-        });
-    }
-}
-
+ * Base model: of which all documents extend (Main documents & Sub-documents)
+*/
 class BaseModel {
+    /**
+     * Use this method to create a new document before insertion/update into the database
+     * This is where the actual mapping of pure JS object values get mapped into the model
+     * It models the document and all of its sub-documents even if they are in an array
+    */
     static new(data) {
         const instance = new this();
         if (typeof data !== "object" || data === null) {
             return instance;
         }
-        const keys = Object.keys(Object.assign(Object.assign({}, instance), data));
+        const keys = Object.keys({ ...instance, ...data });
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
             let insVal = instance[key];
@@ -2545,27 +1463,58 @@ class BaseModel {
         }
         return instance;
     }
+    /**
+     * Strips default values from the model,
+     * so it can be written to the persistence layer with the least amount of space
+     * and it can be sent over the network with the least amount of size
+    */
+    _stripDefaults() {
+        // maintain a cache of defaults
+        if (!this.constructor._$def) {
+            this.constructor._$def = this.constructor.new({});
+        }
+        let def = this.constructor._$def;
+        const newData = {};
+        for (const [key, oldV] of Object.entries(this)) {
+            const defV = def[key];
+            // handling arrays of sub-documents
+            if (Array.isArray(oldV) && oldV[0] && oldV[0]._stripDefaults) {
+                newData[key] = oldV.map((sub) => sub._stripDefaults());
+                if (newData[key].length === 0)
+                    delete newData[key]; // disregard empty arrays
+            }
+            // handling direct child sub-document
+            else if (typeof oldV === "object" &&
+                oldV !== null &&
+                oldV._stripDefaults) {
+                newData[key] = oldV._stripDefaults();
+                if (Object.keys(newData[key]).length === 0)
+                    delete newData[key]; // disregard empty objects
+            }
+            // handling non-sub-document values
+            // we're converting to a string to eliminate non-primitive
+            else if (JSON.stringify(defV) !== JSON.stringify(oldV))
+                newData[key] = oldV;
+        }
+        return newData;
+    }
 }
+/**
+ * Main document in the database extends this class:
+ * A. Gets an ID: using a very efficient UUID function
+ * B. Gets timestamp data if the options is used in the database configuration
+ * C. gets Model.new() and model._stripDefaults() methods
+*/
 class Doc extends BaseModel {
     constructor() {
         super(...arguments);
         this._id = uid();
     }
-    // move strip defaults to BaseModel?
-    static stripDefaults(existingData) {
-        const def = JSON.parse(JSON.stringify(new this()));
-        const keys = Object.keys(def);
-        const newData = {};
-        for (let i = 0; i < keys.length; i++) {
-            const key = keys[i];
-            const defV = JSON.parse(JSON.stringify({ t: def[key] }));
-            const oldV = JSON.parse(JSON.stringify({ t: existingData[key] }));
-            if (defV !== oldV)
-                newData[key] = existingData[key];
-        }
-        return newData;
-    }
 }
+/**
+ * Sub-documents extends this class:
+ * gets Model.new() and model._stripDefaults() methods
+*/
 class SubDoc extends BaseModel {
 }
 function mapSubModel(ctr, def) {
@@ -2576,6 +1525,677 @@ function mapSubModel(ctr, def) {
     };
 }
 
+/**
+ * Promise-base interface for interacting with indexedDB
+ * This is where actual operations to IndexedDB occurs
+ */
+class IDB {
+    constructor(name) {
+        const request = indexedDB.open(name);
+        request.onupgradeneeded = function () {
+            this.result.createObjectStore(name).createIndex("idIndex", "_id", { unique: true });
+        };
+        const dbp = this.pr(request);
+        this.store = (txMode, callback) => dbp.then((db) => callback(db.transaction(name, txMode, { durability: "relaxed" }).objectStore(name)));
+    }
+    /**
+     * Converts IDB requests/transactions to promises.
+     */
+    pr(req) {
+        return new Promise((resolve, reject) => {
+            // @ts-ignore - file size hacks
+            req.oncomplete = req.onsuccess = () => resolve(req.result);
+            // @ts-ignore - file size hacks
+            req.onabort = req.onerror = () => reject(req.error);
+        });
+    }
+    /**
+     * Converts cursor iterations to promises
+     */
+    eachCursor(store, callback) {
+        store.openCursor().onsuccess = function () {
+            if (!this.result)
+                return;
+            callback(this.result);
+            this.result.continue();
+        };
+        return this.pr(store.transaction);
+    }
+    /**
+     * Get a value by its key.
+     */
+    get(key) {
+        return this.store("readonly", (store) => this.pr(store.get(key)));
+    }
+    /**
+     * Get values for a given set of keys
+    */
+    async getBulk(keys) {
+        return this.store("readonly", async (store) => {
+            return Promise.all(keys.map((x) => this.pr(store.get(x))));
+        });
+    }
+    /**
+     * Set a value with a key.
+     */
+    set(key, value) {
+        return this.store("readwrite", (store) => {
+            store.put(value, key);
+            return this.pr(store.transaction);
+        });
+    }
+    /**
+     * Set multiple values at once. This is faster than calling set() multiple times.
+     * It's also atomic – if one of the pairs can't be added, none will be added.
+     */
+    setBulk(entries) {
+        return this.store("readwrite", (store) => {
+            entries.forEach((entry) => store.put(entry[1], entry[0]));
+            return this.pr(store.transaction);
+        });
+    }
+    /**
+     * Delete multiple keys at once.
+     *
+     */
+    delBulk(keys) {
+        return this.store("readwrite", (store) => {
+            keys.forEach((key) => store.delete(key));
+            return this.pr(store.transaction);
+        });
+    }
+    /**
+     * Clear all values in the store.
+     *
+     */
+    clear() {
+        return this.store("readwrite", (store) => {
+            store.clear();
+            return this.pr(store.transaction);
+        });
+    }
+    /**
+     * Get all keys in the store.
+     */
+    keys() {
+        return this.store("readonly", async (store) => {
+            // Fast path for modern browsers
+            if (store.getAllKeys) {
+                return this.pr(store.getAllKeys());
+            }
+            const items = [];
+            await this.eachCursor(store, (cursor) => items.push(cursor.key));
+            return items;
+        });
+    }
+    /**
+     * Get all documents in the store.
+     */
+    documents() {
+        return this.store("readonly", async (store) => {
+            // Fast path for modern browsers
+            if (store.getAll) {
+                return this.pr(store.getAll());
+            }
+            const items = [];
+            await this.eachCursor(store, (cursor) => items.push(cursor.value));
+            return items;
+        });
+    }
+    /**
+     * Get key by ID (since keys are ID_REV)
+     */
+    async byID(_id) {
+        return this.store("readonly", (store) => {
+            return this.pr(store.index("idIndex").getKey(_id));
+        });
+    }
+    /**
+     * Get length of the DB
+     */
+    async length() {
+        return (await this.keys()).length;
+    }
+}
+
+/**
+ * This is the synchronization class that uses the remote sync adapter
+ * to send and receive data.
+ * How it does it:
+ *
+ * Considering that the persistence layer is actually a key/value store
+ * It sets the key to: {ID}_{Rev}
+ * where 	{ID}: is document ID
+ * 			{Rev}: is document revision
+ *
+ * And each database (local & remote) has a special document ($H)
+ * where it stores a value that once not equal between two DBs they should sync
+ *
+ * When calling the _sync() method:
+ * 1. it compares the local and remote $H if they are equal, it stops
+ * 2. gets the difference between the two databases
+ * 3. resolves conflicts by last-write wins algorithm (can't be otherwise)
+ * 4. resolves errors that can be caused by unique violation constraints (also by last-write wins)
+ * 5. uploads and downloads documents
+ * 6. documents that win overwrite documents that lose
+ * 7. sets local and remote $H
+ *
+ * This is a very simple synchronization protocol, but it has the following advantages
+ * 		A. it uses the least amount of data overhead
+ * 			i.e. there's no need for compression, logs, compaction...etc.
+ * 		B. there's no need for custom conflict resolution strategies
+ *
+ * However, there's drawbacks:
+ * 		A. Can't use custom conflict resolution strategies if there's a need
+ * 		B. updates on different fields of the documents can't get merged (last write-wins always)
+ * 		C. Can't get a history of the document (do we need it?)
+ */
+const asc = (a, b) => (a > b ? 1 : -1);
+class Sync {
+    constructor(persistence, rdata) {
+        this.p = persistence;
+        this.rdata = rdata;
+    }
+    // set local $H
+    async setL$(unique) {
+        await this.p.data.set("$H", { _id: "$H" + unique });
+    }
+    // set remote $H
+    async setR$(unique) {
+        await this.rdata.set("$H", JSON.stringify({ _id: "$H" + unique }));
+    }
+    // uniform value for both local and remote $H
+    async unify$H() {
+        const unique = Math.random().toString(36).substring(2);
+        await this.setL$(unique);
+        await this.setR$(unique);
+    }
+    /**
+     * This method sits in-front of the actually _sync method
+     * It checks whether there's an already a sync in progress
+     * and whether there are deferred writes or deletes
+     */
+    sync() {
+        if (this.p.syncInProgress || // should not sync when there's already a sync in progress
+            this.p.db.deferredDeletes.length + this.p.db.deferredWrites.length // should not sync when there's deferred write/deletes about to happen
+        ) {
+            return new Promise((resolve) => {
+                setTimeout(() => resolve(this.sync()), 0);
+            });
+        }
+        else
+            return new Promise((resolve, reject) => {
+                this.p.syncInProgress = true;
+                this._sync()
+                    .then((sRes) => {
+                    resolve(sRes);
+                })
+                    .catch(reject)
+                    .finally(() => {
+                    this.p.syncInProgress = false;
+                });
+            });
+    }
+    /**
+     * When finding a diff, decide what to do with it:
+     * "this" means docs that should be uploaded
+     * "that" means docs that should be downloaded		--> or vice versa
+     * A. if there's a conflict (a key should be downloaded & uploaded at the same sync instance)
+     * 		Decide a winner:
+     * 			"this" wins: remove it from "that" and add it to "this"
+     * 			"that" wins: don't do anything
+     * B. No conflict: add it regularly
+     *
+     * in total: this adds and removes from two arrays,
+     * one array is of docs that should be uploaded
+     * and one of docs that should be downloaded
+     */
+    async decide(key, thisDiffs, thatDiffs) {
+        const _id = key.split("_")[0];
+        const rev = key.split("_")[1];
+        const thisTime = Number(rev.substring(2));
+        const conflictingIndex = thatDiffs.findIndex((x) => x.startsWith(_id + "_"));
+        if (conflictingIndex > -1) {
+            const conflicting = thatDiffs[conflictingIndex];
+            const conflictingRev = conflicting.split("_")[1];
+            const conflictingTime = Number(conflictingRev.substring(2));
+            if (thisTime > conflictingTime) {
+                // this wins
+                thatDiffs.splice(conflictingIndex, 1); // removing that
+                thisDiffs.push(key);
+            }
+            // else { }
+            // otherwise .. don't add this diff, and keep that diff
+            // (i.e. do nothing here, no else)
+        }
+        else {
+            thisDiffs.push(key);
+        }
+    }
+    /**
+     * This checks whether an update would cause a unique constraint violation
+     * by actually adding to indexes (if it's a doc)
+     * or by creating a new index (if it's an index)
+     */
+    UCV(input) {
+        try {
+            if (!input.$$indexCreated) {
+                input = clone(input, this.p._model);
+                // i.e. document
+                // don't cause UCV by _id (without this line all updates would trigger UCV)
+                // _id UCVs conflicts are only natural
+                // and solved by the fact that they are persisted on the same key
+                input._id = uid();
+                this.p.db.addToIndexes(input);
+                this.p.db.removeFromIndexes(input);
+            }
+            else {
+                this.p.db.indexes[input.$$indexCreated.fieldName] = new Index(input.$$indexCreated);
+                this.p.db.indexes[input.$$indexCreated.fieldName].insert(this.p.db.getAllData());
+                delete this.p.db.indexes[input.$$indexCreated.fieldName];
+            }
+        }
+        catch (e) {
+            if (!input.$$indexCreated) {
+                return {
+                    type: "doc",
+                    prop: e.prop,
+                    value: e.key,
+                };
+            }
+            else {
+                delete this.p.db.indexes[input.$$indexCreated.fieldName];
+                return {
+                    type: "index",
+                    fieldName: input.$$indexCreated.fieldName,
+                    sparse: !!input.$$indexCreated.sparse,
+                };
+            }
+        }
+        return false;
+    }
+    /**
+     * Compare the local and remote $H
+     * if there's a difference:
+     * 		A. get a diff of the keys
+     * 		B. decide which documents to upload and to download (using the above strategy)
+     * 		C. Sets remote and local $H
+     * 		D. returns the number of sent and received documents
+     * 			in addition to a number indicating whether this method actually did a sync
+     * 			-1: $H are equal, didn't do anything
+     * 			0: $H are different, but keys are equal, just updated the $H
+     * 			1: found a diff in documents and did a full synchronization process.
+     */
+    async _sync(force = false) {
+        const r$H = (await this.rdata.get("$H")) || "0";
+        const l$H = JSON.stringify((await this.p.data.get("$H")) || 0);
+        if (!force && (l$H === r$H || (l$H === "0" && (r$H || "").indexOf("10009") > -1))) {
+            return { sent: 0, received: 0, diff: -1 };
+        }
+        const remoteKeys = (await this.rdata.keys()).sort(asc);
+        const localKeys = (await this.p.data.keys()).sort(asc);
+        remoteKeys.splice(remoteKeys.indexOf("$H"), 1); // removing $H
+        localKeys.splice(localKeys.indexOf("$H"), 1);
+        const remoteDiffsKeys = [];
+        const localDiffsKeys = [];
+        const rl = remoteKeys.length;
+        let ri = 0;
+        const ll = localKeys.length;
+        let li = 0;
+        while (ri < rl || li < ll) {
+            let rv = remoteKeys[ri];
+            let lv = localKeys[li];
+            if (rv === lv) {
+                ri++;
+                li++;
+                continue;
+            }
+            else if (li === ll || asc(lv, rv) > 0) {
+                ri++;
+                await this.decide(rv, remoteDiffsKeys, localDiffsKeys);
+            }
+            else {
+                li++;
+                await this.decide(lv, localDiffsKeys, remoteDiffsKeys);
+            }
+        }
+        if (remoteDiffsKeys.length === 0 && localDiffsKeys.length === 0) {
+            // set local $H to remote $H value
+            await this.setL$(r$H.replace(/.*\$H(.*)"}/, "$1"));
+            return { sent: 0, received: 0, diff: 0 };
+        }
+        // downloading
+        const downRemove = [];
+        const downSetValues = remoteDiffsKeys.length
+            ? (await this.rdata.getBulk(remoteDiffsKeys)).map((x) => deserialize(this.p.decode(x || "{}")))
+            : [];
+        const downSet = [];
+        for (let index = 0; index < remoteDiffsKeys.length; index++) {
+            const diff = remoteDiffsKeys[index];
+            const UCV = this.UCV(downSetValues[index]);
+            // if unique constraint violations occurred
+            // make the key non-unique
+            // any other implementation would result in unjustified complexity
+            if (UCV && UCV.type === "doc") {
+                const uniqueProp = UCV.prop;
+                await this.p.data.set(localKeys.find((x) => x.startsWith(uniqueProp + "_")) || "", {
+                    _id: uniqueProp,
+                    $$indexCreated: {
+                        fieldName: uniqueProp,
+                        unique: false,
+                        sparse: this.p.db.indexes[uniqueProp].sparse,
+                    },
+                });
+            }
+            else if (UCV && UCV.type === "index") {
+                downSetValues[index] = {
+                    $$indexCreated: {
+                        fieldName: UCV.fieldName,
+                        unique: false,
+                        sparse: UCV.sparse,
+                    },
+                    _id: UCV.fieldName,
+                };
+            }
+            const diff_id_ = diff.split("_")[0] + "_";
+            const oldIDRev = localKeys.find((key) => key.startsWith(diff_id_)) || "";
+            if (oldIDRev)
+                downRemove.push(oldIDRev);
+            downSet.push([diff, downSetValues[index]]);
+        }
+        await this.p.data.delBulk(downRemove);
+        await this.p.data.setBulk(downSet);
+        // uploading
+        const upRemove = [];
+        const upSetValues = localDiffsKeys.length
+            ? await this.p.data.getBulk(localDiffsKeys)
+            : [];
+        const upSet = [];
+        for (let index = 0; index < localDiffsKeys.length; index++) {
+            const diff = localDiffsKeys[index];
+            const diff_id_ = diff.split("_")[0] + "_";
+            const oldIDRev = remoteKeys.find((key) => key.startsWith(diff_id_)) || "";
+            if (oldIDRev)
+                upRemove.push(oldIDRev);
+            upSet.push([
+                diff,
+                upSetValues[index]
+                    ? this.p.encode(serialize(upSetValues[index]))
+                    : "",
+            ]);
+        }
+        await this.rdata.delBulk(upRemove);
+        await this.rdata.setBulk(upSet);
+        await this.p.db.loadDatabase();
+        try {
+            this.p.db.live.update();
+        }
+        catch (e) {
+            console.error(`XWebDB: Could not do live updates due to an error:`, e);
+        }
+        await this.unify$H();
+        return {
+            sent: localDiffsKeys.length,
+            received: remoteDiffsKeys.length,
+            diff: 1,
+        };
+    }
+}
+
+/**
+ * Persistence layer class
+ * Actual IndexedDB operations are in "idb.ts"
+ * This class mainly process data and prepares it prior idb.ts
+ */
+/**
+ * Create a new Persistence object for database options.db
+ */
+class Persistence {
+    constructor(options) {
+        this.ref = "";
+        this.syncInterval = 0;
+        this.syncInProgress = false;
+        this.corruptAlertThreshold = 0.1;
+        this.encode = (s) => s;
+        this.decode = (s) => s;
+        this.stripDefaults = false;
+        this._model = Doc;
+        this.shouldEncode = false;
+        this._model = options.model || this._model;
+        this.db = options.db;
+        this.ref = this.db.ref;
+        this.data = new IDB(this.ref);
+        this.stripDefaults = options.stripDefaults || false;
+        this.RSA = options.syncToRemote;
+        this.syncInterval = options.syncInterval || 0;
+        if (this.RSA) {
+            const remoteData = this.RSA(this.ref);
+            this.sync = new Sync(this, remoteData);
+        }
+        if (this.RSA && this.syncInterval) {
+            setInterval(async () => {
+                if (!this.syncInProgress) {
+                    let err = undefined;
+                    this.syncInProgress = true;
+                    try {
+                        await this.sync._sync();
+                    }
+                    catch (e) {
+                        err = e;
+                    }
+                    this.syncInProgress = false;
+                    if (err)
+                        throw new Error(err);
+                }
+            }, this.syncInterval);
+        }
+        this.corruptAlertThreshold =
+            options.corruptAlertThreshold !== undefined ? options.corruptAlertThreshold : 0.1;
+        // encode and decode hooks with some basic sanity checks
+        if (options.encode && !options.decode) {
+            throw new Error("XWebDB: encode hook defined but decode hook undefined, cautiously refusing to start Datastore to prevent data loss");
+        }
+        if (!options.encode && options.decode) {
+            throw new Error("XWebDB: decode hook defined but encode hook undefined, cautiously refusing to start Datastore to prevent data loss");
+        }
+        this.encode = options.encode || this.encode;
+        this.decode = options.decode || this.decode;
+        let randomString = uid();
+        if (this.decode(this.encode(randomString)) !== randomString) {
+            throw new Error("XWebDB: encode is not the reverse of decode, cautiously refusing to start data store to prevent data loss");
+        }
+        this.shouldEncode = !!options.encode && !!options.decode;
+    }
+    /**
+     * serializes & writes a new index using the $$ notation.
+     */
+    async writeNewIndex(newIndexes) {
+        return await this.writeData(newIndexes.map((x) => [
+            x.$$indexCreated.fieldName,
+            { _id: x.$$indexCreated.fieldName, ...x },
+        ]));
+    }
+    /**
+     * Copies, strips all default data, and serializes documents then writes it.
+     */
+    async writeNewData(newDocs) {
+        // stripping defaults
+        newDocs = deserialize(serialize({ t: newDocs })).t; // avoid triggering live queries when stripping default
+        for (let index = 0; index < newDocs.length; index++) {
+            let doc = newDocs[index];
+            if (doc._stripDefaults) {
+                newDocs[index] = doc._stripDefaults();
+            }
+        }
+        return await this.writeData(newDocs.map((x) => [x._id, x]));
+    }
+    /**
+     * Load the database
+     * 1. Reset all indexes
+     * 2. Create all indexes
+     * 3. Add data to indexes
+     */
+    async loadDatabase() {
+        this.db.q.pause();
+        this.db.resetIndexes(true);
+        let corrupt = 0;
+        let processed = 0;
+        const data = [];
+        const persisted = await this.readData();
+        for (let index = 0; index < persisted.length; index++) {
+            processed++;
+            const line = persisted[index];
+            if (line === null) {
+                corrupt++;
+                continue;
+            }
+            if (line.$$indexCreated) {
+                this.db.indexes[line.$$indexCreated.fieldName] = new Index({
+                    fieldName: line.$$indexCreated.fieldName,
+                    unique: line.$$indexCreated.unique,
+                    sparse: line.$$indexCreated.sparse,
+                });
+            }
+            else {
+                data.push(this._model.new(line));
+            }
+        }
+        for (let index = 0; index < data.length; index++) {
+            const line = data[index];
+            this.db.addToIndexes(line);
+        }
+        if (processed > 0 && corrupt / processed > this.corruptAlertThreshold) {
+            throw new Error(`XWebDB: More than ${Math.floor(100 * this.corruptAlertThreshold)}% of the data file is corrupt, the wrong decode hook might have been used. Cautiously refusing to start Datastore to prevent dataloss`);
+        }
+        this.db.q.start();
+        return true;
+    }
+    /**
+     * Reads data from the database
+     * (excluding $H and documents that actually $deleted)
+     */
+    async readData() {
+        let all = await this.data.documents();
+        let res = [];
+        for (let index = 0; index < all.length; index++) {
+            let line = all[index];
+            // corrupt
+            if (typeof line !== "object" || line === null) {
+                res.push(null);
+                continue;
+            }
+            // skip $H & deleted documents
+            if ((line._id && line._id.startsWith("$H")) || line.$$deleted)
+                continue;
+            // skip lines that is neither an index nor document
+            if (line._id === undefined && line.$$indexCreated === undefined)
+                continue;
+            // decode encoded
+            if (line._encoded)
+                line = deserialize(this.decode(line._encoded));
+            res.push(line);
+        }
+        return res;
+    }
+    /**
+     * Given that IndexedDB documents ID has the following structure:
+     * {ID}_{Rev}
+     * 		where 	{ID} is the actual document ID
+     * 				{Rev} is a random string of two characters + timestamp
+     *
+     * Deletes data (in bulk)
+     * by
+     * 		1. getting all the document (or index) old revisions and deleting them
+     * 		2. then setting a new document with the same ID but a newer rev with the $deleted value
+     * 		3. then setting $H to a value indicating that a sync operation should progress
+     */
+    async deleteData(_ids) {
+        if (!this.RSA) {
+            await this.data.delBulk(_ids);
+            return _ids;
+        }
+        const oldIDRevs = [];
+        const newIDRevs = [];
+        for (let index = 0; index < _ids.length; index++) {
+            const _id = _ids[index];
+            const oldIDRev = (await this.data.byID(_id)) || "";
+            const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
+            const newIDRev = _id + "_" + newRev;
+            oldIDRevs.push(oldIDRev.toString());
+            newIDRevs.push([newIDRev, { _id, _rev: newRev, $$deleted: true }]);
+        }
+        await this.data.delBulk(oldIDRevs);
+        await this.data.setBulk(newIDRevs);
+        if (this.sync)
+            await this.sync.setL$("updated");
+        return _ids;
+    }
+    /**
+     * Given that IndexedDB documents ID has the following structure:
+     * {ID}_{Rev}
+     * 		where 	{ID} is the actual document ID
+     * 				{Rev} is a random string of two characters + timestamp
+     *
+     * writes data (in bulk) (inserts & updates)
+     * by: 	1. getting all the document (or index) old revisions and deleting them
+     * 		2. then setting a new document with the same ID but a newer rev with the new value
+     * 			(i.e. a serialized version of the document)
+     * 		3. then setting $H to a value indicating that a sync operation should progress
+     */
+    async writeData(input) {
+        if (!this.RSA) {
+            if (this.shouldEncode)
+                input = input.map((x) => [
+                    x[0],
+                    { _id: x[1]._id, _encoded: this.encode(serialize(x[1])) },
+                ]);
+            await this.data.setBulk(input);
+            return input.map((x) => x[0]);
+        }
+        const oldIDRevs = [];
+        const newIDRevsData = [];
+        for (let index = 0; index < input.length; index++) {
+            const element = input[index];
+            const oldIDRev = (await this.data.byID(element[0])) || "";
+            const newRev = Math.random().toString(36).substring(2, 4) + Date.now();
+            const newIDRev = element[0] + "_" + newRev;
+            element[1]._rev = newRev;
+            oldIDRevs.push(oldIDRev.toString());
+            if (this.shouldEncode) {
+                element[1] = {
+                    _encoded: this.encode(serialize(element[1])),
+                    _id: element[1]._id,
+                    _rev: element[1]._rev,
+                };
+            }
+            newIDRevsData.push([newIDRev, element[1]]);
+        }
+        await this.data.delBulk(oldIDRevs);
+        await this.data.setBulk(newIDRevsData);
+        if (this.sync)
+            await this.sync.setL$("updated");
+        return input.map((x) => x[0]);
+    }
+    /**
+     * Deletes all data
+     * deletions will NOT sync
+     */
+    async deleteEverything() {
+        await this.data.clear();
+    }
+}
+
+/**
+ * A task queue that makes sure that methods are run sequentially
+ * It's used on all inserts/deletes/updates of the database.
+ * it also has the following advantages:
+ *		A. ability to set concurrency
+ *			(used on remote sync adapters to limit concurrent API calls)
+ *		B. ability to pause and resume operations
+ *			(used when loading database from persistence layer)
+ *
+ * Methods and API are self-explanatory
+ */
 class Q {
     constructor(concurrency = 1) {
         this._queue = [];
@@ -2594,10 +2214,10 @@ class Q {
     }
     add(fn) {
         return new Promise((resolve, reject) => {
-            const run = () => __awaiter(this, void 0, void 0, function* () {
+            const run = async () => {
                 this._ongoingCount++;
                 try {
-                    const val = yield Promise.resolve().then(fn);
+                    const val = await Promise.resolve().then(fn);
                     this._ongoingCount--;
                     this._next();
                     resolve(val);
@@ -2609,7 +2229,7 @@ class Q {
                     reject(err);
                     return null;
                 }
-            });
+            };
             if (this._ongoingCount < this._concurrency && !this._pause) {
                 run();
             }
@@ -2642,17 +2262,61 @@ class Q {
     }
 }
 
+/**
+ * Updates the observable array (i.e. live query)
+ * when a database change occurs, only if the query would give a different result
+ * It basically achieves that by having an array of all the live queries taken from the database
+ * Then on every update (insert/update/delete ... check datastore.ts) it checks the old result
+ * and updates the observable array (live query result) if they're not the same
+*/
+function hash(res) {
+    return dHash(JSON.stringify(res));
+}
+class Live {
+    constructor(db) {
+        this.queries = [];
+        this.db = db;
+    }
+    addLive(q) {
+        q.id = uid();
+        this.queries.push(q);
+        return q.id;
+    }
+    async update() {
+        for (let index = 0; index < this.queries.length; index++) {
+            const q = this.queries[index];
+            const newRes = await this.db.find(q.query);
+            const newHash = hash(newRes);
+            const oldHash = hash(q.observable.observable);
+            if (newHash === oldHash)
+                continue;
+            let u = await q.observable.unobserve(q.toDBObserver);
+            q.observable.observable.splice(0);
+            q.observable.observable.push(...newRes);
+            if (u.length)
+                q.observable.observe(q.toDBObserver);
+        }
+    }
+    kill(uid) {
+        const index = this.queries.findIndex((q) => q.id === uid);
+        if (index > -1) {
+            this.queries.splice(index, 1);
+        }
+    }
+}
+
 class Datastore {
     constructor(options) {
         this.ref = "db";
         this.timestampData = false;
+        this.live = new Live(this);
         // rename to something denotes that it's an internal thing
         this.q = new Q(1);
         this.indexes = {
             _id: new Index({ fieldName: "_id", unique: true }),
         };
-        this.ttlIndexes = {};
-        this.defer = 0;
+        this.initIndexes = [];
+        this.defer = false;
         this.deferredWrites = [];
         this.deferredDeletes = [];
         this.model = options.model || Doc;
@@ -2668,57 +2332,60 @@ class Datastore {
             corruptAlertThreshold: options.corruptAlertThreshold || 0,
             syncToRemote: options.syncToRemote,
             syncInterval: options.syncInterval,
-            invalidateHash: options.invalidateHash,
             stripDefaults: options.stripDefaults,
         });
+        this.initIndexes = options.indexes || [];
         this.timestampData = !!options.timestampData;
-        if (options.defer) {
-            this.defer = options.defer || 0;
-            setInterval(() => __awaiter(this, void 0, void 0, function* () {
+        if (typeof options.defer === "number" && !isNaN(options.defer)) {
+            this.defer = true;
+            setInterval(async () => {
                 if (this.persistence.syncInProgress)
                     return; // should not process deferred while sync in progress
                 else
                     this._processDeferred();
-            }), options.defer);
+            }, options.defer);
         }
     }
-    _processDeferred() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.deferredDeletes.length) {
-                try {
-                    const done = yield this.persistence.deleteData(this.deferredDeletes);
-                    this.deferredDeletes = this.deferredDeletes.filter((_id) => done.indexOf(_id) === -1);
-                }
-                catch (e) {
-                    console.error("XWebDB: processing deferred deletes error", e);
-                    yield this.loadDatabase();
-                }
+    async _processDeferred() {
+        if (this.deferredDeletes.length) {
+            try {
+                const done = await this.persistence.deleteData(this.deferredDeletes);
+                this.deferredDeletes = this.deferredDeletes.filter((_id) => done.indexOf(_id) === -1);
             }
-            if (this.deferredWrites.length) {
-                try {
-                    const done = yield this.persistence.writeNewData(this.deferredWrites);
-                    this.deferredWrites = this.deferredWrites.filter((doc) => done.indexOf(doc._id || "") === -1);
-                }
-                catch (e) {
-                    console.error("XWebDB: processing deferred writes error", e);
-                    yield this.loadDatabase();
-                }
+            catch (e) {
+                console.error("XWebDB: processing deferred deletes error", e);
+                await this.loadDatabase();
             }
-        });
+        }
+        if (this.deferredWrites.length) {
+            try {
+                const done = await this.persistence.writeNewData(this.deferredWrites);
+                this.deferredWrites = this.deferredWrites.filter((doc) => done.indexOf(doc._id || "") === -1);
+            }
+            catch (e) {
+                console.error("XWebDB: processing deferred writes error", e);
+                await this.loadDatabase();
+            }
+        }
     }
     /**
      * Load the database from indexedDB, and trigger the execution of buffered commands if any
      */
-    loadDatabase() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield this.persistence.loadDatabase();
-        });
+    async loadDatabase() {
+        const loaded = await this.persistence.loadDatabase();
+        for (let index = 0; index < this.initIndexes.length; index++) {
+            const fieldName = this.initIndexes[index];
+            if (!this.indexes[fieldName]) {
+                await this.ensureIndex({ fieldName });
+            }
+        }
+        return loaded;
     }
     /**
      * Get an array of all the data in the database
      */
     getAllData() {
-        return this.indexes._id.getAll();
+        return this.indexes._id.dict.all;
     }
     /**
      * Reset all currently defined indexes
@@ -2735,48 +2402,40 @@ class Datastore {
      * For now this function is synchronous, we need to test how much time it takes
      * We use an async API for consistency with the rest of the code
      */
-    ensureIndex(options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            options = options || {};
-            if (!options.fieldName) {
-                let err = new Error("XWebDB: Cannot create an index without a fieldName");
-                err.missingFieldName = true;
-                throw err;
-            }
-            if (this.indexes[options.fieldName]) {
-                return { affectedIndex: options.fieldName };
-            }
-            this.indexes[options.fieldName] = new Index(options);
-            // TTL
-            if (options.expireAfterSeconds !== undefined) {
-                this.ttlIndexes[options.fieldName] = options.expireAfterSeconds;
-            }
-            // Index data
-            try {
-                this.indexes[options.fieldName].insert(this.getAllData());
-            }
-            catch (e) {
-                delete this.indexes[options.fieldName];
-                throw e;
-            }
-            // We may want to force all options to be persisted including defaults, not just the ones passed the index creation function
-            yield this.persistence.writeNewIndex([{ $$indexCreated: options }]);
-            return {
-                affectedIndex: options.fieldName,
-            };
-        });
+    async ensureIndex(options) {
+        options = options || {};
+        if (!options.fieldName) {
+            let err = new Error("XWebDB: Cannot create an index without a fieldName");
+            err.missingFieldName = true;
+            throw err;
+        }
+        if (this.indexes[options.fieldName]) {
+            return { affectedIndex: options.fieldName };
+        }
+        this.indexes[options.fieldName] = new Index(options);
+        // Index data
+        try {
+            this.indexes[options.fieldName].insert(this.getAllData());
+        }
+        catch (e) {
+            delete this.indexes[options.fieldName];
+            throw e;
+        }
+        // We may want to force all options to be persisted including defaults, not just the ones passed the index creation function
+        await this.persistence.writeNewIndex([{ $$indexCreated: options }]);
+        return {
+            affectedIndex: options.fieldName,
+        };
     }
     /**
      * Remove an index
      */
-    removeIndex(fieldName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            delete this.indexes[fieldName];
-            yield this.persistence.deleteData([fieldName]);
-            return {
-                affectedIndex: fieldName,
-            };
-        });
+    async removeIndex(fieldName) {
+        delete this.indexes[fieldName];
+        await this.persistence.deleteData([fieldName]);
+        return {
+            affectedIndex: fieldName,
+        };
     }
     /**
      * Add one or several document(s) to all indexes
@@ -2833,71 +2492,68 @@ class Datastore {
             throw error;
         }
     }
-    _isBasicType(value) {
-        return (typeof value === "string" ||
-            typeof value === "number" ||
-            typeof value === "boolean" ||
-            value instanceof Date ||
-            value === null);
-    }
-    /**
-     * This will return the least number of candidates,
-     * using Index if possible
-     * when failing it will return all the database
-     */
-    _leastCandidates(query) {
-        const currentIndexKeys = Object.keys(this.indexes);
-        const queryKeys = Object.keys(query);
-        let usableQueryKeys = [];
-        // possibility: basic match
-        queryKeys.forEach((k) => {
-            // only types that can't be used with . notation
-            if (this._isBasicType(query[k]) &&
-                currentIndexKeys.indexOf(k) !== -1) {
-                usableQueryKeys.push(k);
+    fromDict(query) {
+        let qClone = JSON.parse(JSON.stringify(query));
+        let entries = Object.entries(qClone);
+        if (entries.length && entries[0][0][0] !== "$")
+            qClone = { $noTL: [qClone] };
+        for (let [topLevel, arr] of Object.entries(qClone)) {
+            if (topLevel !== "$noTL" && topLevel !== "$and")
+                continue;
+            for (let index = 0; index < arr.length; index++) {
+                const segment = arr[index];
+                for (let [field, v] of Object.entries(segment)) {
+                    let index = this.indexes[field];
+                    if (!index)
+                        continue;
+                    if (!v || Object.keys(v).length === 0 || Object.keys(v)[0][0] !== "$")
+                        v = { $eq: v };
+                    let entries = Object.entries(v);
+                    for (let [o, c] of entries) {
+                        if (o === "$not" &&
+                            c !== null &&
+                            typeof c == "object" &&
+                            Object.keys(c)) {
+                            // negate and put outside $not
+                            if (c["$eq"])
+                                (o = "$ne") && (c = c["$eq"]);
+                            if (c["$ne"])
+                                (o = "$eq") && (c = c["$ne"]);
+                            if (c["$in"])
+                                (o = "$nin") && (c = c["$in"]);
+                            if (c["$nin"])
+                                (o = "$in") && (c = c["$nin"]);
+                            if (c["$gt"])
+                                (o = "$lte") && (c = c["$gt"]) && (v["$lte"] = c);
+                            if (c["$lte"])
+                                (o = "$gt") && (c = c["$lte"]) && (v["$gt"] = c);
+                            if (c["$lt"])
+                                (o = "$gte") && (c = c["$lt"]) && (v["$gte"] = c);
+                            if (c["$gte"])
+                                (o = "$lt") && (c = c["$gte"]) && (v["$lt"] = c);
+                        }
+                        // use dict functions
+                        if (o === "$eq")
+                            return index.dict.get(c);
+                        if (o === "$in")
+                            return index.dict.$in(c);
+                        if (v["$gt"] || v["$lt"] || v["$gte"] || v["lte"]) {
+                            // if there are bounding matchers skip $ne & $nin
+                            // since bounded matchers should technically be less & faster
+                            continue;
+                        }
+                        if (o === "$ne")
+                            return index.dict.$ne(c);
+                        if (o === "$nin")
+                            return index.dict.$nin(c);
+                    }
+                    if (v["$gt"] || v["$lt"] || v["$gte"] || v["lte"]) {
+                        return index.dict.betweenBounds(v["$gt"] || v["$gte"], !!v["$gte"], v["$lt"] || v["$lte"], !!v["$lte"]);
+                    }
+                }
             }
-        });
-        if (usableQueryKeys.length > 0) {
-            return this.indexes[usableQueryKeys[0]].getMatching(query[usableQueryKeys[0]]);
         }
-        // possibility: using $eq
-        queryKeys.forEach((k) => {
-            if (query[k] &&
-                query[k].hasOwnProperty("$eq") &&
-                this._isBasicType(query[k].$eq) &&
-                currentIndexKeys.indexOf(k) !== -1) {
-                usableQueryKeys.push(k);
-            }
-        });
-        if (usableQueryKeys.length > 0) {
-            return this.indexes[usableQueryKeys[0]].getMatching(query[usableQueryKeys[0]].$eq);
-        }
-        // possibility: using $in
-        queryKeys.forEach((k) => {
-            if (query[k] &&
-                query[k].hasOwnProperty("$in") &&
-                currentIndexKeys.indexOf(k) !== -1) {
-                usableQueryKeys.push(k);
-            }
-        });
-        if (usableQueryKeys.length > 0) {
-            return this.indexes[usableQueryKeys[0]].getMatching(query[usableQueryKeys[0]].$in);
-        }
-        // possibility: using $lt $lte $gt $gte
-        queryKeys.forEach((k) => {
-            if (query[k] &&
-                currentIndexKeys.indexOf(k) !== -1 &&
-                (query[k].hasOwnProperty("$lt") ||
-                    query[k].hasOwnProperty("$lte") ||
-                    query[k].hasOwnProperty("$gt") ||
-                    query[k].hasOwnProperty("$gte"))) {
-                usableQueryKeys.push(k);
-            }
-        });
-        if (usableQueryKeys.length > 0) {
-            return this.indexes[usableQueryKeys[0]].getBetweenBounds(query[usableQueryKeys[0]]);
-        }
-        return this.getAllData();
+        return null;
     }
     /**
      * Return the list of candidates for a given query
@@ -2908,177 +2564,92 @@ class Datastore {
      *
      * Returned candidates will be scanned to find and remove all expired documents
      */
-    getCandidates(query, dontExpireStaleDocs) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let candidates = this._leastCandidates(query);
-            if (dontExpireStaleDocs) {
-                if (Array.isArray(candidates))
-                    return candidates;
-                else if (candidates === null)
-                    return [];
-                else
-                    return [candidates];
-            }
-            const expiredDocsIds = [];
-            const validDocs = [];
-            const ttlIndexesFieldNames = Object.keys(this.ttlIndexes);
-            if (!candidates)
-                return [];
-            if (!Array.isArray(candidates))
-                candidates = [candidates];
-            candidates.forEach((candidate) => {
-                let valid = true;
-                ttlIndexesFieldNames.forEach((field) => {
-                    if (candidate[field] !== undefined &&
-                        candidate[field] instanceof Date &&
-                        Date.now() >
-                            candidate[field].getTime() +
-                                this.ttlIndexes[field] * 1000) {
-                        valid = false;
-                    }
-                });
-                if (valid) {
-                    validDocs.push(candidate);
-                }
-                else if (candidate._id) {
-                    expiredDocsIds.push(candidate._id);
-                }
-            });
-            for (let index = 0; index < expiredDocsIds.length; index++) {
-                const _id = expiredDocsIds[index];
-                yield this._remove({ _id }, { multi: false });
-            }
-            return validDocs;
-        });
+    getCandidates(query) {
+        return this.fromDict(query) || this.getAllData();
     }
     /**
      * Insert a new document
      */
-    _insert(newDoc) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let preparedDoc = this.prepareDocumentForInsertion(newDoc);
-            this._insertInCache(preparedDoc);
-            try {
-                liveUpdate();
-            }
-            catch (e) {
-                console.error(`XWebDB: Could not do live updates due to an error:`, e);
-            }
-            let w = Array.isArray(preparedDoc) ? preparedDoc : [preparedDoc];
-            if (this.defer)
-                this.deferredWrites.push(...w);
-            else
-                yield this.persistence.writeNewData(w);
-            return clone(preparedDoc, this.model);
-        });
-    }
-    /**
-     * Create a new _id that's not already in use
-     */
-    createNewId() {
-        let tentativeId = uid();
-        if (this.indexes._id.getMatching(tentativeId).length > 0) {
-            tentativeId = this.createNewId();
-        }
-        return tentativeId;
-    }
-    /**
-     * Prepare a document (or array of documents) to be inserted in a database
-     * Meaning adds _id and timestamps if necessary on a copy of newDoc to avoid any side effect on user input
-     */
-    prepareDocumentForInsertion(newDoc) {
-        let preparedDoc = [];
-        if (Array.isArray(newDoc)) {
-            newDoc.forEach((doc) => {
-                preparedDoc.push(this.prepareDocumentForInsertion(doc));
-            });
-        }
-        else {
-            preparedDoc = clone(newDoc, this.model);
-            if (preparedDoc._id === undefined) {
-                preparedDoc._id = this.createNewId();
-            }
-            const now = new Date();
-            if (this.timestampData && preparedDoc.createdAt === undefined) {
-                preparedDoc.createdAt = now;
-            }
-            if (this.timestampData && preparedDoc.updatedAt === undefined) {
-                preparedDoc.updatedAt = now;
-            }
-            validateObject(preparedDoc);
-        }
-        return preparedDoc;
-    }
-    /**
-     * If newDoc is an array of documents, this will insert all documents in the cache
-     */
-    _insertInCache(preparedDoc) {
-        if (Array.isArray(preparedDoc)) {
-            this._insertMultipleDocsInCache(preparedDoc);
-        }
-        else {
-            this.addToIndexes(preparedDoc);
-        }
-    }
-    /**
-     * If one insertion fails (e.g. because of a unique constraint), roll back all previous
-     * inserts and throws the error
-     */
-    _insertMultipleDocsInCache(preparedDocs) {
+    async insert(newDoc) {
+        // unify input to array
+        let w = Array.isArray(newDoc) ? newDoc : [newDoc];
+        /**
+         * Clone all documents, add _id, add timestamps and validate
+         * then add to indexes
+         * if an error occurred rollback everything
+        */
+        let cloned = [];
         let failingI = -1;
         let error;
-        for (let i = 0; i < preparedDocs.length; i++) {
+        for (let index = 0; index < w.length; index++) {
+            cloned[index] = clone(w[index], this.model);
+            if (cloned[index]._id === undefined) {
+                cloned[index]._id = this.createNewId();
+            }
+            if (this.timestampData) {
+                let now = new Date();
+                if (cloned[index].createdAt === undefined) {
+                    cloned[index].createdAt = now;
+                }
+                if (cloned[index].updatedAt === undefined) {
+                    cloned[index].updatedAt = now;
+                }
+            }
+            validateObject(cloned[index]);
             try {
-                this.addToIndexes(preparedDocs[i]);
+                this.addToIndexes(cloned[index]);
             }
             catch (e) {
                 error = e;
-                failingI = i;
+                failingI = index;
                 break;
             }
         }
         if (error) {
             for (let i = 0; i < failingI; i++) {
-                this.removeFromIndexes(preparedDocs[i]);
+                this.removeFromIndexes(cloned[i]);
             }
             throw error;
         }
+        try {
+            this.live.update();
+        }
+        catch (e) {
+            console.error(`XWebDB: Could not do live updates due to an error:`, e);
+        }
+        if (this.defer)
+            this.deferredWrites.push(...cloned);
+        else
+            await this.persistence.writeNewData(cloned);
+        return {
+            docs: clone(cloned, this.model),
+            number: cloned.length,
+        };
     }
-    insert(newDoc) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const res = yield this.q.add(() => this._insert(newDoc));
-            if (Array.isArray(res)) {
-                return {
-                    docs: res,
-                    number: res.length,
-                };
-            }
-            else {
-                return {
-                    docs: [res],
-                    number: 1,
-                };
-            }
-        });
+    /**
+     * Create a new _id that's not already in use
+     */
+    createNewId() {
+        let newID = uid();
+        if (this.indexes._id.dict.has(newID)) {
+            newID = this.createNewId();
+        }
+        return newID;
     }
     /**
      * Count all documents matching the query
      */
-    count(query) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cursor = new Cursor(this, query);
-            return (yield cursor.exec()).length;
-        });
+    async count(query) {
+        const cursor = new Cursor(this, query);
+        return (await cursor.exec()).length;
     }
     /**
      * Find all documents matching the query
      */
-    find(query) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cursor = new Cursor(this, query);
-            const docs = yield cursor.exec();
-            return docs;
-        });
+    async find(query) {
+        const cursor = new Cursor(this, query);
+        const docs = await cursor.exec();
+        return docs;
     }
     /**
      * Find all documents matching the query
@@ -3090,167 +2661,142 @@ class Datastore {
     /**
      * Update all docs matching query
      */
-    _update(query, updateQuery, options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let multi = options.multi !== undefined ? options.multi : false;
-            let upsert = options.upsert !== undefined ? options.upsert : false;
-            const cursor = new Cursor(this, query);
-            cursor.limit(1);
-            const res = yield cursor.__exec_unsafe();
-            if (res.length > 0) {
-                let numReplaced = 0;
-                const candidates = yield this.getCandidates(query);
-                const modifications = [];
-                // Preparing update (if an error is thrown here neither the datafile nor
-                // the in-memory indexes are affected)
-                for (let i = 0; i < candidates.length; i++) {
-                    if ((multi || numReplaced === 0) &&
-                        match(candidates[i], query)) {
-                        numReplaced++;
-                        let createdAt = candidates[i].createdAt;
-                        let modifiedDoc = modify(candidates[i], updateQuery, this.model);
-                        if (createdAt) {
-                            modifiedDoc.createdAt = createdAt;
-                        }
-                        if (this.timestampData &&
-                            updateQuery.updatedAt === undefined &&
-                            (!updateQuery.$set ||
-                                updateQuery.$set.updatedAt === undefined)) {
-                            modifiedDoc.updatedAt = new Date();
-                        }
-                        modifications.push({
-                            oldDoc: candidates[i],
-                            newDoc: modifiedDoc,
-                        });
+    async _update(query, updateQuery, options) {
+        let multi = options.multi !== undefined ? options.multi : false;
+        let upsert = options.upsert !== undefined ? options.upsert : false;
+        const cursor = new Cursor(this, query);
+        cursor.limit(1);
+        const res = cursor.__exec_unsafe();
+        if (res.length > 0) {
+            let numReplaced = 0;
+            const candidates = this.getCandidates(query);
+            const modifications = [];
+            // Preparing update (if an error is thrown here neither the datafile nor
+            // the in-memory indexes are affected)
+            for (let i = 0; i < candidates.length; i++) {
+                if ((multi || numReplaced === 0) && match(candidates[i], query)) {
+                    numReplaced++;
+                    let createdAt = candidates[i].createdAt;
+                    let modifiedDoc = modify(candidates[i], updateQuery, this.model);
+                    if (createdAt) {
+                        modifiedDoc.createdAt = createdAt;
                     }
-                }
-                // Change the docs in memory
-                this.updateIndexes(modifications);
-                try {
-                    liveUpdate();
-                }
-                catch (e) {
-                    console.error(`XWebDB: Could not do live updates due to an error:`, e);
-                }
-                // Update indexedDB
-                const updatedDocs = modifications.map((x) => x.newDoc);
-                if (this.defer)
-                    this.deferredWrites.push(...updatedDocs);
-                else
-                    yield this.persistence.writeNewData(updatedDocs);
-                return {
-                    number: updatedDocs.length,
-                    docs: updatedDocs.map((x) => clone(x, this.model)),
-                    upsert: false,
-                };
-            }
-            else if (res.length === 0 && upsert) {
-                if (!updateQuery.$setOnInsert) {
-                    throw new Error("XWebDB: $setOnInsert modifier is required when upserting");
-                }
-                let toBeInserted = clone(updateQuery.$setOnInsert, this.model, true);
-                const newDoc = yield this._insert(toBeInserted);
-                if (Array.isArray(newDoc)) {
-                    return {
-                        number: newDoc.length,
-                        docs: newDoc,
-                        upsert: true,
-                    };
-                }
-                else {
-                    return {
-                        number: 1,
-                        docs: [newDoc],
-                        upsert: true,
-                    };
+                    if (this.timestampData &&
+                        updateQuery.updatedAt === undefined &&
+                        (!updateQuery.$set || updateQuery.$set.updatedAt === undefined)) {
+                        modifiedDoc.updatedAt = new Date();
+                    }
+                    modifications.push({
+                        oldDoc: candidates[i],
+                        newDoc: modifiedDoc,
+                    });
                 }
             }
-            else {
-                return {
-                    number: 0,
-                    docs: [],
-                    upsert: false,
-                };
+            // Change the docs in memory
+            this.updateIndexes(modifications);
+            try {
+                this.live.update();
             }
-        });
+            catch (e) {
+                console.error(`XWebDB: Could not do live updates due to an error:`, e);
+            }
+            // Update indexedDB
+            const updatedDocs = modifications.map((x) => x.newDoc);
+            if (this.defer)
+                this.deferredWrites.push(...updatedDocs);
+            else
+                await this.persistence.writeNewData(updatedDocs);
+            return {
+                number: updatedDocs.length,
+                docs: updatedDocs.map((x) => clone(x, this.model)),
+                upsert: false,
+            };
+        }
+        else if (res.length === 0 && upsert) {
+            if (!updateQuery.$setOnInsert) {
+                throw new Error("XWebDB: $setOnInsert modifier is required when upserting");
+            }
+            let toBeInserted = clone(updateQuery.$setOnInsert, this.model, true);
+            const newDoc = await this.insert(toBeInserted);
+            return { ...newDoc, upsert: true };
+        }
+        else {
+            return {
+                number: 0,
+                docs: [],
+                upsert: false,
+            };
+        }
     }
-    update(query, updateQuery, options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield this.q.add(() => this._update(query, updateQuery, options));
-        });
+    async update(query, updateQuery, options) {
+        return await this.q.add(() => this._update(query, updateQuery, options));
     }
     /**
      * Remove all docs matching the query
      * For now very naive implementation (similar to update)
      */
-    _remove(query, options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let numRemoved = 0;
-            const removedDocs = [];
-            const removedFullDoc = [];
-            let multi = options ? !!options.multi : false;
-            const candidates = yield this.getCandidates(query, true);
-            candidates.forEach((d) => {
-                if (match(d, query) && (multi || numRemoved === 0)) {
-                    numRemoved++;
-                    removedFullDoc.push(clone(d, this.model));
-                    removedDocs.push({ $$deleted: true, _id: d._id });
-                    this.removeFromIndexes(d);
-                }
-            });
-            try {
-                liveUpdate();
+    async _remove(query, options) {
+        let numRemoved = 0;
+        const removedDocs = [];
+        const removedFullDoc = [];
+        let multi = options ? !!options.multi : false;
+        const candidates = this.getCandidates(query);
+        candidates.forEach((d) => {
+            if (match(d, query) && (multi || numRemoved === 0)) {
+                numRemoved++;
+                removedFullDoc.push(clone(d, this.model));
+                removedDocs.push({ $$deleted: true, _id: d._id });
+                this.removeFromIndexes(d);
             }
-            catch (e) {
-                console.error(`XWebDB: Could not do live updates due to an error:`, e);
-            }
-            let d = removedDocs.map((x) => x._id || "");
-            if (this.defer)
-                this.deferredDeletes.push(...d);
-            else
-                yield this.persistence.deleteData(d);
-            return {
-                number: numRemoved,
-                docs: removedFullDoc,
-            };
         });
+        try {
+            this.live.update();
+        }
+        catch (e) {
+            console.error(`XWebDB: Could not do live updates due to an error:`, e);
+        }
+        let d = removedDocs.map((x) => x._id || "");
+        if (this.defer)
+            this.deferredDeletes.push(...d);
+        else
+            await this.persistence.deleteData(d);
+        return {
+            number: numRemoved,
+            docs: removedFullDoc,
+        };
     }
-    remove(query, options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.q.add(() => this._remove(query, options));
-        });
+    async remove(query, options) {
+        return this.q.add(() => this._remove(query, options));
     }
 }
 
 const savedNS = {};
 const kvAdapter = (endpoint, token) => (name) => new Namespace({ endpoint, token, name });
-function kvRequest(instance, method = "GET", path = "", body, parse = true) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise((resolve) => {
-            var xhr = new XMLHttpRequest();
-            xhr.addEventListener("readystatechange", function () {
-                if (this.readyState === 4) {
-                    if (parse === false) {
-                        return resolve(this.responseText);
-                    }
-                    try {
-                        let json = JSON.parse(this.responseText);
-                        resolve(json);
-                    }
-                    catch (e) {
-                        resolve(this.responseText);
-                    }
+async function kvRequest(instance, method = "GET", path = "", body, parse = true) {
+    return new Promise((resolve) => {
+        var xhr = new XMLHttpRequest();
+        xhr.addEventListener("readystatechange", function () {
+            if (this.readyState === 4) {
+                if (parse === false) {
+                    return resolve(this.responseText);
                 }
-            });
-            xhr.open(method, (instance.endpoint + "/" + path)
-                // removing double slashes
-                .replace(/(https?:\/{2}.*)\/{2}/, "$1/")
-                // removing trailing slashes
-                .replace(/\/$/, ""));
-            xhr.setRequestHeader("Authorization", `Bearer ${instance.token}`);
-            xhr.setRequestHeader("Content-Type", `application/json`);
-            xhr.send(body);
+                try {
+                    let json = JSON.parse(this.responseText);
+                    resolve(json);
+                }
+                catch (e) {
+                    resolve(this.responseText);
+                }
+            }
         });
+        xhr.open(method, (instance.endpoint + "/" + path)
+            // removing double slashes
+            .replace(/(https?:\/{2}.*)\/{2}/, "$1/")
+            // removing trailing slashes
+            .replace(/\/$/, ""));
+        xhr.setRequestHeader("Authorization", `Bearer ${instance.token}`);
+        xhr.setRequestHeader("Content-Type", `application/json`);
+        xhr.send(body);
     });
 }
 class Namespace {
@@ -3264,221 +2810,192 @@ class Namespace {
     // basically trying to get the ID of the namespace
     // from the array above or remotely
     // or creating a new namespace
-    connect() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!savedNS[this.endpoint]) {
-                savedNS[this.endpoint] = {};
-            }
-            if (savedNS[this.endpoint][this.name]) {
-                // found saved
-                this.id = savedNS[this.endpoint][this.name];
-                return;
-            }
-            const remoteNamespaces = yield this.listStores();
-            for (let index = 0; index < remoteNamespaces.length; index++) {
-                const element = remoteNamespaces[index];
-                savedNS[this.endpoint][element.name] = element.id;
-            }
-            if (savedNS[this.endpoint][this.name]) {
-                // found remote
-                this.id = savedNS[this.endpoint][this.name];
-                return;
-            }
-            const id = yield this.createStore(this.name);
-            savedNS[this.endpoint][this.name] = id;
-            this.id = id;
-        });
+    async connect() {
+        if (!savedNS[this.endpoint]) {
+            savedNS[this.endpoint] = {};
+        }
+        if (savedNS[this.endpoint][this.name]) {
+            // found saved
+            this.id = savedNS[this.endpoint][this.name];
+            return;
+        }
+        const remoteNamespaces = await this.listStores();
+        for (let index = 0; index < remoteNamespaces.length; index++) {
+            const element = remoteNamespaces[index];
+            savedNS[this.endpoint][element.name] = element.id;
+        }
+        if (savedNS[this.endpoint][this.name]) {
+            // found remote
+            this.id = savedNS[this.endpoint][this.name];
+            return;
+        }
+        const id = await this.createStore(this.name);
+        savedNS[this.endpoint][this.name] = id;
+        this.id = id;
     }
-    listStores() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const namespaces = [];
-            let currentPage = 1;
-            let totalPages = 1;
-            while (totalPages >= currentPage) {
-                const res = yield kvRequest(this, "GET", `?page=${currentPage}`);
-                if (typeof res === "string" ||
-                    !res.success ||
-                    !Array.isArray(res.result)) {
-                    throw new Error("XWebDB: Error while listing namespaces: " + JSON.stringify(res));
-                }
-                else {
-                    const resNamespaces = res.result;
-                    for (let index = 0; index < resNamespaces.length; index++) {
-                        const element = resNamespaces[index];
-                        namespaces.push({ id: element.id, name: element.title });
-                    }
-                    totalPages = res.result_info.total_pages;
-                    currentPage++;
-                }
-            }
-            return namespaces;
-        });
-    }
-    createStore(title) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const res = yield kvRequest(this, "POST", "", JSON.stringify({ title }));
-            if (typeof res === "string" ||
-                !res.success ||
-                Array.isArray(res.result)) {
-                throw new Error("XWebDB: Error while creating namespace: " + JSON.stringify(res));
+    async listStores() {
+        const namespaces = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        while (totalPages >= currentPage) {
+            const res = await kvRequest(this, "GET", `?page=${currentPage}`);
+            if (typeof res === "string" || !res.success || !Array.isArray(res.result)) {
+                throw new Error("XWebDB: Error while listing namespaces: " + JSON.stringify(res));
             }
             else {
-                return res.result.id;
+                const resNamespaces = res.result;
+                for (let index = 0; index < resNamespaces.length; index++) {
+                    const element = resNamespaces[index];
+                    namespaces.push({ id: element.id, name: element.title });
+                }
+                totalPages = res.result_info.total_pages;
+                currentPage++;
             }
-        });
+        }
+        return namespaces;
     }
-    removeStore() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            const res = yield kvRequest(this, "DELETE", this.id);
-            if (typeof res === "string" || !res.success) {
-                throw new Error("XWebDB: Error while deleting namespace: " + JSON.stringify(res));
+    async createStore(title) {
+        const res = await kvRequest(this, "POST", "", JSON.stringify({ title }));
+        if (typeof res === "string" || !res.success || Array.isArray(res.result)) {
+            throw new Error("XWebDB: Error while creating namespace: " + JSON.stringify(res));
+        }
+        else {
+            return res.result.id;
+        }
+    }
+    async clear() {
+        if (!this.id)
+            await this.connect();
+        const res = await kvRequest(this, "DELETE", this.id);
+        if (typeof res === "string" || !res.success) {
+            throw new Error("XWebDB: Error while deleting namespace: " + JSON.stringify(res));
+        }
+        else {
+            return true;
+        }
+    }
+    async del(itemID) {
+        if (!this.id)
+            await this.connect();
+        const res = await kvRequest(this, "DELETE", `${this.id}/values/${itemID}`);
+        if (typeof res === "string" || !res.success) {
+            throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
+        }
+        else {
+            return true;
+        }
+    }
+    async set(itemID, itemData) {
+        if (!this.id)
+            await this.connect();
+        const res = await kvRequest(this, "PUT", `${this.id}/values/${itemID}`, itemData);
+        if (typeof res === "string" || !res.success) {
+            throw new Error("XWebDB: Error while setting item: " + JSON.stringify(res));
+        }
+        else {
+            return true;
+        }
+    }
+    async get(itemID) {
+        if (!this.id)
+            await this.connect();
+        const res = await kvRequest(this, "GET", `${this.id}/values/${itemID}`, undefined, false);
+        if (typeof res !== "string") {
+            throw new Error("XWebDB: Error while getting item: " + JSON.stringify(res));
+        }
+        else {
+            return res;
+        }
+    }
+    async keys() {
+        if (!this.id)
+            await this.connect();
+        let keys = [];
+        let cursor = "";
+        do {
+            const res = await kvRequest(this, "GET", `${this.id}/keys${cursor ? `?cursor=${cursor}` : ""}`);
+            if (typeof res === "string" || !res.success || !Array.isArray(res.result)) {
+                throw new Error("XWebDB: Error while listing keys: " + JSON.stringify(res));
             }
             else {
-                return true;
+                const arr = res.result;
+                for (let index = 0; index < arr.length; index++) {
+                    const element = arr[index];
+                    keys.push(element.name);
+                }
+                cursor = res.result_info.cursor;
             }
-        });
+        } while (cursor);
+        return keys;
     }
-    removeItem(itemID) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            const res = yield kvRequest(this, "DELETE", `${this.id}/values/${itemID}`);
+    async delBulk(items) {
+        if (!this.id)
+            await this.connect();
+        // deal with 10,000 limit
+        const dividedItems = items.reduce((arr, item, index) => {
+            const sub = Math.floor(index / 9999);
+            if (!arr[sub])
+                arr[sub] = [];
+            arr[sub].push(item);
+            return arr;
+        }, []);
+        let results = [];
+        for (let index = 0; index < dividedItems.length; index++) {
+            const batch = dividedItems[index];
+            const res = await kvRequest(this, "DELETE", `${this.id}/bulk`, JSON.stringify(batch));
             if (typeof res === "string" || !res.success) {
                 throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
             }
             else {
-                return true;
+                results.push(true);
             }
-        });
+        }
+        return results;
     }
-    setItem(itemID, itemData) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            const res = yield kvRequest(this, "PUT", `${this.id}/values/${itemID}`, itemData);
+    async setBulk(couples) {
+        // deal with 10,000 limit
+        if (!this.id)
+            await this.connect();
+        const dividedItems = couples.reduce((arr, item, index) => {
+            const sub = Math.floor(index / 9999);
+            if (!arr[sub])
+                arr[sub] = [];
+            arr[sub].push(item);
+            return arr;
+        }, []);
+        let results = [];
+        for (let index = 0; index < dividedItems.length; index++) {
+            const batch = dividedItems[index];
+            const res = await kvRequest(this, "PUT", `${this.id}/bulk`, JSON.stringify(batch.map((x) => ({ key: x[0], value: x[1] }))));
             if (typeof res === "string" || !res.success) {
-                throw new Error("XWebDB: Error while setting item: " + JSON.stringify(res));
+                throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
             }
             else {
-                return true;
+                results.push(true);
             }
-        });
+        }
+        return results;
     }
-    getItem(itemID) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            const res = yield kvRequest(this, "GET", `${this.id}/values/${itemID}`, undefined, false);
-            if (typeof res !== "string") {
-                throw new Error("XWebDB: Error while getting item: " + JSON.stringify(res));
-            }
-            else {
-                return res;
-            }
-        });
-    }
-    keys() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            let keys = [];
-            let cursor = "";
-            do {
-                const res = yield kvRequest(this, "GET", `${this.id}/keys${cursor ? `?cursor=${cursor}` : ""}`);
-                if (typeof res === "string" ||
-                    !res.success ||
-                    !Array.isArray(res.result)) {
-                    throw new Error("XWebDB: Error while listing keys: " + JSON.stringify(res));
-                }
-                else {
-                    const arr = res.result;
-                    for (let index = 0; index < arr.length; index++) {
-                        const element = arr[index];
-                        keys.push(element.name);
-                    }
-                    cursor = res.result_info.cursor;
-                }
-            } while (cursor);
-            return keys;
-        });
-    }
-    removeItems(items) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.id)
-                yield this.connect();
-            // deal with 10,000 limit
-            const dividedItems = items.reduce((arr, item, index) => {
-                const sub = Math.floor(index / 9999);
-                if (!arr[sub])
-                    arr[sub] = [];
-                arr[sub].push(item);
-                return arr;
-            }, []);
-            let results = [];
-            for (let index = 0; index < dividedItems.length; index++) {
-                const batch = dividedItems[index];
-                const res = yield kvRequest(this, "DELETE", `${this.id}/bulk`, JSON.stringify(batch));
-                if (typeof res === "string" || !res.success) {
-                    throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
-                }
-                else {
-                    results.push(true);
-                }
-            }
-            return results;
-        });
-    }
-    setItems(items) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // deal with 10,000 limit
-            if (!this.id)
-                yield this.connect();
-            const dividedItems = items.reduce((arr, item, index) => {
-                const sub = Math.floor(index / 9999);
-                if (!arr[sub])
-                    arr[sub] = [];
-                arr[sub].push(item);
-                return arr;
-            }, []);
-            let results = [];
-            for (let index = 0; index < dividedItems.length; index++) {
-                const batch = dividedItems[index];
-                const res = yield kvRequest(this, "PUT", `${this.id}/bulk`, JSON.stringify(batch));
-                if (typeof res === "string" || !res.success) {
-                    throw new Error("XWebDB: Error while deleting item: " + JSON.stringify(res));
-                }
-                else {
-                    results.push(true);
-                }
-            }
-            return results;
-        });
-    }
-    getItems(keys) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (keys.length === 0)
-                return [];
-            // Cloudflare, sadly, still doesn't bulk gets!
-            // so we're just looping through the given keys
-            // to make things slightly better:
-            // we're setting a max concurrent connection using Q
-            const q = new Q(20);
-            const valuesPromises = [];
-            for (let index = 0; index < keys.length; index++) {
-                const key = keys[index];
-                valuesPromises.push(q.add(() => this.getItem(key)));
-            }
-            const values = yield Promise.all(valuesPromises);
-            const result = [];
-            for (let index = 0; index < keys.length; index++) {
-                let key = keys[index];
-                let value = values[index];
-                result.push({ key, value });
-            }
-            return result;
-        });
+    async getBulk(keys) {
+        if (keys.length === 0)
+            return [];
+        // Cloudflare, sadly, still doesn't bulk gets!
+        // so we're just looping through the given keys
+        // to make things slightly better:
+        // we're setting a max concurrent connection using Q
+        const q = new Q(20);
+        const valuesPromises = [];
+        for (let index = 0; index < keys.length; index++) {
+            const key = keys[index];
+            valuesPromises.push(q.add(() => this.get(key)));
+        }
+        const values = await Promise.all(valuesPromises);
+        const result = [];
+        for (let index = 0; index < keys.length; index++) {
+            let value = values[index];
+            result.push(value);
+        }
+        return result;
     }
 }
 
@@ -3487,6 +3004,9 @@ var index = /*#__PURE__*/Object.freeze({
     kvAdapter: kvAdapter
 });
 
+/**
+ * Creating an an observable array
+*/
 const INSERT = "insert";
 const UPDATE = "update";
 const DELETE = "delete";
@@ -3548,9 +3068,9 @@ function callObservers(oMeta, changes) {
                     queueMicrotask(callObserversFromMT.bind(currentObservable));
                 }
                 let rb;
-                for (const btch of currentObservable.batches) {
-                    if (btch[0] === target) {
-                        rb = btch;
+                for (const batch of currentObservable.batches) {
+                    if (batch[0] === target) {
+                        rb = batch;
                         break;
                     }
                 }
@@ -3793,7 +3313,7 @@ function proxiedCopyWithin(dest, start, end) {
 }
 function proxiedSplice() {
     const oMeta = this[oMetaKey], target = oMeta.target, splLen = arguments.length, spliceContent = new Array(splLen), tarLen = target.length;
-    //	observify the newcomers
+    //	make newcomers observable
     for (let i = 0; i < splLen; i++) {
         spliceContent[i] = getObservedOf(arguments[i], i, oMeta);
     }
@@ -3803,7 +3323,7 @@ function proxiedSplice() {
         : spliceContent[0] < 0
             ? tarLen + spliceContent[0]
             : spliceContent[0], removed = splLen < 2 ? tarLen - startIndex : spliceContent[1], inserted = Math.max(splLen - 2, 0), spliceResult = Reflect.apply(target.splice, target, spliceContent), newTarLen = target.length;
-    //	reindex the paths
+    //	re-index the paths
     let tmpObserved;
     for (let i = 0, item; i < newTarLen; i++) {
         item = target[i];
@@ -3946,25 +3466,21 @@ function observable(target) {
             ownKey: "",
             parent: null,
         }).proxy;
-    function unobserve(observers) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!observers)
-                return yield __unobserve(o);
-            else if (Array.isArray(observers))
-                return yield __unobserve(o, observers);
-            else
-                return yield __unobserve(o, [observers]);
-        });
+    async function unobserve(observers) {
+        if (!observers)
+            return await __unobserve(o);
+        else if (Array.isArray(observers))
+            return await __unobserve(o, observers);
+        else
+            return await __unobserve(o, [observers]);
     }
     function observe(observer) {
         __observe(o, observer);
     }
-    function silently(work) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const observers = yield unobserve();
-            yield work(o);
-            observers.forEach((x) => observe(x));
-        });
+    async function silently(work) {
+        const observers = await unobserve();
+        await work(o);
+        observers.forEach((x) => observe(x));
     }
     return {
         observe,
@@ -3982,28 +3498,26 @@ function __observe(observable, observer) {
         observers.push(observer);
     }
 }
-function __unobserve(observable, observers) {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (observable instanceof Promise)
-            observable = yield Promise.resolve(observable);
-        const existingObs = observable[oMetaKey].observers;
-        let length = existingObs.length;
-        if (!length) {
-            return [];
+async function __unobserve(observable, observers) {
+    if (observable instanceof Promise)
+        observable = await Promise.resolve(observable);
+    const existingObs = observable[oMetaKey].observers;
+    let length = existingObs.length;
+    if (!length) {
+        return [];
+    }
+    if (!observers) {
+        return existingObs.splice(0);
+    }
+    let spliced = [];
+    for (let index = 0; index < observers.length; index++) {
+        const observer = observers[index];
+        const i = existingObs.indexOf(observer);
+        if (i > -1) {
+            spliced.push(existingObs.splice(i, 1)[0]);
         }
-        if (!observers) {
-            return existingObs.splice(0);
-        }
-        let spliced = [];
-        for (let index = 0; index < observers.length; index++) {
-            const observer = observers[index];
-            const i = existingObs.indexOf(observer);
-            if (i > -1) {
-                spliced.push(existingObs.splice(i, 1)[0]);
-            }
-        }
-        return spliced;
-    });
+    }
+    return spliced;
 }
 
 var observable$1 = /*#__PURE__*/Object.freeze({
@@ -4013,6 +3527,10 @@ var observable$1 = /*#__PURE__*/Object.freeze({
     Change: Change
 });
 
+/**
+ * Main user API to the database
+ * exposing only strongly typed methods and relevant configurations
+ */
 let deepOperators = modifiersKeys;
 class Database {
     constructor(options) {
@@ -4041,14 +3559,14 @@ class Database {
         this._datastore = new Datastore({
             ref: this.ref,
             model: this.model,
+            indexes: options.indexes,
             encode: options.encode,
             decode: options.decode,
             corruptAlertThreshold: options.corruptAlertThreshold,
             timestampData: options.timestampData,
             syncToRemote: options.sync ? options.sync.syncToRemote : undefined,
             syncInterval: options.sync ? options.sync.syncInterval : undefined,
-            invalidateHash: options.sync ? options.sync.invalidateHash : undefined,
-            defer: options.deferPersistence || 0,
+            defer: options.deferPersistence,
             stripDefaults: options.stripDefaults || false,
         });
         this.loaded = this._datastore.loadDatabase();
@@ -4056,219 +3574,211 @@ class Database {
     /**
      * insert documents
      */
-    insert(docs) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const res = yield this._datastore.insert(docs);
-            return res;
-        });
+    async insert(docs) {
+        const res = await this._datastore.insert(docs);
+        return res;
     }
-    live(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, toDB = true, fromDB = true, } = {}) {
-        return __awaiter(this, arguments, void 0, function* () {
-            const res = yield this.read(...arguments);
-            const ob = observable(res);
-            let toDBObserver = () => undefined;
-            let fromDBuid = "";
-            if (toDB) {
-                toDBObserver = (changes) => {
-                    let operations = {};
-                    for (let i = 0; i < changes.length; i++) {
-                        const change = changes[i];
-                        if (change.path.length === 0 ||
-                            change.type === "shuffle" ||
-                            change.type === "reverse") {
-                            continue;
-                        }
-                        else if (change.path.length === 1 && change.type === "update") {
-                            let doc = change.snapshot[change.path[0]];
-                            let _id = change.oldValue._id;
-                            operations[_id] = () => this.update({ _id: _id }, {
-                                $set: doc,
-                            });
-                        }
-                        else if (change.path.length > 1 || change.type === "update") {
-                            // updating specific field in document
-                            let doc = change.snapshot[change.path[0]];
-                            let _id = doc._id;
-                            operations[_id] = () => this.upsert({ _id: _id }, {
-                                $set: doc,
-                                $setOnInsert: doc,
-                            });
-                        }
-                        else if (change.type === "delete") {
-                            // deleting
-                            let doc = change.oldValue;
-                            let _id = doc._id;
-                            operations[_id] = () => this.delete({ _id });
-                        }
-                        else if (change.type === "insert") {
-                            // inserting
-                            let doc = change.value;
-                            let _id = doc._id;
-                            operations[_id] = () => this.insert(doc);
-                        }
+    /**
+     * Get live queries (observable)
+     * can be bidirectionally live (to and from DB)
+     * or either from or to DB
+     */
+    async live(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, toDB = true, fromDB = true, } = {}) {
+        const res = await this.read(...arguments);
+        const ob = observable(res);
+        let toDBObserver = () => undefined;
+        let fromDBuid = "";
+        if (toDB) {
+            toDBObserver = (changes) => {
+                let operations = {};
+                for (let i = 0; i < changes.length; i++) {
+                    const change = changes[i];
+                    if (change.path.length === 0 ||
+                        change.type === "shuffle" ||
+                        change.type === "reverse") {
+                        continue;
                     }
-                    const results = Object.values(operations).map((operation) => operation());
-                    Promise.all(results).catch((e) => {
-                        liveUpdate();
-                        console.error(`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`, e);
-                    });
-                };
-                ob.observe(toDBObserver);
-            }
-            if (fromDB) {
-                fromDBuid = addLive({
-                    queryFilter: filter,
-                    queryOptions: { skip, limit, project, sort },
-                    database: this,
-                    toDBObserver,
-                    observable: ob,
+                    else if (change.path.length === 1 && change.type === "update") {
+                        let doc = change.snapshot[change.path[0]];
+                        let _id = change.oldValue._id;
+                        operations[_id] = () => this.update({ _id: _id }, {
+                            $set: doc,
+                        });
+                    }
+                    else if (change.path.length > 1 || change.type === "update") {
+                        // updating specific field in document
+                        let doc = change.snapshot[change.path[0]];
+                        let _id = doc._id;
+                        operations[_id] = () => this.upsert({ _id: _id }, {
+                            $set: doc,
+                            $setOnInsert: doc,
+                        });
+                    }
+                    else if (change.type === "delete") {
+                        // deleting
+                        let doc = change.oldValue;
+                        let _id = doc._id;
+                        operations[_id] = () => this.delete({ _id });
+                    }
+                    else if (change.type === "insert") {
+                        // inserting
+                        let doc = change.value;
+                        let _id = doc._id;
+                        operations[_id] = () => this.insert(doc);
+                    }
+                }
+                const results = Object.values(operations).map((operation) => operation());
+                Promise.all(results).catch((e) => {
+                    this._datastore.live.update(); // reversing updates to observable
+                    console.error(`XWebDB: Reflecting observable changes to database couldn't complete due to an error:`, e);
                 });
-            }
-            return Object.assign(Object.assign({}, ob), { kill(w) {
-                    return __awaiter(this, void 0, void 0, function* () {
-                        if (w === "toDB" || !w) {
-                            yield ob.unobserve(toDBObserver);
-                        }
-                        if (w === "fromDB" || !w) {
-                            kill(fromDBuid);
-                        }
-                    });
-                } });
-        });
+            };
+            ob.observe(toDBObserver);
+        }
+        if (fromDB) {
+            fromDBuid = this._datastore.live.addLive({
+                query: filter,
+                toDBObserver,
+                observable: ob,
+            });
+        }
+        return {
+            ...ob,
+            kill: async (w) => {
+                if (w === "toDB" || !w) {
+                    await ob.unobserve(toDBObserver);
+                }
+                if (w === "fromDB" || !w) {
+                    this._datastore.live.kill(fromDBuid);
+                }
+            },
+        };
     }
     /**
      * Find document(s) that meets a specified criteria
      */
-    read(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, } = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
-            filter = toDotNotation(filter);
-            sort = toDotNotation(sort);
-            project = toDotNotation(project);
-            const cursor = this._datastore.cursor(filter);
-            if (sort) {
-                cursor.sort(sort);
-            }
-            if (skip) {
-                cursor.skip(skip);
-            }
-            if (limit) {
-                cursor.limit(limit);
-            }
-            if (project) {
-                cursor.projection(project);
-            }
-            return yield cursor.exec();
-        });
+    async read(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, } = {}) {
+        filter = toDotNotation(filter);
+        sort = toDotNotation(sort);
+        project = toDotNotation(project);
+        const cursor = this._datastore.cursor(filter);
+        if (sort) {
+            cursor.sort(sort);
+        }
+        if (skip) {
+            cursor.skip(skip);
+        }
+        if (limit) {
+            cursor.limit(limit);
+        }
+        if (project) {
+            cursor.projection(project);
+        }
+        return await cursor.exec();
     }
     /**
      * Update document(s) that meets the specified criteria
      */
-    update(filter, update, multi = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            filter = toDotNotation(filter || {});
-            for (let index = 0; index < deepOperators.length; index++) {
-                const operator = deepOperators[index];
-                if (update[operator]) {
-                    update[operator] = toDotNotation(update[operator]);
-                }
+    async update(filter, update, multi = false) {
+        filter = toDotNotation(filter || {});
+        for (let index = 0; index < deepOperators.length; index++) {
+            const operator = deepOperators[index];
+            if (update[operator]) {
+                update[operator] = toDotNotation(update[operator]);
             }
-            const res = yield this._datastore.update(filter, update, {
-                multi,
-                upsert: false,
-            });
-            return res;
+        }
+        const res = await this._datastore.update(filter, update, {
+            multi,
+            upsert: false,
         });
+        return res;
     }
     /**
      * Update document(s) that meets the specified criteria,
      * and do an insertion if no documents are matched
      */
-    upsert(filter, update, multi = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            filter = toDotNotation(filter || {});
-            for (let index = 0; index < deepOperators.length; index++) {
-                const operator = deepOperators[index];
-                if (update[operator]) {
-                    update[operator] = toDotNotation(update[operator]);
-                }
+    async upsert(filter, update, multi = false) {
+        filter = toDotNotation(filter || {});
+        for (let index = 0; index < deepOperators.length; index++) {
+            const operator = deepOperators[index];
+            if (update[operator]) {
+                update[operator] = toDotNotation(update[operator]);
             }
-            const res = yield this._datastore.update(filter, update, {
-                multi,
-                upsert: true,
-            });
-            return res;
+        }
+        const res = await this._datastore.update(filter, update, {
+            multi,
+            upsert: true,
         });
+        return res;
     }
     /**
      * Count documents that meets the specified criteria
      */
-    count(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
-            filter = toDotNotation(filter || {});
-            return yield this._datastore.count(filter);
-        });
+    async count(filter = {}) {
+        filter = toDotNotation(filter || {});
+        return await this._datastore.count(filter);
     }
     /**
      * Delete document(s) that meets the specified criteria
      *
      */
-    delete(filter, multi = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            filter = toDotNotation(filter || {});
-            const res = yield this._datastore.remove(filter, {
-                multi: multi || false,
-            });
-            return res;
+    async delete(filter, multi = false) {
+        filter = toDotNotation(filter || {});
+        const res = await this._datastore.remove(filter, {
+            multi: multi || false,
         });
+        return res;
     }
     /**
      * Create an index specified by options
      */
-    createIndex(options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield this._datastore.ensureIndex(options);
-        });
+    async createIndex(options) {
+        return await this._datastore.ensureIndex(options);
     }
     /**
      * Remove an index by passing the field name that it is related to
      */
-    removeIndex(fieldName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return yield this._datastore.removeIndex(fieldName);
-        });
+    async removeIndex(fieldName) {
+        return await this._datastore.removeIndex(fieldName);
     }
     /**
-     * Reload database from the persistence layer (if it exists)
+     * Reload database from the persistence layer
      */
-    reload() {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield this._datastore.persistence.loadDatabase();
-            return {};
-        });
+    async reload() {
+        return await this._datastore.loadDatabase();
     }
-    sync() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this._datastore.persistence.sync) {
-                throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
-            }
-            return yield this._datastore.persistence.sync.sync();
-        });
+    /**
+     * Synchronies the database with remote source using the remote adapter
+     */
+    async sync() {
+        if (!this._datastore.persistence.sync) {
+            throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
+        }
+        return await this._datastore.persistence.sync.sync();
     }
-    forceSync() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this._datastore.persistence.sync) {
-                throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
-            }
-            return yield this._datastore.persistence.sync._sync(true);
-        });
+    /**
+     * Forcefully sync the database with remote source using the remote adapter
+     * bypassing: 	A. a check to see whether other sync action is in progress
+     * 				B. a check to see whether there are deferred writes/deletes
+     * 				C. a check to see whether local DB and remote source have same $H
+     * Use this with caution, and only if you know what you're doing
+     */
+    async forceSync() {
+        if (!this._datastore.persistence.sync) {
+            throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
+        }
+        return await this._datastore.persistence.sync._sync(true);
     }
+    /**
+     * true: there's a sync in progress
+     * false: there's no sync in progress
+     */
     get syncInProgress() {
         return this._datastore.persistence.syncInProgress;
     }
 }
 
 const _internal = {
-    avl: { AvlTree, Node },
     observable: observable$1,
     Cursor,
     customUtils,
@@ -4277,7 +3787,7 @@ const _internal = {
     modelling,
     Q,
     Persistence,
-    PersistenceEvent,
+    Dictionary
 };
 
 export { Database, Doc, SubDoc, _internal, index as adapters, mapSubModel };

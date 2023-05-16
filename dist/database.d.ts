@@ -1,7 +1,11 @@
+/**
+ * Main user API to the database
+ * exposing only strongly typed methods and relevant configurations
+ */
 import { Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
-import { Doc, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators, NFP } from "./types";
-export interface DatabaseConfigurations<C extends typeof Doc> {
+import { NOP, Doc, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators, NFP } from "./types";
+export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
     ref: string;
     model?: C;
     encode?(line: string): string;
@@ -11,17 +15,25 @@ export interface DatabaseConfigurations<C extends typeof Doc> {
     sync?: {
         syncToRemote?: (name: string) => remoteStore;
         syncInterval?: number;
-        invalidateHash?: number;
     };
     deferPersistence?: number;
     stripDefaults?: boolean;
+    indexes?: NOP<D>[];
 }
 export declare class Database<S extends Doc> {
     private ref;
     private model;
+    /**
+     * set to "public" so we can allow some level of access to core methods and properties
+     */
     _datastore: Datastore<S, typeof Doc>;
+    /**
+     * Creating a database is creating a reference for it
+     * However, the database will be loading existing data in the background
+     * use this promise to ensure that the database has actually loaded all the preexisting data
+     */
     loaded: Promise<boolean>;
-    constructor(options: DatabaseConfigurations<typeof Doc>);
+    constructor(options: DatabaseConfigurations<typeof Doc, S>);
     /**
      * insert documents
      */
@@ -29,6 +41,11 @@ export declare class Database<S extends Doc> {
         docs: S[];
         number: number;
     }>;
+    /**
+     * Get live queries (observable)
+     * can be bidirectionally live (to and from DB)
+     * or either from or to DB
+     */
     live(filter?: Filter<S>, { skip, limit, project, sort, toDB, fromDB, }?: {
         skip?: number;
         limit?: number;
@@ -91,19 +108,33 @@ export declare class Database<S extends Doc> {
         affectedIndex: string;
     }>;
     /**
-     * Reload database from the persistence layer (if it exists)
+     * Reload database from the persistence layer
      */
     reload(): Promise<{}>;
+    /**
+     * Synchronies the database with remote source using the remote adapter
+     */
     sync(): Promise<{
         sent: number;
         received: number;
-        diff: 0 | 1 | -1;
+        diff: number;
     }>;
+    /**
+     * Forcefully sync the database with remote source using the remote adapter
+     * bypassing: 	A. a check to see whether other sync action is in progress
+     * 				B. a check to see whether there are deferred writes/deletes
+     * 				C. a check to see whether local DB and remote source have same $H
+     * Use this with caution, and only if you know what you're doing
+     */
     forceSync(): Promise<{
         sent: number;
         received: number;
         diff: 0 | 1 | -1;
     }>;
+    /**
+     * true: there's a sync in progress
+     * false: there's no sync in progress
+     */
     get syncInProgress(): boolean;
     /**
      * Create document

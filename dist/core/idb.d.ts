@@ -1,59 +1,77 @@
+/**
+ * Promise-base interface for interacting with indexedDB
+ * This is where actual operations to IndexedDB occurs
+ */
+import { Doc } from "../types";
+import { EnsureIndexOptions } from "./datastore";
+export type Line = Partial<Doc & {
+    $$indexCreated?: EnsureIndexOptions;
+}> & Record<string, any>;
+interface PersistenceLayer {
+    get(key: string): Promise<Line | undefined>;
+    getBulk(keys: string[]): Promise<(Line | undefined)[]>;
+    set(key: string, value: Line): Promise<void>;
+    setBulk(entries: [string, Line][]): Promise<void>;
+    delBulk(keys: string[]): Promise<void>;
+    clear(): Promise<void>;
+    keys(): Promise<string[]>;
+    documents(): Promise<Line[]>;
+    byID(_id: string): Promise<IDBValidKey | undefined>;
+}
 export type UseStore = <T>(txMode: IDBTransactionMode, callback: (store: IDBObjectStore) => T | PromiseLike<T>) => Promise<T>;
-export declare class IDB<T> {
+export declare class IDB implements PersistenceLayer {
     private store;
     constructor(name: string);
+    /**
+     * Converts IDB requests/transactions to promises.
+     */
     private pr;
     /**
-     * Get a value by its key.
-     * @param key
+     * Converts cursor iterations to promises
      */
-    get(key: string): Promise<T | undefined>;
+    private eachCursor;
+    /**
+     * Get a value by its key.
+     */
+    get(key: string): Promise<Line | undefined>;
+    /**
+     * Get values for a given set of keys
+    */
+    getBulk(keys: string[]): Promise<(Line | undefined)[]>;
     /**
      * Set a value with a key.
-     *
-     * @param key
-     * @param value
      */
-    set(key: string, value: string): Promise<void>;
+    set(key: string, value: Line): Promise<void>;
     /**
      * Set multiple values at once. This is faster than calling set() multiple times.
      * It's also atomic – if one of the pairs can't be added, none will be added.
-     *
-     * @param entries Array of entries, where each entry is an array of `[key, value]`.
      */
-    sets(entries: [string, string][]): Promise<void>;
-    /**
-     * Get multiple values by their keys
-     *
-     * @param keys
-     */
-    gets(keys: string[]): Promise<T[]>;
-    /**
-     * Delete a particular key from the store.
-     *
-     * @param key
-     */
-    del(key: string): Promise<void>;
+    setBulk(entries: [string, Line][]): Promise<void>;
     /**
      * Delete multiple keys at once.
      *
-     * @param keys List of keys to delete.
      */
-    dels(keys: string[]): Promise<void>;
+    delBulk(keys: string[]): Promise<void>;
     /**
      * Clear all values in the store.
      *
      */
     clear(): Promise<void>;
-    private eachCursor;
     /**
      * Get all keys in the store.
-     *
      */
     keys(): Promise<string[]>;
     /**
-     * Get all values in the store.
+     * Get all documents in the store.
      */
-    values(): Promise<T[]>;
+    documents(): Promise<Line[]>;
+    /**
+     * Get key by ID (since keys are ID_REV)
+     */
+    byID(_id: string): Promise<IDBValidKey | undefined>;
+    /**
+     * Get length of the DB
+     */
     length(): Promise<number>;
 }
+export {};

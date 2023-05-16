@@ -1,3 +1,12 @@
+/**
+ * Creating an an observable array
+*/
+export interface ObservableArray<A extends object> {
+    observable: Observable<A>;
+    observe: (observer: Observer<A>) => void;
+    unobserve: (observers?: Observer<A> | Observer<A>[]) => Promise<Observer<A>[]>;
+    silently: (work: (o: Observable<A>) => any) => void;
+}
 type Observable<T extends object> = T & {
     [oMetaKey]: OMetaBase<T>;
 };
@@ -11,12 +20,6 @@ interface MetaProperties<T> {
 }
 interface Observer<T> {
     (changes: Change<T>[]): void;
-}
-export interface ObservableArray<A extends object> {
-    observable: Observable<A>;
-    observe: (observer: Observer<A>) => void;
-    unobserve: (observers?: Observer<A> | Observer<A>[]) => Promise<Observer<A>[]>;
-    silently: (work: (o: Observable<A>) => any) => void;
 }
 declare const oMetaKey: unique symbol;
 declare class Change<T> {

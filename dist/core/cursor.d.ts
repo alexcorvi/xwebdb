@@ -1,8 +1,9 @@
+/**
+ * Cursor class is responsible for querying documents
+ * as well as sorting, skipping, limiting, and projections
+ */
 import { Datastore } from "./datastore";
 import { Doc, SchemaKeyProjection, SchemaKeySort } from "../types";
-/**
- * Create a new cursor for this collection
- */
 export declare class Cursor<G extends Doc, C extends typeof Doc> {
     private db;
     private _query;
@@ -32,11 +33,13 @@ export declare class Cursor<G extends Doc, C extends typeof Doc> {
      */
     private _project;
     /**
-     * Get all matching elements
-     * Will return pointers to matched elements (shallow copies), returning full copies is the role of find or findOne
-     *
+     * Executes the query
+     * Will return pointers to matched elements (shallow copies)
+     * hence its called "unsafe"
      */
-    __exec_unsafe(): Promise<G[]>;
-    private _exec;
-    exec(): Promise<G[]>;
+    __exec_unsafe(): G[];
+    /**
+     * Executes the query safely (i.e. cloning documents)
+    */
+    exec(): G[];
 }

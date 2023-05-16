@@ -1,18 +1,12 @@
 export type remoteAdapter = (endpoint: string, token: string) => (name: string) => remoteStore;
 export interface remoteStore {
     name: string;
-    removeStore: () => Promise<boolean>;
-    removeItem: (id: string) => Promise<boolean>;
-    setItem: (id: string, value: string) => Promise<boolean>;
-    getItem: (id: string) => Promise<string>;
-    removeItems: (ids: string[]) => Promise<boolean[]>;
-    setItems: (items: {
-        key: string;
-        value: string;
-    }[]) => Promise<boolean[]>;
-    getItems: (ids: string[]) => Promise<{
-        key: string;
-        value: string;
-    }[]>;
+    clear: () => Promise<boolean>;
+    del: (key: string) => Promise<boolean>;
+    set: (key: string, value: string) => Promise<boolean>;
+    get: (key: string) => Promise<string>;
+    delBulk: (keys: string[]) => Promise<boolean[]>;
+    setBulk: (couples: [string, string][]) => Promise<boolean[]>;
+    getBulk: (keys: string[]) => Promise<(string | undefined)[]>;
     keys: () => Promise<string[]>;
 }
