@@ -34,37 +34,31 @@ describe("Persistence", () => {
 	it("Every line represents a document", async () => {
 		const now = new Date();
 
-		await d.persistence.data.set(
-			"1",
-			model.serialize({
-				_id: "1",
-				a: 2,
-				ages: [1, 5, 12],
-			})
-		);
-		await d.persistence.data.set(
-			"2",
-			model.serialize({
-				_id: "2",
-				hello: "world",
-			})
-		);
-		await d.persistence.data.set("3", model.serialize({ _id: "3", nested: { today: now } }));
+		await d.persistence.data.set("1", {
+			_id: "1",
+			a: 2,
+			ages: [1, 5, 12],
+		});
+		await d.persistence.data.set("2", {
+			_id: "2",
+			hello: "world",
+		});
+		await d.persistence.data.set("3", { _id: "3", nested: { today: now } });
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => (_id1 as any) - (_id2 as any));
 		treatedData.length.should.equal(3);
-		_.isEqual(treatedData[0], {
+		treatedData[0].should.deep.equal({
 			_id: "1",
 			a: 2,
 			ages: [1, 5, 12],
-		}).should.equal(true);
-		_.isEqual(treatedData[1], { _id: "2", hello: "world" }).should.equal(true);
-		_.isEqual(treatedData[2], {
+		});
+		treatedData[1].should.deep.equal({ _id: "2", hello: "world" });
+		treatedData[2].should.deep.equal({
 			_id: "3",
 			nested: { today: now },
-		}).should.equal(true);
+		});
 	});
 
 	it("Badly formatted lines have no impact on the treated data", async () => {
@@ -79,54 +73,40 @@ describe("Persistence", () => {
 			nested: { today: now },
 		};
 		d.persistence.corruptAlertThreshold = 0.34;
-		await d.persistence.data.set("1", model.serialize(obj1));
-		await d.persistence.data.set("#", "garbage");
-		await d.persistence.data.set("2", model.serialize(obj2));
+		await d.persistence.data.set("1", obj1);
+		await d.persistence.data.set("#", "garbage" as any);
+		await d.persistence.data.set("2", obj2);
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
 		treatedData.length.should.equal(2);
-		_.isEqual(treatedData[0], obj1).should.equal(true);
-		_.isEqual(treatedData[1], obj2).should.equal(true);
+		treatedData[0].should.deep.equal(obj1);
+		treatedData[1].should.deep.equal(obj2);
 	});
 
 	it("Well formatted lines that have no _id are not included in the data", async () => {
 		const now = new Date();
 
-		await d.persistence.data.set(
-			"1",
-			model.serialize({
-				_id: "1",
-				a: 2,
-				ages: [1, 5, 12],
-			})
-		);
-		await d.persistence.data.set(
-			"1",
-			model.serialize({
-				_id: "1",
-				a: 2,
-				ages: [1, 5, 12],
-			})
-		);
-		await d.persistence.data.set(
-			"2",
-			model.serialize({
-				_id: "2",
-				hello: "world",
-			})
-		);
-		await d.persistence.data.set("#", model.serialize({ nested: { today: now } }));
+		await d.persistence.data.set("1", {
+			_id: "1",
+			a: 2,
+			ages: [1, 5, 12],
+		});
+		await d.persistence.data.set("2", {
+			_id: "2",
+			hello: "world",
+		});
+		await d.persistence.data.set("#", { nested: { today: now } });
 		await d.loadDatabase();
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
 		treatedData.length.should.equal(2);
-		_.isEqual(treatedData[0], {
+		treatedData[0].should.deep.equal({
 			_id: "1",
 			a: 2,
 			ages: [1, 5, 12],
-		}).should.equal(true);
-		_.isEqual(treatedData[1], { _id: "2", hello: "world" }).should.equal(true);
+		});
+		treatedData[1].should.deep.equal({ _id: "2", hello: "world" });
 	});
 
 	it("If a doc contains $$deleted: true, that means we need to remove it from the data", async () => {
@@ -142,7 +122,7 @@ describe("Persistence", () => {
 
 		await Promise.all(
 			rawData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, model.deserialize(data));
 			})
 		);
 
@@ -150,8 +130,8 @@ describe("Persistence", () => {
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
 		treatedData.length.should.equal(2);
-		_.isEqual(treatedData[0], { _id: "2", hello: "world" }).should.equal(true);
-		_.isEqual(treatedData[1], { _id: "3", today: now }).should.equal(true);
+		treatedData[0].should.deep.equal({ _id: "2", hello: "world" });
+		treatedData[1].should.deep.equal({ _id: "3", today: now });
 	});
 
 	it("If a doc contains $$deleted: true, no error is thrown if the doc wasnt in the list before", async () => {
@@ -168,7 +148,7 @@ describe("Persistence", () => {
 
 		await Promise.all(
 			rawData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, model.deserialize(data));
 			})
 		);
 
@@ -176,12 +156,8 @@ describe("Persistence", () => {
 		const treatedData: any[] = d.getAllData();
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
 		treatedData.length.should.equal(2);
-		_.isEqual(treatedData[0], {
-			_id: "1",
-			a: 2,
-			ages: [1, 5, 12],
-		}).should.equal(true);
-		_.isEqual(treatedData[1], { _id: "3", today: now }).should.equal(true);
+		treatedData[0].should.deep.eq({ _id: "1", a: 2, ages: [1, 5, 12] });
+		treatedData[1].should.deep.eq({ _id: "3", today: now });
 	});
 
 	it("If a doc contains $$indexCreated, no error is thrown during treatRawData and we can get the index options", async () => {
@@ -196,12 +172,12 @@ describe("Persistence", () => {
 		})}`;
 		await Promise.all(
 			rawData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, model.deserialize(data));
 			})
 		);
 		await Promise.all(
 			rawIndexes.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, model.deserialize(data));
 			})
 		);
 		await d.loadDatabase();
@@ -220,12 +196,8 @@ describe("Persistence", () => {
 
 		treatedData.sort(({ _id: _id1 }, { _id: _id2 }) => _id1 - _id2);
 		treatedData.length.should.equal(2);
-		_.isEqual(treatedData[0], {
-			_id: "1",
-			a: 2,
-			ages: [1, 5, 12],
-		}).should.equal(true);
-		_.isEqual(treatedData[1], { _id: "3", today: now }).should.equal(true);
+		treatedData[0].should.deep.eq({ _id: "1", a: 2, ages: [1, 5, 12] });
+		treatedData[1].should.deep.eq({ _id: "3", today: now });
 	});
 
 	it("Calling loadDatabase after the data was modified doesnt change its contents", async () => {
@@ -280,7 +252,7 @@ describe("Persistence", () => {
 		}
 		{
 			await d.persistence.deleteEverything();
-			await d.persistence.data.set("aaa", model.serialize({ a: 3, _id: "aaa" }));
+			await d.persistence.data.set("aaa", { a: 3, _id: "aaa" });
 			await d.loadDatabase();
 			const data = d.getAllData();
 			const doc1 = _.find(data, ({ a }) => a === 1);
@@ -298,7 +270,7 @@ describe("Persistence", () => {
 	it("When treating raw data, refuse to proceed if too much data is corrupt, to avoid data loss", async () => {
 		await Promise.all(
 			fakeData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, data as any);
 			})
 		);
 
@@ -321,7 +293,7 @@ describe("Persistence", () => {
 	it("accepts corrupted data on a certain threshold", async () => {
 		await Promise.all(
 			fakeData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, data as any);
 			})
 		);
 		d = new Datastore({
@@ -343,7 +315,7 @@ describe("Persistence", () => {
 	it("rejects corrupted data on a certain threshold", async () => {
 		await Promise.all(
 			fakeData.split("\n").map((data) => {
-				return d.persistence.data.set(data, data);
+				return d.persistence.data.set(data, data as any);
 			})
 		);
 		d = new Datastore({
@@ -367,7 +339,7 @@ describe("Persistence", () => {
 		const bd = (s: string) => s.substring(7, s.length - 6);
 
 		it("Declaring only one hook will throw an exception to prevent data loss", async () => {
-			await d.persistence.data.set("#", "some content");
+			await d.persistence.data.set("#", "some content" as any);
 			(() => {
 				new Datastore({
 					ref: testDb,
@@ -390,7 +362,7 @@ describe("Persistence", () => {
 		});
 
 		it("Declaring two hooks that are not reverse of one another will cause an exception to prevent data loss", async () => {
-			await d.persistence.data.set("#", "some content");
+			await d.persistence.data.set("#", "some content" as any);
 			(() => {
 				new Datastore({
 					ref: testDb,
@@ -414,7 +386,7 @@ describe("Persistence", () => {
 			await d.loadDatabase();
 			await d.insert({ _id: "id1", hello: "world" });
 			await d.insert({ _id: "id2", hello: "world again" });
-			const doc0 = (await d.persistence.data.values()).find((x) => x.indexOf('"id1"') > -1) as string;
+			const doc0 = (await d.persistence.data.documents()).find((x) => x._encoded.indexOf('"id1"') > -1)!._encoded;
 			let docBD0 = bd(doc0);
 
 			doc0.substring(0, 7).should.equal("before_");
@@ -435,10 +407,10 @@ describe("Persistence", () => {
 			await d.insert({ _id: "id1", p: "Mars" });
 			await d.insert({ _id: "id2", p: "Jupiter" });
 
-			const doc0 = (await d.persistence.data.values()).find((x) => x.indexOf('"id1"') > -1) as string;
+			const doc0 = (await d.persistence.data.documents()).find((x) => x._encoded.indexOf('"id1"') > -1)!._encoded;
 			let docBD0 = bd(doc0);
 
-			const doc1 = (await d.persistence.data.values()).find((x) => x.indexOf('"id2"') > -1) as string;
+			const doc1 = (await d.persistence.data.documents()).find((x) => x._encoded.indexOf('"id2"') > -1)!._encoded;
 			let docBD1 = bd(doc1);
 
 			doc0.substring(0, 7).should.equal("before_");
@@ -466,10 +438,10 @@ describe("Persistence", () => {
 
 			await d.insert({ _id: "id1", p: "Mars" });
 
-			const doc0 = (await d.persistence.data.values()).find((x) => x.indexOf('"id1"') > -1) as string;
+			const doc0 = (await d.persistence.data.documents()).find((x) => x._encoded.indexOf('"id1"') > -1)!._encoded;
 			let docBD0 = bd(doc0);
 
-			const index0 = (await d.persistence.data.values()).find((x) => x.indexOf('"idefix"') > -1) as string;
+			const index0 = (await d.persistence.data.documents()).find((x) => x._encoded.indexOf('"idefix"') > -1)!._encoded;
 			let indexBD0 = bd(index0);
 
 			doc0.substring(0, 7).should.equal("before_");
@@ -483,6 +455,7 @@ describe("Persistence", () => {
 
 			indexBD0 = model.deserialize(indexBD0);
 			assert.deepEqual(indexBD0 as any, {
+				_id: "idefix",
 				$$indexCreated: { fieldName: "idefix" },
 			});
 		});
@@ -535,15 +508,15 @@ describe("Persistence", () => {
 					arr: ["a"],
 					name: "",
 				};
-				doc._id = customUtils.randomString(100);
+				doc._id = customUtils.uid();
 				if (i === 987) {
 					doc._id = "known";
 					doc.name = "alex";
 				}
 				for (let i = 0; i < 10; i++) {
-					doc.arr.push(customUtils.randomString(10));
+					doc.arr.push(customUtils.uid());
 				}
-				d.persistence.data.set(doc._id, model.serialize(doc));
+				d.persistence.data.set(doc._id, doc);
 			}
 		}
 
@@ -564,5 +537,5 @@ describe("Persistence", () => {
 			assert.isDefined(found[0]);
 			chai.expect(found[0].name).eq("william");
 		});
-	}); // ==== End of 'ensureFileDoesntExist' ====
+	});
 });

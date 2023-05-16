@@ -449,7 +449,6 @@ describe("Dictionary", function () {
 			];
 			docs.forEach((doc) => dict.insert(doc.key, doc));
 			const result = dict.$ne("2");
-			console.log(result);
 			expect(result).to.deep.equal([docs[0], docs[4], docs[2], docs[3]]);
 		});
 	});

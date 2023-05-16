@@ -13,7 +13,7 @@ export const memoryStores: {
 		[key: string]: string;
 	};
 } = {};
-const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i*15));
+const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i*25));
 export const memoryAdapter = () => (name: string) => {
 	name = name.replace(/_\d+$/, ""); // replacer is to make the sync demo work
 	if (!memoryStores[name]) memoryStores[name] = {};
@@ -25,50 +25,43 @@ class MemoryStore {
 	constructor(name: string) {
 		this.name = name;
 	}
-	async removeStore() {
+	async clear() {
 		memoryStores[this.name] = {};
 		return true;
 	}
-	async removeItem(itemID: string) {
+	async del(itemID: string) {
 		delete memoryStores[this.name][itemID];
 		return true;
 	}
-	async removeItems(ids: string[]) {
+	async delBulk(ids: string[]) {
 		const results: boolean[] = [];
 		for (let index = 0; index < ids.length; index++) {
 			const element = ids[index];
-			results.push(await this.removeItem(element));
+			results.push(await this.del(element));
 		}
 		return results;
 	}
-	async setItems(data: { key: string; value: string }[]) {
+	async setBulk(couples: [string, string][]) {
 		const results: boolean[] = [];
-		for (let index = 0; index < data.length; index++) {
-			const element = data[index];
-			results.push(await this.setItem(element.key, element.value));
+		for (let index = 0; index < couples.length; index++) {
+			results.push(await this.set(couples[index][0], couples[index][1]));
 		}
 		return results;
 	}
-	async getItems(keys: string[]) {
-		const results: { key: string; value: string }[] = [];
-		for (let index = 0; index < keys.length; index++) {
-			const key = keys[index];
-			results.push({ key, value: await this.getItem(key) });
-		}
-		return results;
+	async getBulk(keys: string[]) {
+		return Promise.all(keys.map(x=>this.get(x)))
 	}
-	async setItem(itemID: string, itemData: string) {
+	async set(itemID: string, itemData: string) {
 		memoryStores[this.name][itemID] = itemData;
 		return true;
 	}
-	async getItem(itemID: string): Promise<string> {
+	async get(itemID: string): Promise<string> {
 		return memoryStores[this.name][itemID];
 	}
 	async keys(): Promise<string[]> {
 		return Object.keys(memoryStores[this.name]);
 	}
 }
-
 describe("Live Queries", () => {
 	let d1 = new Database<{ _id: string; name: string; age: number }>({
 		ref: "db_1",

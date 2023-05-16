@@ -1275,33 +1275,24 @@ describe("Database", function () {
 
 				d.getAllData().length.should.equal(0);
 
-				await d.persistence.data.set(
-					"aaa",
-					model.serialize({
-						_id: "aaa",
-						z: "1",
-						a: 2,
-						ages: [1, 5, 12],
-					})
-				);
+				await d.persistence.data.set("aaa", {
+					_id: "aaa",
+					z: "1",
+					a: 2,
+					ages: [1, 5, 12],
+				});
 
-				await d.persistence.data.set(
-					"bbb",
-					model.serialize({
-						_id: "bbb",
-						z: "2",
-						hello: "world",
-					})
-				);
+				await d.persistence.data.set("bbb", {
+					_id: "bbb",
+					z: "2",
+					hello: "world",
+				});
 
-				await d.persistence.data.set(
-					"ccc",
-					model.serialize({
-						_id: "ccc",
-						z: "3",
-						nested: { today: now },
-					})
-				);
+				await d.persistence.data.set("ccc", {
+					_id: "ccc",
+					z: "3",
+					nested: { today: now },
+				});
 
 				await d.loadDatabase();
 
@@ -1327,13 +1318,13 @@ describe("Database", function () {
 								Object.keys(d.indexes).length.should.equal(2);
 								Object.keys(d.indexes)[0].should.equal("_id");
 								Object.keys(d.indexes)[1].should.equal("planet");
-								d.indexes.planet.getAll().length.should.equal(2);
+								d.indexes.planet.dict.all.length.should.equal(2);
 								// This second call has no effect, documents don't get inserted twice in the index
 								d.ensureIndex({ fieldName: "planet" }).then(() => {
 									Object.keys(d.indexes).length.should.equal(2);
 									Object.keys(d.indexes)[0].should.equal("_id");
 									Object.keys(d.indexes)[1].should.equal("planet");
-									d.indexes.planet.getAll().length.should.equal(2);
+									d.indexes.planet.dict.all.length.should.equal(2);
 									done();
 								});
 							});
@@ -1343,23 +1334,17 @@ describe("Database", function () {
 			});
 			it("ensureIndex can be called after the data set was modified and the index still be correct", async () => {
 				d.getAllData().length.should.equal(0);
-				await d.persistence.data.set(
-					"aaa",
-					model.serialize({
-						_id: "aaa",
-						z: "1",
-						a: 2,
-						ages: [1, 5, 12],
-					})
-				);
-				await d.persistence.data.set(
-					"bbb",
-					model.serialize({
-						_id: "bbb",
-						z: "2",
-						hello: "world",
-					})
-				);
+				await d.persistence.data.set("aaa", {
+					_id: "aaa",
+					z: "1",
+					a: 2,
+					ages: [1, 5, 12],
+				});
+				await d.persistence.data.set("bbb", {
+					_id: "bbb",
+					z: "2",
+					hello: "world",
+				});
 				await d.loadDatabase();
 				d.getAllData().length.should.equal(2);
 				assert.deepEqual(Object.keys(d.indexes), ["_id"]);
@@ -1382,9 +1367,9 @@ describe("Database", function () {
 				d.indexes.z.sparse.should.equal(false);
 				d.indexes.z.dict.numberOfKeys.should.equal(3);
 				// The pointers in the _id and z indexes are the same
-				(d.indexes.z.dict.get("1")[0] as any).should.equal(d.indexes._id.getMatching("aaa")[0]);
-				(d.indexes.z.dict.get("12")[0] as any).should.equal(d.indexes._id.getMatching(newDoc1._id!)[0]);
-				(d.indexes.z.dict.get("14")[0] as any).should.equal(d.indexes._id.getMatching(newDoc2._id!)[0]);
+				(d.indexes.z.dict.get("1")[0] as any).should.equal(d.indexes._id.dict.get("aaa")[0]);
+				(d.indexes.z.dict.get("12")[0] as any).should.equal(d.indexes._id.dict.get(newDoc1._id!)[0]);
+				(d.indexes.z.dict.get("14")[0] as any).should.equal(d.indexes._id.dict.get(newDoc2._id!)[0]);
 				// The data in the z index is correct
 				const docs = await d.find({});
 				var doc0 = _.find(docs, function (doc) {
@@ -1425,33 +1410,24 @@ describe("Database", function () {
 				d.indexes.z.sparse.should.equal(false);
 				d.indexes.z.dict.numberOfKeys.should.equal(0);
 
-				await d.persistence.data.set(
-					"aaa",
-					model.serialize({
-						_id: "aaa",
-						z: "1",
-						a: 2,
-						ages: [1, 5, 12],
-					})
-				);
+				await d.persistence.data.set("aaa", {
+					_id: "aaa",
+					z: "1",
+					a: 2,
+					ages: [1, 5, 12],
+				});
 
-				await d.persistence.data.set(
-					"bbb",
-					model.serialize({
-						_id: "bbb",
-						z: "2",
-						hello: "world",
-					})
-				);
+				await d.persistence.data.set("bbb", {
+					_id: "bbb",
+					z: "2",
+					hello: "world",
+				});
 
-				await d.persistence.data.set(
-					"ccc",
-					model.serialize({
-						_id: "ccc",
-						z: "3",
-						nested: { today: now },
-					})
-				);
+				await d.persistence.data.set("ccc", {
+					_id: "ccc",
+					z: "3",
+					nested: { today: now },
+				});
 				await d.loadDatabase();
 				const doc1 = _.find(d.getAllData(), ({ z }) => z === "1");
 				const doc2 = _.find(d.getAllData(), ({ z }) => z === "2");
@@ -1482,7 +1458,7 @@ describe("Database", function () {
 
 				for (let index = 0; index < rawData.length; index++) {
 					const element = rawData[index];
-					await d.persistence.writeData([[model.deserialize(element)._id, element]]);
+					await d.persistence.writeData([[model.deserialize(element)._id, model.deserialize(element)]]);
 				}
 				d.getAllData().length.should.equal(0);
 
@@ -1526,7 +1502,7 @@ describe("Database", function () {
 				d.getAllData().length.should.equal(0);
 				for (let index = 0; index < rawData.length; index++) {
 					const element = rawData[index];
-					await d.persistence.data.set(index.toString(), element);
+					await d.persistence.data.set(index.toString(), model.deserialize(element));
 				}
 				await d.ensureIndex({
 					fieldName: "z",
@@ -1586,7 +1562,7 @@ describe("Database", function () {
 				})
 					.then((newDoc) => {
 						d.indexes.z.dict.numberOfKeys.should.equal(1);
-						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
+						assert.deepEqual(d.indexes.z.dict.get("yes"), newDoc.docs);
 						return d.insert({
 							a: 5,
 							z: "nope",
@@ -1594,7 +1570,7 @@ describe("Database", function () {
 					})
 					.then((newDoc) => {
 						d.indexes.z.dict.numberOfKeys.should.equal(2);
-						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc.docs);
+						assert.deepEqual(d.indexes.z.dict.get("nope"), newDoc.docs);
 						done();
 					});
 			});
@@ -1610,8 +1586,8 @@ describe("Database", function () {
 					.then((newDoc) => {
 						d.indexes.z.dict.numberOfKeys.should.equal(1);
 						d.indexes.ya.dict.numberOfKeys.should.equal(1);
-						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
-						assert.deepEqual(d.indexes.ya.getMatching("indeed"), newDoc.docs);
+						assert.deepEqual(d.indexes.z.dict.get("yes"), newDoc.docs);
+						assert.deepEqual(d.indexes.ya.dict.get("indeed"), newDoc.docs);
 						return d.insert({
 							a: 5,
 							z: "nope",
@@ -1621,8 +1597,8 @@ describe("Database", function () {
 					.then((newDoc2) => {
 						d.indexes.z.dict.numberOfKeys.should.equal(2);
 						d.indexes.ya.dict.numberOfKeys.should.equal(2);
-						assert.deepEqual(d.indexes.z.getMatching("nope"), newDoc2.docs);
-						assert.deepEqual(d.indexes.ya.getMatching("sure"), newDoc2.docs);
+						assert.deepEqual(d.indexes.z.dict.get("nope"), newDoc2.docs);
+						assert.deepEqual(d.indexes.ya.dict.get("sure"), newDoc2.docs);
 						done();
 					});
 			});
@@ -1634,13 +1610,13 @@ describe("Database", function () {
 					z: "yes",
 				}).then((newDoc) => {
 					d.indexes.z.dict.numberOfKeys.should.equal(1);
-					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
+					assert.deepEqual(d.indexes.z.dict.get("yes"), newDoc.docs);
 					d.insert({
 						a: 5,
 						z: "yes",
 					}).then((newDoc2) => {
 						d.indexes.z.dict.numberOfKeys.should.equal(1);
-						assert.deepEqual(d.indexes.z.getMatching("yes"), [newDoc.docs[0], newDoc2.docs[0]]);
+						assert.deepEqual(d.indexes.z.dict.get("yes"), [newDoc.docs[0], newDoc2.docs[0]]);
 						done();
 					});
 				});
@@ -1656,7 +1632,7 @@ describe("Database", function () {
 					z: "yes",
 				}).then((newDoc) => {
 					d.indexes.z.dict.numberOfKeys.should.equal(1);
-					assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
+					assert.deepEqual(d.indexes.z.dict.get("yes"), newDoc.docs);
 					rejected(() =>
 						d.insert({
 							a: 5,
@@ -1666,7 +1642,7 @@ describe("Database", function () {
 						expect(res).eq(true);
 						// Index didn't change
 						d.indexes.z.dict.numberOfKeys.should.equal(1);
-						assert.deepEqual(d.indexes.z.getMatching("yes"), newDoc.docs);
+						assert.deepEqual(d.indexes.z.dict.get("yes"), newDoc.docs);
 						// Data didn't change
 						assert.deepEqual(d.getAllData(), newDoc.docs);
 						d.loadDatabase().then(() => {
@@ -1706,9 +1682,9 @@ describe("Database", function () {
 				d.indexes.nonu1.dict.numberOfKeys.should.equal(1);
 				d.indexes.uni.dict.numberOfKeys.should.equal(1);
 				d.indexes.nonu2.dict.numberOfKeys.should.equal(1);
-				assert.deepEqual(d.indexes.nonu1.getMatching("yes"), newDoc.docs);
-				assert.deepEqual(d.indexes.uni.getMatching("willfail"), newDoc.docs);
-				assert.deepEqual(d.indexes.nonu2.getMatching("yes2"), newDoc.docs);
+				assert.deepEqual(d.indexes.nonu1.dict.get("yes"), newDoc.docs);
+				assert.deepEqual(d.indexes.uni.dict.get("willfail"), newDoc.docs);
+				assert.deepEqual(d.indexes.nonu2.dict.get("yes2"), newDoc.docs);
 			});
 			it("Unique indexes prevent you from inserting two docs where the field is undefined except if they're sparse", async () => {
 				await d.ensureIndex({
@@ -1721,7 +1697,7 @@ describe("Database", function () {
 					z: "yes",
 				});
 				d.indexes.zzz.dict.numberOfKeys.should.equal(1);
-				assert.deepEqual(d.indexes.zzz.getMatching(undefined as any), newDoc.docs);
+				assert.deepEqual(d.indexes.zzz.dict.get(undefined as any), newDoc.docs);
 				expect(
 					await rejected(() =>
 						d.insert({
@@ -1740,9 +1716,9 @@ describe("Database", function () {
 					z: "other",
 					zzz: "set",
 				});
-				d.indexes.yyy.getAll().length.should.equal(0);
+				d.indexes.yyy.dict.all.length.should.equal(0);
 				// Nothing indexed
-				d.indexes.zzz.getAll().length.should.equal(2);
+				d.indexes.zzz.dict.all.length.should.equal(2);
 			});
 			it("Insertion still works as before with indexing", (done) => {
 				d.ensureIndex({ fieldName: "a" });
@@ -1786,12 +1762,12 @@ describe("Database", function () {
 						d.find({}).then(function (docs) {
 							docs.length.should.equal(2);
 							d.getAllData().length.should.equal(2);
-							d.indexes._id.getMatching(doc1._id!).length.should.equal(1);
-							d.indexes.a.getMatching(1 as any).length.should.equal(1);
-							(d.indexes._id.getMatching(doc1._id!)[0] as any).should.equal(d.indexes.a.getMatching(1 as any)[0]);
-							d.indexes._id.getMatching(doc2._id!).length.should.equal(1);
-							d.indexes.a.getMatching(2 as any).length.should.equal(1);
-							(d.indexes._id.getMatching(doc2._id!)[0] as any).should.equal(d.indexes.a.getMatching(2 as any)[0]);
+							d.indexes._id.dict.get(doc1._id!).length.should.equal(1);
+							d.indexes.a.dict.get(1 as any).length.should.equal(1);
+							(d.indexes._id.dict.get(doc1._id!)[0] as any).should.equal(d.indexes.a.dict.get(1 as any)[0]);
+							d.indexes._id.dict.get(doc2._id!).length.should.equal(1);
+							d.indexes.a.dict.get(2 as any).length.should.equal(1);
+							(d.indexes._id.dict.get(doc2._id!)[0] as any).should.equal(d.indexes.a.dict.get(2 as any)[0]);
 							done();
 						});
 					});
@@ -1818,10 +1794,10 @@ describe("Database", function () {
 				const { length } = await d.find({});
 				length.should.equal(1);
 				d.getAllData().length.should.equal(1);
-				d.indexes._id.getMatching(_id).length.should.equal(1);
-				d.indexes.a.getMatching(1 as any).length.should.equal(1);
-				(d.indexes._id.getMatching(_id)[0] as any).should.equal(d.indexes.a.getMatching(1 as any)[0]);
-				d.indexes.a.getMatching(2 as any).length.should.equal(0);
+				d.indexes._id.dict.get(_id).length.should.equal(1);
+				d.indexes.a.dict.get(1 as any).length.should.equal(1);
+				(d.indexes._id.dict.get(_id)[0] as any).should.equal(d.indexes.a.dict.get(1 as any)[0]);
+				d.indexes.a.dict.get(2 as any).length.should.equal(0);
 			});
 		});
 		// ==== End of 'Indexing newly inserted documents' ==== //
@@ -1929,19 +1905,19 @@ describe("Database", function () {
 							.then(function (nr) {
 								nr.number.should.equal(1);
 								d.indexes.a.dict.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(456 as any)[0] as any)._id.should.equal(doc1._id);
-								(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
+								(d.indexes.a.dict.get(456 as any)[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.a.dict.get(2 as any)[0] as any)._id.should.equal(doc2._id);
 								d.indexes.b.dict.numberOfKeys.should.equal(2);
-								(d.indexes.b.getMatching("no")[0] as any)._id.should.equal(doc1._id);
-								(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
+								(d.indexes.b.dict.get("no")[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.b.dict.get("si")[0] as any)._id.should.equal(doc2._id);
 								// The same pointers are shared between all indexes
 								d.indexes.a.dict.numberOfKeys.should.equal(2);
 								d.indexes.b.dict.numberOfKeys.should.equal(2);
 								d.indexes._id.dict.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(456 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
-								(d.indexes.b.getMatching("no")[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
-								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
-								(d.indexes.b.getMatching("si")[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
+								(d.indexes.a.dict.get(456 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc1._id!)[0]);
+								(d.indexes.b.dict.get("no")[0] as any).should.equal(d.indexes._id.dict.get(doc1._id!)[0]);
+								(d.indexes.a.dict.get(2 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc2._id!)[0]);
+								(d.indexes.b.dict.get("si")[0] as any).should.equal(d.indexes._id.dict.get(doc2._id!)[0]);
 								return d.update(
 									{},
 									{
@@ -1954,19 +1930,19 @@ describe("Database", function () {
 							.then(function (nr) {
 								nr.number.should.equal(2);
 								d.indexes.a.dict.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(466 as any)[0] as any)._id.should.equal(doc1._id);
-								(d.indexes.a.getMatching(12 as any)[0] as any)._id.should.equal(doc2._id);
+								(d.indexes.a.dict.get(466 as any)[0] as any)._id.should.equal(doc1._id);
+								(d.indexes.a.dict.get(12 as any)[0] as any)._id.should.equal(doc2._id);
 								d.indexes.b.dict.numberOfKeys.should.equal(1);
-								d.indexes.b.getMatching("same").length.should.equal(2);
-								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc1._id);
-								_.pluck(d.indexes.b.getMatching("same"), "_id").should.contain(doc2._id);
+								d.indexes.b.dict.get("same").length.should.equal(2);
+								_.pluck(d.indexes.b.dict.get("same"), "_id").should.contain(doc1._id);
+								_.pluck(d.indexes.b.dict.get("same"), "_id").should.contain(doc2._id);
 								// The same pointers are shared between all indexes
 								d.indexes.a.dict.numberOfKeys.should.equal(2);
 								d.indexes.b.dict.numberOfKeys.should.equal(1);
-								d.indexes.b.getAll().length.should.equal(2);
+								d.indexes.b.dict.all.length.should.equal(2);
 								d.indexes._id.dict.numberOfKeys.should.equal(2);
-								(d.indexes.a.getMatching(466 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc1._id!)[0]);
-								(d.indexes.a.getMatching(12 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
+								(d.indexes.a.dict.get(466 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc1._id!)[0]);
+								(d.indexes.a.dict.get(12 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc2._id!)[0]);
 								// Can't test the pointers in b as their order is randomized, but it is the same as with a
 								done();
 							});
@@ -2051,17 +2027,17 @@ describe("Database", function () {
 								});
 								// All indexes left unchanged and pointing to the same docs
 								d.indexes.a.dict.numberOfKeys.should.equal(3);
-								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
-								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
-								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
+								(d.indexes.a.dict.get(1 as any)[0] as any).should.equal(doc1);
+								(d.indexes.a.dict.get(2 as any)[0] as any).should.equal(doc2);
+								(d.indexes.a.dict.get(3 as any)[0] as any).should.equal(doc3);
 								d.indexes.b.dict.numberOfKeys.should.equal(3);
-								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
-								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
-								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
+								(d.indexes.b.dict.get(10 as any)[0] as any).should.equal(doc1);
+								(d.indexes.b.dict.get(20 as any)[0] as any).should.equal(doc2);
+								(d.indexes.b.dict.get(30 as any)[0] as any).should.equal(doc3);
 								d.indexes.c.dict.numberOfKeys.should.equal(3);
-								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
-								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
-								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
+								(d.indexes.c.dict.get(100 as any)[0] as any).should.equal(doc1);
+								(d.indexes.c.dict.get(200 as any)[0] as any).should.equal(doc2);
+								(d.indexes.c.dict.get(300 as any)[0] as any).should.equal(doc3);
 								done();
 							});
 						});
@@ -2150,17 +2126,17 @@ describe("Database", function () {
 								});
 								// All indexes left unchanged and pointing to the same docs
 								d.indexes.a.dict.numberOfKeys.should.equal(3);
-								(d.indexes.a.getMatching(1 as any)[0] as any).should.equal(doc1);
-								(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(doc2);
-								(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(doc3);
+								(d.indexes.a.dict.get(1 as any)[0] as any).should.equal(doc1);
+								(d.indexes.a.dict.get(2 as any)[0] as any).should.equal(doc2);
+								(d.indexes.a.dict.get(3 as any)[0] as any).should.equal(doc3);
 								d.indexes.b.dict.numberOfKeys.should.equal(3);
-								(d.indexes.b.getMatching(10 as any)[0] as any).should.equal(doc1);
-								(d.indexes.b.getMatching(20 as any)[0] as any).should.equal(doc2);
-								(d.indexes.b.getMatching(30 as any)[0] as any).should.equal(doc3);
+								(d.indexes.b.dict.get(10 as any)[0] as any).should.equal(doc1);
+								(d.indexes.b.dict.get(20 as any)[0] as any).should.equal(doc2);
+								(d.indexes.b.dict.get(30 as any)[0] as any).should.equal(doc3);
 								d.indexes.c.dict.numberOfKeys.should.equal(3);
-								(d.indexes.c.getMatching(100 as any)[0] as any).should.equal(doc1);
-								(d.indexes.c.getMatching(200 as any)[0] as any).should.equal(doc2);
-								(d.indexes.c.getMatching(300 as any)[0] as any).should.equal(doc3);
+								(d.indexes.c.dict.get(100 as any)[0] as any).should.equal(doc1);
+								(d.indexes.c.dict.get(200 as any)[0] as any).should.equal(doc2);
+								(d.indexes.c.dict.get(300 as any)[0] as any).should.equal(doc3);
 								done();
 							});
 						});
@@ -2255,19 +2231,19 @@ describe("Database", function () {
 								.then(function (nr) {
 									nr.number.should.equal(1);
 									d.indexes.a.dict.numberOfKeys.should.equal(2);
-									(d.indexes.a.getMatching(2 as any)[0] as any)._id.should.equal(doc2._id);
-									(d.indexes.a.getMatching(3 as any)[0] as any)._id.should.equal(doc3._id);
+									(d.indexes.a.dict.get(2 as any)[0] as any)._id.should.equal(doc2._id);
+									(d.indexes.a.dict.get(3 as any)[0] as any)._id.should.equal(doc3._id);
 									d.indexes.b.dict.numberOfKeys.should.equal(2);
-									(d.indexes.b.getMatching("si")[0] as any)._id.should.equal(doc2._id);
-									(d.indexes.b.getMatching("coin")[0] as any)._id.should.equal(doc3._id);
+									(d.indexes.b.dict.get("si")[0] as any)._id.should.equal(doc2._id);
+									(d.indexes.b.dict.get("coin")[0] as any)._id.should.equal(doc3._id);
 									// The same pointers are shared between all indexes
 									d.indexes.a.dict.numberOfKeys.should.equal(2);
 									d.indexes.b.dict.numberOfKeys.should.equal(2);
 									d.indexes._id.dict.numberOfKeys.should.equal(2);
-									(d.indexes.a.getMatching(2 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
-									(d.indexes.b.getMatching("si")[0] as any).should.equal(d.indexes._id.getMatching(doc2._id!)[0]);
-									(d.indexes.a.getMatching(3 as any)[0] as any).should.equal(d.indexes._id.getMatching(doc3._id!)[0]);
-									(d.indexes.b.getMatching("coin")[0] as any).should.equal(d.indexes._id.getMatching(doc3._id!)[0]);
+									(d.indexes.a.dict.get(2 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc2._id!)[0]);
+									(d.indexes.b.dict.get("si")[0] as any).should.equal(d.indexes._id.dict.get(doc2._id!)[0]);
+									(d.indexes.a.dict.get(3 as any)[0] as any).should.equal(d.indexes._id.dict.get(doc3._id!)[0]);
+									(d.indexes.b.dict.get("coin")[0] as any).should.equal(d.indexes._id.dict.get(doc3._id!)[0]);
 									return d.remove({}, { multi: true });
 								})
 								.then(function (nr) {
@@ -2296,8 +2272,8 @@ describe("Database", function () {
 								Object.keys(db.indexes).length.should.equal(2);
 								Object.keys(db.indexes)[0].should.equal("_id");
 								Object.keys(db.indexes)[1].should.equal("planet");
-								db.indexes._id.getAll().length.should.equal(2);
-								db.indexes.planet.getAll().length.should.equal(2);
+								db.indexes._id.dict.all.length.should.equal(2);
+								db.indexes.planet.dict.all.length.should.equal(2);
 								db.indexes.planet.fieldName.should.equal("planet");
 								// After a reload the indexes are recreated
 								db = new Datastore<any, any>({
@@ -2307,8 +2283,8 @@ describe("Database", function () {
 									Object.keys(db.indexes).length.should.equal(2);
 									Object.keys(db.indexes)[0].should.equal("_id");
 									Object.keys(db.indexes)[1].should.equal("planet");
-									db.indexes._id.getAll().length.should.equal(2);
-									db.indexes.planet.getAll().length.should.equal(2);
+									db.indexes._id.dict.all.length.should.equal(2);
+									db.indexes.planet.dict.all.length.should.equal(2);
 									db.indexes.planet.fieldName.should.equal("planet");
 									// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
 									db = new Datastore({
@@ -2318,8 +2294,8 @@ describe("Database", function () {
 										Object.keys(db.indexes).length.should.equal(2);
 										Object.keys(db.indexes)[0].should.equal("_id");
 										Object.keys(db.indexes)[1].should.equal("planet");
-										db.indexes._id.getAll().length.should.equal(2);
-										db.indexes.planet.getAll().length.should.equal(2);
+										db.indexes._id.dict.all.length.should.equal(2);
+										db.indexes.planet.dict.all.length.should.equal(2);
 										db.indexes.planet.fieldName.should.equal("planet");
 										done();
 									});
@@ -2347,8 +2323,8 @@ describe("Database", function () {
 								Object.keys(db.indexes).length.should.equal(2);
 								Object.keys(db.indexes)[0].should.equal("_id");
 								Object.keys(db.indexes)[1].should.equal("planet");
-								db.indexes._id.getAll().length.should.equal(2);
-								db.indexes.planet.getAll().length.should.equal(2);
+								db.indexes._id.dict.all.length.should.equal(2);
+								db.indexes.planet.dict.all.length.should.equal(2);
 								db.indexes.planet.unique.should.equal(true);
 								db.indexes.planet.sparse.should.equal(false);
 								db.insert({ planet: "Jupiter" } as any).then(function () {
@@ -2360,8 +2336,8 @@ describe("Database", function () {
 										Object.keys(db.indexes).length.should.equal(2);
 										Object.keys(db.indexes)[0].should.equal("_id");
 										Object.keys(db.indexes)[1].should.equal("planet");
-										db.indexes._id.getAll().length.should.equal(3);
-										db.indexes.planet.getAll().length.should.equal(3);
+										db.indexes._id.dict.all.length.should.equal(3);
+										db.indexes.planet.dict.all.length.should.equal(3);
 										db.indexes.planet.unique.should.equal(true);
 										db.indexes.planet.sparse.should.equal(false);
 										db.ensureIndex({
@@ -2373,9 +2349,9 @@ describe("Database", function () {
 											Object.keys(db.indexes)[0].should.equal("_id");
 											Object.keys(db.indexes)[1].should.equal("planet");
 											Object.keys(db.indexes)[2].should.equal("bloup");
-											db.indexes._id.getAll().length.should.equal(3);
-											db.indexes.planet.getAll().length.should.equal(3);
-											db.indexes.bloup.getAll().length.should.equal(0);
+											db.indexes._id.dict.all.length.should.equal(3);
+											db.indexes.planet.dict.all.length.should.equal(3);
+											db.indexes.bloup.dict.all.length.should.equal(0);
 											db.indexes.planet.unique.should.equal(true);
 											db.indexes.planet.sparse.should.equal(false);
 											db.indexes.bloup.unique.should.equal(false);
@@ -2389,9 +2365,9 @@ describe("Database", function () {
 												Object.keys(db.indexes)[0].should.equal("_id");
 												Object.keys(db.indexes)[1].should.equal("bloup");
 												Object.keys(db.indexes)[2].should.equal("planet");
-												db.indexes._id.getAll().length.should.equal(3);
-												db.indexes.planet.getAll().length.should.equal(3);
-												db.indexes.bloup.getAll().length.should.equal(0);
+												db.indexes._id.dict.all.length.should.equal(3);
+												db.indexes.planet.dict.all.length.should.equal(3);
+												db.indexes.bloup.dict.all.length.should.equal(0);
 												db.indexes.planet.unique.should.equal(true);
 												db.indexes.planet.sparse.should.equal(false);
 												db.indexes.bloup.unique.should.equal(false);
@@ -2424,8 +2400,8 @@ describe("Database", function () {
 									Object.keys(db.indexes)[0].should.equal("_id");
 									Object.keys(db.indexes)[1].should.equal("planet");
 									Object.keys(db.indexes)[2].should.equal("another");
-									db.indexes._id.getAll().length.should.equal(2);
-									db.indexes.planet.getAll().length.should.equal(2);
+									db.indexes._id.dict.all.length.should.equal(2);
+									db.indexes.planet.dict.all.length.should.equal(2);
 									db.indexes.planet.fieldName.should.equal("planet");
 									// After a reload the indexes are recreated
 									db = new Datastore({
@@ -2436,15 +2412,15 @@ describe("Database", function () {
 										Object.keys(db.indexes)[0].should.equal("_id");
 										Object.keys(db.indexes)[1].should.equal("another");
 										Object.keys(db.indexes)[2].should.equal("planet");
-										db.indexes._id.getAll().length.should.equal(2);
-										db.indexes.planet.getAll().length.should.equal(2);
+										db.indexes._id.dict.all.length.should.equal(2);
+										db.indexes.planet.dict.all.length.should.equal(2);
 										db.indexes.planet.fieldName.should.equal("planet");
 										// Index is removed
 										db.removeIndex("planet").then(function () {
 											Object.keys(db.indexes).length.should.equal(2);
 											Object.keys(db.indexes)[0].should.equal("_id");
 											Object.keys(db.indexes)[1].should.equal("another");
-											db.indexes._id.getAll().length.should.equal(2);
+											db.indexes._id.dict.all.length.should.equal(2);
 											// After a reload indexes are preserved
 											db = new Datastore({
 												ref: persDb,
@@ -2453,7 +2429,7 @@ describe("Database", function () {
 												Object.keys(db.indexes).length.should.equal(2);
 												Object.keys(db.indexes)[0].should.equal("_id");
 												Object.keys(db.indexes)[1].should.equal("another");
-												db.indexes._id.getAll().length.should.equal(2);
+												db.indexes._id.dict.all.length.should.equal(2);
 												// After another reload the indexes are still there (i.e. they are preserved during autocompaction)
 												db = new Datastore({
 													ref: persDb,
@@ -2462,7 +2438,7 @@ describe("Database", function () {
 													Object.keys(db.indexes).length.should.equal(2);
 													Object.keys(db.indexes)[0].should.equal("_id");
 													Object.keys(db.indexes)[1].should.equal("another");
-													db.indexes._id.getAll().length.should.equal(2);
+													db.indexes._id.dict.all.length.should.equal(2);
 													done();
 												});
 											});
@@ -2476,7 +2452,7 @@ describe("Database", function () {
 			});
 		});
 		// ==== End of 'Persisting indexes' ====
-		it("Results of getMatching should never contain duplicates", function (done) {
+		it("Results of dict.get should never contain duplicates", function (done) {
 			d.ensureIndex({ fieldName: "bad" });
 			d.insert({
 				bad: ["a", "b"],

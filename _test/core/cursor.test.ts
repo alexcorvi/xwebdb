@@ -87,19 +87,16 @@ describe("Cursor", () => {
 		});
 		it("With a skip", (done) => {
 			const cursor = new Cursor(d);
-			cursor
-				.skip(2)
-				.exec()
-				.then(({ length }) => {
-					length.should.equal(3);
-					done();
-				});
+			Promise.resolve(cursor.skip(2).exec()).then(({ length }) => {
+				length.should.equal(3);
+				done();
+			});
 		});
 		it("With a limit and a skip and method chaining", (done) => {
 			const cursor = new Cursor(d);
 			cursor.limit(4).skip(3);
 			// Only way to know that the right number of results was skipped is if limit + skip > number of results
-			cursor.exec().then(({ length }) => {
+			Promise.resolve(cursor.exec()).then(({ length }) => {
 				length.should.equal(2);
 				// No way to predict which results are returned of course ...
 				done();
@@ -119,8 +116,7 @@ describe("Cursor", () => {
 		it("Using one sort", (done) => {
 			let cursor = new Cursor<{ age: number; _id: string }, any>(d, {});
 			cursor.sort({ age: 1 });
-			cursor
-				.exec()
+			Promise.resolve(cursor.exec())
 				.then((docs) => {
 					// Results are in ascending order
 					for (let i = 0; i < docs.length - 1; i += 1) {
@@ -181,19 +177,15 @@ describe("Cursor", () => {
 		});
 		it("Using a limit higher than total number of docs shouldnt cause an error", (done) => {
 			const cursor = new Cursor<{ _id: string; age: number }, any>(d);
-			cursor
-				.sort({ age: 1 })
-				.limit(7)
-				.exec()
-				.then((docs) => {
-					docs.length.should.equal(5);
-					docs[0].age.should.equal(5);
-					docs[1].age.should.equal(23);
-					docs[2].age.should.equal(52);
-					docs[3].age.should.equal(57);
-					docs[4].age.should.equal(89);
-					done();
-				});
+			Promise.resolve(cursor.sort({ age: 1 }).limit(7).exec()).then((docs) => {
+				docs.length.should.equal(5);
+				docs[0].age.should.equal(5);
+				docs[1].age.should.equal(23);
+				docs[2].age.should.equal(52);
+				docs[3].age.should.equal(57);
+				docs[4].age.should.equal(89);
+				done();
+			});
 		});
 		it("Using limit and skip with sort", async () => {
 			{
@@ -288,22 +280,28 @@ describe("Cursor", () => {
 				})
 			).docs[0];
 			{
-				const cursor = new Cursor<{
-					_id: string;
-					event: { recorded: Date };
-				}, any>(d, {});
-				const docs = await cursor.sort({ "event.recorded": 1 } as any).exec();
+				const cursor = new Cursor<
+					{
+						_id: string;
+						event: { recorded: Date };
+					},
+					any
+				>(d, {});
+				const docs = cursor.sort({ "event.recorded": 1 } as any).exec();
 				docs.length.should.equal(3);
 				docs[0]._id.should.equal(doc3._id);
 				docs[1]._id.should.equal(doc1._id);
 				docs[2]._id.should.equal(doc2._id);
 			}
 			{
-				const cursor = new Cursor<{
-					_id: string;
-					event: { recorded: Date };
-				}, any>(d, {});
-				const docs = await cursor.sort({ "event.recorded": -1 } as any).exec();
+				const cursor = new Cursor<
+					{
+						_id: string;
+						event: { recorded: Date };
+					},
+					any
+				>(d, {});
+				const docs = cursor.sort({ "event.recorded": -1 } as any).exec();
 				docs.length.should.equal(3);
 				docs[2]._id.should.equal(doc3._id);
 				docs[1]._id.should.equal(doc1._id);
@@ -318,11 +316,14 @@ describe("Cursor", () => {
 			await d.insert({ name: "henry", other: 4 });
 
 			{
-				const cursor = new Cursor<{
-					_id: string;
-					name: string;
-					other: number;
-				}, any>(d, {});
+				const cursor = new Cursor<
+					{
+						_id: string;
+						name: string;
+						other: number;
+					},
+					any
+				>(d, {});
 				const docs = await cursor.sort({ other: 1 }).exec();
 				docs.length.should.equal(4);
 				docs[0].name.should.equal("sue");
@@ -335,11 +336,14 @@ describe("Cursor", () => {
 				docs[3].other.should.equal(4);
 			}
 			{
-				const cursor = new Cursor<{
-					_id: string;
-					name: string;
-					other: number;
-				}, any>(d, {
+				const cursor = new Cursor<
+					{
+						_id: string;
+						name: string;
+						other: number;
+					},
+					any
+				>(d, {
 					name: {
 						$in: ["suzy", "jakeb", "jako"],
 					},
@@ -381,12 +385,15 @@ describe("Cursor", () => {
 			await d.insert({ name: "jako", age: 35, nid: 5 });
 
 			{
-				const cursor = new Cursor<{
-					name: string;
-					age: number;
-					nid: number;
-					_id: string;
-				}, any>(d, {});
+				const cursor = new Cursor<
+					{
+						name: string;
+						age: number;
+						nid: number;
+						_id: string;
+					},
+					any
+				>(d, {});
 				const docs = await cursor
 					.sort({
 						name: 1,
@@ -401,12 +408,15 @@ describe("Cursor", () => {
 				docs[4].nid.should.equal(4);
 			}
 			{
-				const cursor = new Cursor<{
-					name: string;
-					age: number;
-					nid: number;
-					_id: string;
-				}, any>(d, {});
+				const cursor = new Cursor<
+					{
+						name: string;
+						age: number;
+						nid: number;
+						_id: string;
+					},
+					any
+				>(d, {});
 				const docs = await cursor
 					.sort({
 						name: 1,
@@ -421,12 +431,15 @@ describe("Cursor", () => {
 				docs[4].nid.should.equal(4);
 			}
 			{
-				const cursor = new Cursor<{
-					name: string;
-					age: number;
-					nid: number;
-					_id: string;
-				}, any>(d, {});
+				const cursor = new Cursor<
+					{
+						name: string;
+						age: number;
+						nid: number;
+						_id: string;
+					},
+					any
+				>(d, {});
 				const docs = await cursor
 					.sort({
 						age: 1,
@@ -441,12 +454,15 @@ describe("Cursor", () => {
 				docs[4].nid.should.equal(1);
 			}
 			{
-				const cursor = new Cursor<{
-					name: string;
-					age: number;
-					nid: number;
-					_id: string;
-				}, any>(d, {});
+				const cursor = new Cursor<
+					{
+						name: string;
+						age: number;
+						nid: number;
+						_id: string;
+					},
+					any
+				>(d, {});
 				const docs = await cursor
 					.sort({
 						age: 1,
@@ -564,8 +580,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor
-				.exec()
+			Promise.resolve(Promise.resolve(cursor.exec()))
 				.then((docs) => {
 					docs.length.should.equal(5);
 					assert.deepEqual(docs[0], doc0);
@@ -594,8 +609,7 @@ describe("Cursor", () => {
 				age: 1,
 				name: 1,
 			});
-			cursor
-				.exec()
+			Promise.resolve(cursor.exec())
 				.then((docs) => {
 					docs.length.should.equal(5);
 					// Takes the _id by default
@@ -662,8 +676,7 @@ describe("Cursor", () => {
 				age: 0,
 				name: 0,
 			});
-			cursor
-				.exec()
+			Promise.resolve(cursor.exec())
 				.then((docs) => {
 					docs.length.should.equal(5);
 					// Takes the _id by default
@@ -797,7 +810,7 @@ describe("Cursor", () => {
 				"toys.bebe": 0,
 				_id: 0,
 			});
-			cursor.exec().then((docs) => {
+			Promise.resolve(cursor.exec()).then((docs) => {
 				assert.deepEqual(docs[0] as any, {
 					age: 5,
 					toys: { ballon: "much" },
@@ -824,7 +837,7 @@ describe("Cursor", () => {
 				"toys.ballon": 1,
 				_id: 0,
 			});
-			cursor.exec().then((docs) => {
+			Promise.resolve(cursor.exec()).then((docs) => {
 				assert.deepEqual(docs[0] as any, {
 					name: "Jo",
 					toys: { ballon: "much" },

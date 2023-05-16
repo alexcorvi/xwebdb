@@ -124,12 +124,12 @@ describe("Indexes", () => {
 				const obj2 = { tf: "normal", yes: "indeed" };
 				const idx = new Index<any, any>({ fieldName: "tf" });
 				idx.insert(obj);
-				idx.getAll().length.should.equal(2);
-				idx.getAll()[0].should.equal(obj);
-				idx.getAll()[1].should.equal(obj);
+				idx.dict.all.length.should.equal(2);
+				idx.dict.all[0].should.equal(obj);
+				idx.dict.all[1].should.equal(obj);
 
 				idx.insert(obj2);
-				idx.getAll().length.should.equal(3);
+				idx.dict.all.length.should.equal(3);
 			});
 
 			it("Inserts one entry per array element in the index, type-checked", () => {
@@ -139,10 +139,10 @@ describe("Indexes", () => {
 				};
 				const idx = new Index<any, any>({ fieldName: "tf" });
 				idx.insert(obj);
-				idx.getAll().length.should.equal(3);
-				idx.getAll()[0].should.equal(obj);
-				idx.getAll()[1].should.equal(obj);
-				idx.getAll()[2].should.equal(obj);
+				idx.dict.all.length.should.equal(3);
+				idx.dict.all[0].should.equal(obj);
+				idx.dict.all[1].should.equal(obj);
+				idx.dict.all[2].should.equal(obj);
 			});
 
 			it("Inserts one entry per unique array element in the index, the unique constraint only holds across documents", () => {
@@ -153,11 +153,11 @@ describe("Indexes", () => {
 					unique: true,
 				});
 				idx.insert(obj);
-				idx.getAll().length.should.equal(1);
-				idx.getAll()[0].should.equal(obj);
+				idx.dict.all.length.should.equal(1);
+				idx.dict.all[0].should.equal(obj);
 
 				idx.insert(obj2);
-				idx.getAll().length.should.equal(3);
+				idx.dict.all.length.should.equal(3);
 			});
 
 			it("The unique constraint holds across documents", () => {
@@ -168,8 +168,8 @@ describe("Indexes", () => {
 					unique: true,
 				});
 				idx.insert(obj);
-				idx.getAll().length.should.equal(1);
-				idx.getAll()[0].should.equal(obj);
+				idx.dict.all.length.should.equal(1);
+				idx.dict.all[0].should.equal(obj);
 
 				(() => {
 					idx.insert(obj2);
@@ -182,16 +182,16 @@ describe("Indexes", () => {
 				const idx = new Index<any, any>({ fieldName: "tf" });
 				idx.insert(obj);
 				idx.insert(obj2);
-				idx.getMatching("aa").length.should.equal(2);
-				idx.getMatching("aa").indexOf(obj).should.not.equal(-1);
-				idx.getMatching("aa").indexOf(obj2).should.not.equal(-1);
-				idx.getMatching("cc").length.should.equal(1);
+				idx.dict.get("aa").length.should.equal(2);
+				idx.dict.get("aa").indexOf(obj).should.not.equal(-1);
+				idx.dict.get("aa").indexOf(obj2).should.not.equal(-1);
+				idx.dict.get("cc").length.should.equal(1);
 
 				idx.remove(obj2);
-				idx.getMatching("aa").length.should.equal(1);
-				idx.getMatching("aa").indexOf(obj).should.not.equal(-1);
-				idx.getMatching("aa").indexOf(obj2).should.equal(-1);
-				idx.getMatching("cc").length.should.equal(0);
+				idx.dict.get("aa").length.should.equal(1);
+				idx.dict.get("aa").indexOf(obj).should.not.equal(-1);
+				idx.dict.get("aa").indexOf(obj2).should.equal(-1);
+				idx.dict.get("cc").length.should.equal(0);
 			});
 
 			it("If a unique constraint is violated when inserting an array key, roll back all inserts before the key", () => {
@@ -202,22 +202,22 @@ describe("Indexes", () => {
 					unique: true,
 				});
 				idx.insert(obj);
-				idx.getAll().length.should.equal(2);
-				idx.getMatching("aa").length.should.equal(1);
-				idx.getMatching("bb").length.should.equal(1);
-				idx.getMatching("cc").length.should.equal(0);
-				idx.getMatching("dd").length.should.equal(0);
-				idx.getMatching("ee").length.should.equal(0);
+				idx.dict.all.length.should.equal(2);
+				idx.dict.get("aa").length.should.equal(1);
+				idx.dict.get("bb").length.should.equal(1);
+				idx.dict.get("cc").length.should.equal(0);
+				idx.dict.get("dd").length.should.equal(0);
+				idx.dict.get("ee").length.should.equal(0);
 
 				(() => {
 					idx.insert(obj2);
 				}).should.throw();
-				idx.getAll().length.should.equal(2);
-				idx.getMatching("aa").length.should.equal(1);
-				idx.getMatching("bb").length.should.equal(1);
-				idx.getMatching("cc").length.should.equal(0);
-				idx.getMatching("dd").length.should.equal(0);
-				idx.getMatching("ee").length.should.equal(0);
+				idx.dict.all.length.should.equal(2);
+				idx.dict.get("aa").length.should.equal(1);
+				idx.dict.get("bb").length.should.equal(1);
+				idx.dict.get("cc").length.should.equal(0);
+				idx.dict.get("dd").length.should.equal(0);
+				idx.dict.get("ee").length.should.equal(0);
 			});
 		}); // ==== End of 'Array fields' ==== //
 	}); // ==== End of 'Insertion' ==== //
@@ -243,50 +243,50 @@ describe("Indexes", () => {
 			idx.remove({});
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(4);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// non-empty non matching
 			idx.remove({a: 9, tf:{nested: "nill"}});
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(4);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// removing from a node with two values
 			idx.remove(doc1);
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(3);
-			idx.getAll().findIndex(x=>x === doc1).should.equal(-1);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.findIndex(x=>x === doc1).should.equal(-1);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
 			
 			// removing from a node with one value
 			idx.remove(doc4);
 			idx.dict.numberOfKeys.should.equal(2);
 			idx.dict.size.should.equal(2);
-			idx.getAll().findIndex(x=>x === doc4).should.equal(-1);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.findIndex(x=>x === doc4).should.equal(-1);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
 
 
 			// removing from a node with one value
 			idx.remove(doc3);
 			idx.dict.numberOfKeys.should.equal(1);
 			idx.dict.size.should.equal(1);
-			idx.getAll().findIndex(x=>x === doc3).should.equal(-1);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.findIndex(x=>x === doc3).should.equal(-1);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
 
 			// removing from a node with one value
 			idx.remove(doc2);
 			idx.dict.numberOfKeys.should.equal(0);
 			idx.dict.size.should.equal(0);
-			idx.getAll().findIndex(x=>x === doc2).should.equal(-1);
-			idx.getAll().length.should.equal(0);
+			idx.dict.all.findIndex(x=>x === doc2).should.equal(-1);
+			idx.dict.all.length.should.equal(0);
 
 		});
 
@@ -328,50 +328,50 @@ describe("Indexes", () => {
 			idx.remove({});
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(4);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// non-empty non matching
 			idx.remove({a: 9, tf:{nested: "nill"}});
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(4);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// removing from a node with two values
 			idx.remove(doc2);
 			idx.dict.numberOfKeys.should.equal(3);
 			idx.dict.size.should.equal(3);
-			idx.getAll().findIndex(x=>x === doc2).should.equal(-1);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.findIndex(x=>x === doc2).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 			
 			// removing from a node with one value
 			idx.remove(doc4);
 			idx.dict.numberOfKeys.should.equal(2);
 			idx.dict.size.should.equal(2);
-			idx.getAll().findIndex(x=>x === doc4).should.equal(-1);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.findIndex(x=>x === doc4).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
 			
 			// removing from a node with one value
 			idx.remove(doc3);
 			idx.dict.numberOfKeys.should.equal(1);
 			idx.dict.size.should.equal(1);
-			idx.getAll().findIndex(x=>x === doc3).should.equal(-1);
-			idx.getAll().find(x=>x === doc1).should.equal(doc1);
+			idx.dict.all.findIndex(x=>x === doc3).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1).should.equal(doc1);
 			
 			// removing from a node with one value
 			idx.remove(doc1);
 			idx.dict.numberOfKeys.should.equal(0);
 			idx.dict.size.should.equal(0);
-			idx.getAll().findIndex(x=>x === doc1).should.equal(-1);
-			idx.getAll().length.should.equal(0);
+			idx.dict.all.findIndex(x=>x === doc1).should.equal(-1);
+			idx.dict.all.length.should.equal(0);
 		});
 
 		it("Can remove an array of documents", () => {
@@ -416,35 +416,35 @@ describe("Indexes", () => {
 			
 			// updating from a node with two values
 			idx.update(doc1, doc1_2);
-			idx.getAll().findIndex(x=>x === doc1).should.equal(-1);
-			idx.getAll().find(x=>x === doc1_2).should.equal(doc1_2);
-			idx.getAll().find(x=>x === doc2).should.equal(doc2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.findIndex(x=>x === doc1).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1_2).should.equal(doc1_2);
+			idx.dict.all.find(x=>x === doc2).should.equal(doc2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// updating from a node with two values
 			idx.update(doc2, doc2_2);
-			idx.getAll().findIndex(x=>x === doc2).should.equal(-1);
-			idx.getAll().find(x=>x === doc1_2).should.equal(doc1_2);
-			idx.getAll().find(x=>x === doc2_2).should.equal(doc2_2);
-			idx.getAll().find(x=>x === doc3).should.equal(doc3);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.findIndex(x=>x === doc2).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1_2).should.equal(doc1_2);
+			idx.dict.all.find(x=>x === doc2_2).should.equal(doc2_2);
+			idx.dict.all.find(x=>x === doc3).should.equal(doc3);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// updating from a node with one values
 			idx.update(doc3, doc3_2);
-			idx.getAll().findIndex(x=>x === doc2).should.equal(-1);
-			idx.getAll().find(x=>x === doc1_2).should.equal(doc1_2);
-			idx.getAll().find(x=>x === doc2_2).should.equal(doc2_2);
-			idx.getAll().find(x=>x === doc3_2).should.equal(doc3_2);
-			idx.getAll().find(x=>x === doc4).should.equal(doc4);
+			idx.dict.all.findIndex(x=>x === doc2).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1_2).should.equal(doc1_2);
+			idx.dict.all.find(x=>x === doc2_2).should.equal(doc2_2);
+			idx.dict.all.find(x=>x === doc3_2).should.equal(doc3_2);
+			idx.dict.all.find(x=>x === doc4).should.equal(doc4);
 
 			// updating from a node with one values
 			idx.update(doc4, doc4_2);
-			idx.getAll().findIndex(x=>x === doc2).should.equal(-1);
-			idx.getAll().find(x=>x === doc1_2).should.equal(doc1_2);
-			idx.getAll().find(x=>x === doc2_2).should.equal(doc2_2);
-			idx.getAll().find(x=>x === doc3_2).should.equal(doc3_2);
-			idx.getAll().find(x=>x === doc4_2).should.equal(doc4_2);
+			idx.dict.all.findIndex(x=>x === doc2).should.equal(-1);
+			idx.dict.all.find(x=>x === doc1_2).should.equal(doc1_2);
+			idx.dict.all.find(x=>x === doc2_2).should.equal(doc2_2);
+			idx.dict.all.find(x=>x === doc3_2).should.equal(doc3_2);
+			idx.dict.all.find(x=>x === doc4_2).should.equal(doc4_2);
 		});
 
 		it("Can update a document whose key did or didnt change", () => {
@@ -513,12 +513,12 @@ describe("Indexes", () => {
 			]);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc1b);
-			idx.getMatching("changed").length.should.equal(1);
-			idx.getMatching("changed")[0].should.equal(doc2b);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3b);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc1b);
+			idx.dict.get("changed").length.should.equal(1);
+			idx.dict.get("changed")[0].should.equal(doc2b);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3b);
 		});
 
 		it("If a unique constraint is violated during an array-update, all changes are rolled back and an error thrown", () => {
@@ -550,12 +550,12 @@ describe("Indexes", () => {
 			}).should.throw();
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("hello")[0].should.equal(doc1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc2);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("hello")[0].should.equal(doc1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc2);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3);
 
 			(() => {
 				idx.update([
@@ -566,12 +566,12 @@ describe("Indexes", () => {
 			}).should.throw();
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("hello")[0].should.equal(doc1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc2);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("hello")[0].should.equal(doc1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc2);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3);
 		});
 
 		it("If an update doesnt change a document, the unique constraint is not violated", () => {
@@ -614,43 +614,43 @@ describe("Indexes", () => {
 			idx.update(batchUpdate);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc1b);
-			idx.getMatching("changed").length.should.equal(1);
-			idx.getMatching("changed")[0].should.equal(doc2b);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3b);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc1b);
+			idx.dict.get("changed").length.should.equal(1);
+			idx.dict.get("changed")[0].should.equal(doc2b);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3b);
 
 			idx.revertUpdate(batchUpdate);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("hello")[0].should.equal(doc1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc2);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("hello")[0].should.equal(doc1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc2);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3);
 
 			// Now a simple update
 			idx.update(doc2, doc2b);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("hello")[0].should.equal(doc1);
-			idx.getMatching("changed").length.should.equal(1);
-			idx.getMatching("changed")[0].should.equal(doc2b);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("hello")[0].should.equal(doc1);
+			idx.dict.get("changed").length.should.equal(1);
+			idx.dict.get("changed")[0].should.equal(doc2b);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3);
 
 			idx.revertUpdate(doc2, doc2b);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("hello")[0].should.equal(doc1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("world")[0].should.equal(doc2);
-			idx.getMatching("bloup").length.should.equal(1);
-			idx.getMatching("bloup")[0].should.equal(doc3);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("hello")[0].should.equal(doc1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("world")[0].should.equal(doc2);
+			idx.dict.get("bloup").length.should.equal(1);
+			idx.dict.get("bloup")[0].should.equal(doc3);
 		});
 
 
@@ -668,9 +668,9 @@ describe("Indexes", () => {
 			idx.insert(doc3);
 			idx.insert(doc4);
 
-			assert.deepEqual(idx.getMatching("bloup"), [doc3]);
-			assert.deepEqual(idx.getMatching("world"), [doc2, doc4]);
-			assert.deepEqual(idx.getMatching("nope"), []);
+			assert.deepEqual(idx.dict.get("bloup"), [doc3]);
+			assert.deepEqual(idx.dict.get("world"), [doc2, doc4]);
+			assert.deepEqual(idx.dict.get("nope"), []);
 		});
 
 		it("Can get all documents for a given key in a unique index", () => {
@@ -682,9 +682,9 @@ describe("Indexes", () => {
 			idx.insert(doc2);
 			idx.insert(doc3);
 
-			assert.deepEqual(idx.getMatching("bloup"), [doc3]);
-			assert.deepEqual(idx.getMatching("world"), [doc2]);
-			assert.deepEqual(idx.getMatching("nope"), []);
+			assert.deepEqual(idx.dict.get("bloup"), [doc3]);
+			assert.deepEqual(idx.dict.get("world"), [doc2]);
+			assert.deepEqual(idx.dict.get("nope"), []);
 		});
 
 		it("Can get all documents for which a field is undefined", () => {
@@ -697,19 +697,19 @@ describe("Indexes", () => {
 			idx.insert(doc2);
 			idx.insert(doc3);
 
-			assert.deepEqual(idx.getMatching("bloup"), []);
-			assert.deepEqual(idx.getMatching("hello"), [doc1]);
-			assert.deepEqual(idx.getMatching("world"), [doc3]);
-			assert.deepEqual(idx.getMatching("yes"), []);
-			assert.deepEqual(idx.getMatching(undefined), [doc2]);
+			assert.deepEqual(idx.dict.get("bloup"), []);
+			assert.deepEqual(idx.dict.get("hello"), [doc1]);
+			assert.deepEqual(idx.dict.get("world"), [doc3]);
+			assert.deepEqual(idx.dict.get("yes"), []);
+			assert.deepEqual(idx.dict.get(undefined), [doc2]);
 
 			idx.insert(doc4);
 
-			assert.deepEqual(idx.getMatching("bloup"), []);
-			assert.deepEqual(idx.getMatching("hello"), [doc1]);
-			assert.deepEqual(idx.getMatching("world"), [doc3]);
-			assert.deepEqual(idx.getMatching("yes"), []);
-			assert.deepEqual(idx.getMatching(undefined), [doc2, doc4]);
+			assert.deepEqual(idx.dict.get("bloup"), []);
+			assert.deepEqual(idx.dict.get("hello"), [doc1]);
+			assert.deepEqual(idx.dict.get("world"), [doc3]);
+			assert.deepEqual(idx.dict.get("yes"), []);
+			assert.deepEqual(idx.dict.get(undefined), [doc2, doc4]);
 		});
 
 		it("Can get all documents for which a field is null", () => {
@@ -722,19 +722,19 @@ describe("Indexes", () => {
 			idx.insert(doc2);
 			idx.insert(doc3);
 
-			assert.deepEqual(idx.getMatching("bloup"), []);
-			assert.deepEqual(idx.getMatching("hello"), [doc1]);
-			assert.deepEqual(idx.getMatching("world"), [doc3]);
-			assert.deepEqual(idx.getMatching("yes"), []);
-			assert.deepEqual(idx.getMatching(null), [doc2]);
+			assert.deepEqual(idx.dict.get("bloup"), []);
+			assert.deepEqual(idx.dict.get("hello"), [doc1]);
+			assert.deepEqual(idx.dict.get("world"), [doc3]);
+			assert.deepEqual(idx.dict.get("yes"), []);
+			assert.deepEqual(idx.dict.get(null), [doc2]);
 
 			idx.insert(doc4);
 
-			assert.deepEqual(idx.getMatching("bloup"), []);
-			assert.deepEqual(idx.getMatching("hello"), [doc1]);
-			assert.deepEqual(idx.getMatching("world"), [doc3]);
-			assert.deepEqual(idx.getMatching("yes"), []);
-			assert.deepEqual(idx.getMatching(null), [doc2, doc4]);
+			assert.deepEqual(idx.dict.get("bloup"), []);
+			assert.deepEqual(idx.dict.get("hello"), [doc1]);
+			assert.deepEqual(idx.dict.get("world"), [doc3]);
+			assert.deepEqual(idx.dict.get("yes"), []);
+			assert.deepEqual(idx.dict.get(null), [doc2, doc4]);
 		});
 
 		it("Can get all documents for a given key in a sparse index, but not unindexed docs (= field undefined)", () => {
@@ -748,11 +748,11 @@ describe("Indexes", () => {
 			idx.insert(doc3);
 			idx.insert(doc4);
 
-			assert.deepEqual(idx.getMatching("bloup"), []);
-			assert.deepEqual(idx.getMatching("hello"), [doc1]);
-			assert.deepEqual(idx.getMatching("world"), [doc3]);
-			assert.deepEqual(idx.getMatching("yes"), []);
-			assert.deepEqual(idx.getMatching(undefined), []);
+			assert.deepEqual(idx.dict.get("bloup"), []);
+			assert.deepEqual(idx.dict.get("hello"), [doc1]);
+			assert.deepEqual(idx.dict.get("world"), [doc3]);
+			assert.deepEqual(idx.dict.get("yes"), []);
+			assert.deepEqual(idx.dict.get(undefined), []);
 		});
 
 		it("Can get all documents whose key is in an array of keys", () => {
@@ -769,15 +769,15 @@ describe("Indexes", () => {
 			idx.insert(doc4);
 			idx.insert(doc5);
 
-			assert.deepEqual(idx.getMatching([]), []);
-			assert.deepEqual(idx.getMatching(["bloup"]), [doc2]);
-			assert.deepEqual(idx.getMatching(["bloup", "yes"]), [
+			assert.deepEqual(idx.dict.get([]), []);
+			assert.deepEqual(idx.dict.get(["bloup"]), [doc2]);
+			assert.deepEqual(idx.dict.get(["bloup", "yes"]), [
 				doc2,
 				doc4,
 				doc5,
 			]);
-			assert.deepEqual(idx.getMatching(["hello", "no"]), [doc1]);
-			assert.deepEqual(idx.getMatching(["nope", "no"]), []);
+			assert.deepEqual(idx.dict.get(["hello", "no"]), [doc1]);
+			assert.deepEqual(idx.dict.get(["nope", "no"]), []);
 		});
 
 		it("Can get all documents whose key is between certain bounds", () => {
@@ -819,15 +819,15 @@ describe("Indexes", () => {
 			idx.insert(doc3);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("bloup").length.should.equal(1);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("bloup").length.should.equal(1);
 
 			idx.reset();
 			idx.dict.numberOfKeys.should.equal(0);
-			idx.getMatching("hello").length.should.equal(0);
-			idx.getMatching("world").length.should.equal(0);
-			idx.getMatching("bloup").length.should.equal(0);
+			idx.dict.get("hello").length.should.equal(0);
+			idx.dict.get("world").length.should.equal(0);
+			idx.dict.get("bloup").length.should.equal(0);
 		});
 
 		it("Can reset an index and initialize it with one document", () => {
@@ -841,17 +841,17 @@ describe("Indexes", () => {
 			idx.insert(doc3);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("bloup").length.should.equal(1);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("bloup").length.should.equal(1);
 
 			idx.reset();
 			idx.insert(newDoc);
 			idx.dict.numberOfKeys.should.equal(1);
-			idx.getMatching("hello").length.should.equal(0);
-			idx.getMatching("world").length.should.equal(0);
-			idx.getMatching("bloup").length.should.equal(0);
-			idx.getMatching("new")[0].a.should.equal(555);
+			idx.dict.get("hello").length.should.equal(0);
+			idx.dict.get("world").length.should.equal(0);
+			idx.dict.get("bloup").length.should.equal(0);
+			idx.dict.get("new")[0].a.should.equal(555);
 		});
 
 		it("Can reset an index and initialize it with an array of documents", () => {
@@ -870,18 +870,18 @@ describe("Indexes", () => {
 			idx.insert(doc3);
 
 			idx.dict.numberOfKeys.should.equal(3);
-			idx.getMatching("hello").length.should.equal(1);
-			idx.getMatching("world").length.should.equal(1);
-			idx.getMatching("bloup").length.should.equal(1);
+			idx.dict.get("hello").length.should.equal(1);
+			idx.dict.get("world").length.should.equal(1);
+			idx.dict.get("bloup").length.should.equal(1);
 
 			idx.reset();
 			idx.insert(newDocs);
 			idx.dict.numberOfKeys.should.equal(2);
-			idx.getMatching("hello").length.should.equal(0);
-			idx.getMatching("world").length.should.equal(0);
-			idx.getMatching("bloup").length.should.equal(0);
-			idx.getMatching("new")[0].a.should.equal(555);
-			idx.getMatching("again")[0].a.should.equal(666);
+			idx.dict.get("hello").length.should.equal(0);
+			idx.dict.get("world").length.should.equal(0);
+			idx.dict.get("bloup").length.should.equal(0);
+			idx.dict.get("new")[0].a.should.equal(555);
+			idx.dict.get("again")[0].a.should.equal(666);
 		});
 	}); // ==== End of 'Resetting' ==== //
 
@@ -893,7 +893,7 @@ describe("Indexes", () => {
 		idx.insert(doc1);
 		idx.insert(doc2);
 		idx.insert(doc3);
-		assert.deepEqual(idx.getAll().sort(), [
+		assert.deepEqual(idx.dict.all.sort(), [
 			{ a: 5, tf: "hello" },
 			{ a: 8, tf: "world" },
 			{ a: 2, tf: "bloup" },

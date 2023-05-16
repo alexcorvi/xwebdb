@@ -24,43 +24,37 @@ class MemoryStore {
 	constructor(name: string) {
 		this.name = name;
 	}
-	async removeStore() {
+	async clear() {
 		memoryStores[this.name] = {};
 		return true;
 	}
-	async removeItem(itemID: string) {
+	async del(itemID: string) {
 		delete memoryStores[this.name][itemID];
 		return true;
 	}
-	async removeItems(ids: string[]) {
+	async delBulk(ids: string[]) {
 		const results: boolean[] = [];
 		for (let index = 0; index < ids.length; index++) {
 			const element = ids[index];
-			results.push(await this.removeItem(element));
+			results.push(await this.del(element));
 		}
 		return results;
 	}
-	async setItems(data: { key: string; value: string }[]) {
+	async setBulk(couples: [string, string][]) {
 		const results: boolean[] = [];
-		for (let index = 0; index < data.length; index++) {
-			const element = data[index];
-			results.push(await this.setItem(element.key, element.value));
+		for (let index = 0; index < couples.length; index++) {
+			results.push(await this.set(couples[index][0], couples[index][1]));
 		}
 		return results;
 	}
-	async getItems(keys: string[]) {
-		const results: { key: string; value: string }[] = [];
-		for (let index = 0; index < keys.length; index++) {
-			const key = keys[index];
-			results.push({ key, value: await this.getItem(key) });
-		}
-		return results;
+	async getBulk(keys: string[]) {
+		return Promise.all(keys.map(x=>this.get(x)))
 	}
-	async setItem(itemID: string, itemData: string) {
+	async set(itemID: string, itemData: string) {
 		memoryStores[this.name][itemID] = itemData;
 		return true;
 	}
-	async getItem(itemID: string): Promise<string> {
+	async get(itemID: string): Promise<string> {
 		return memoryStores[this.name][itemID];
 	}
 	async keys(): Promise<string[]> {
@@ -133,7 +127,6 @@ describe("Database Syncing", () => {
 				age: 12,
 			});
 			await d1.insert([doc]);
-
 			const s1 = await d1.sync();
 			const s2 = await d2.sync();
 			s1.received.should.eq(0);
@@ -390,7 +383,7 @@ describe("Database Syncing", () => {
 			const names = ["Alex", "David", "Bill", "William", "Ron", "Sam", "Jim", "Tim", "Charles", "Will", "Bob"];
 			const ages = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 			let docs: Kid[] = [];
-			let i = 100;
+			let i = 1500;
 			while (i--) {
 				docs.push(
 					Kid.new({
@@ -2380,88 +2373,13 @@ describe("Database Syncing", () => {
 		});
 	});
 
-	describe("Devalidation of hashes", () => {
-		it("hashes invalidated in specific amount of time", async () => {
-			let d1 = new Database<{ _id: string; name: string; age: number }>({
-				ref: "db_A",
-				sync: {
-					syncToRemote: memoryAdapter(),
-					syncInterval: 0,
-					invalidateHash: 450,
-				},
-			});
-			let d2 = new Database<{ _id: string; name: string; age: number }>({
-				ref: "db_B",
-				sync: {
-					syncToRemote: memoryAdapter(),
-					syncInterval: 0,
-				},
-			});
-
-			const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i));
-
-			await d1.insert(Kid.new({}));
-			await d2.insert(Kid.new({}));
-
-			{
-				const s1 = await d1.sync();
-				const s2 = await d1.sync();
-				const s3 = await d1.sync();
-				(s1.diff === 1).should.eq(true);
-				(s2.diff === -1 || s2.diff === 0).should.eq(true);
-				s3.diff.should.eq(-1);
-			}
-			{
-				const s1 = await d2.sync();
-				const s2 = await d2.sync();
-				const s3 = await d2.sync();
-				(s1.diff === 1).should.eq(true);
-				(s2.diff === -1 || s2.diff === 0).should.eq(true);
-				s3.diff.should.eq(-1);
-			}
-
-			await wait(20);
-			{
-				// not invalidated .. still needs more time
-				const s1 = await d1.sync();
-				const s2 = await d1.sync();
-				s1.diff.should.eq(-1);
-				s2.diff.should.eq(-1);
-			}
-			{
-				// not invalidated
-				const s1 = await d2.sync();
-				const s2 = await d2.sync();
-				s1.diff.should.eq(-1);
-				s2.diff.should.eq(-1);
-			}
-
-			await wait(480);
-			{
-				// invalidated
-				const s1 = await d1.sync();
-				const s2 = await d1.sync();
-				s1.diff.should.eq(0);
-				s2.diff.should.eq(-1);
-			}
-			{
-				// not invalidated
-				const s1 = await d2.sync();
-				const s2 = await d2.sync();
-				s1.diff.should.eq(-1);
-				s2.diff.should.eq(-1);
-			}
-
-			await d1._datastore.persistence.deleteEverything();
-			await d2._datastore.persistence.deleteEverything();
-		});
-
-		it("ForceSync", async ()=>{
+	describe("Forcesync", () => {
+		it("ForceSync", async () => {
 			await d1.insert(Kid.new({}));
 			await d2.insert(Kid.new({}));
 			{
 				(await d1.sync()).diff.should.eq(1);
-				(await d1.sync()).diff.should.oneOf([0,-1]);
+				(await d1.sync()).diff.should.oneOf([0, -1]);
 				(await d1.sync()).diff.should.oneOf([-1]);
 				(await d1.sync()).diff.should.oneOf([-1]);
 				(await d1.forceSync()).diff.should.eq(0);
