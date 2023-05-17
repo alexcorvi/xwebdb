@@ -13,7 +13,7 @@ export const memoryStores: {
 		[key: string]: string;
 	};
 } = {};
-const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i*25));
+const wait = (i: number) => new Promise((resolve) => setTimeout(resolve, i*15));
 export const memoryAdapter = () => (name: string) => {
 	name = name.replace(/_\d+$/, ""); // replacer is to make the sync demo work
 	if (!memoryStores[name]) memoryStores[name] = {};
