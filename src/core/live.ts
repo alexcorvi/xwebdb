@@ -39,6 +39,7 @@ export class Live {
 	public async update() {
 		for (let index = 0; index < this.queries.length; index++) {
 			const q = this.queries[index];
+			this.db.cache.evict();
 			const newRes = await this.db.find(q.query);
 			const newHash = hash(newRes);
 			const oldHash = hash(q.observable.observable);

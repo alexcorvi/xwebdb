@@ -31,6 +31,7 @@ export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
 	deferPersistence?: number;
 	stripDefaults?: boolean;
 	indexes?: NOP<D>[];
+	cacheLimit?: number;
 }
 
 export class Database<S extends Doc> {
@@ -62,6 +63,7 @@ export class Database<S extends Doc> {
 			syncInterval: options.sync ? options.sync.syncInterval : undefined,
 			defer: options.deferPersistence,
 			stripDefaults: options.stripDefaults || false,
+			cacheLimit: options.cacheLimit,
 		});
 		this.loaded = this._datastore.loadDatabase();
 	}

@@ -8,7 +8,8 @@ import {
 	modelling,
 	adapters,
 	observable,
-	Dictionary
+	Dictionary,
+	Cache,
 } from "./core";
 import { Database } from "./database";
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
@@ -22,7 +23,8 @@ const _internal = {
 	modelling,
 	Q,
 	Persistence,
-	Dictionary
+	Dictionary,
+	Cache,
 };
 
 export { Database, Doc, SubDoc, mapSubModel, adapters, _internal };

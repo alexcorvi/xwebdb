@@ -5,6 +5,7 @@ export { Cursor } from "./cursor";
 export { Index } from "./indexes";
 export { Persistence } from "./persistence";
 export { Q } from "./q";
-export * as adapters from "./adapters"
-export * as observable from "./observable"
-export { Dictionary } from "./dictionary"
+export * as adapters from "./adapters";
+export * as observable from "./observable";
+export { Dictionary } from "./dictionary";
+export { Cache } from "./cache";

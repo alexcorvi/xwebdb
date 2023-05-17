@@ -8,6 +8,7 @@ import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 import { Live } from "./live";
+import { Cache } from "./cache";
 
 type MongoDBQuery = Record<string, any>;
 
@@ -29,6 +30,7 @@ export interface DataStoreOptions<G extends typeof Doc> {
 	defer?: number;
 	stripDefaults?: boolean;
 	indexes?: string[];
+	cacheLimit?: number;
 }
 
 interface UpdateOptions {
@@ -51,13 +53,14 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 	defer: boolean = false;
 	deferredWrites: G[] = [];
 	deferredDeletes: string[] = [];
+	cache: Cache<G>;
 
 	constructor(options: DataStoreOptions<C>) {
 		this.model = options.model || (Doc as any);
 		if (options.ref) {
 			this.ref = options.ref;
 		}
-
+		this.cache = new Cache<G>(options.cacheLimit);
 		// Persistence handling
 		this.persistence = new Persistence({
 			db: this,
@@ -117,6 +120,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 				await this.ensureIndex({ fieldName });
 			}
 		}
+		this.cache.evict();
 		return loaded;
 	}
 
@@ -365,6 +369,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			}
 			throw error;
 		}
+		this.cache.evict();
 		try {
 			this.live.update();
 		} catch (e) {
@@ -463,6 +468,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 
 			// Change the docs in memory
 			this.updateIndexes(modifications);
+			this.cache.evict();
 			try {
 				this.live.update();
 			} catch (e) {
@@ -519,6 +525,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 				this.removeFromIndexes(d);
 			}
 		});
+		this.cache.evict();
 		try {
 			this.live.update();
 		} catch (e) {

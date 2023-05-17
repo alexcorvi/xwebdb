@@ -112,12 +112,16 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	 */
 	__exec_unsafe() {
 		let res: G[] = [];
-		const candidates = this.db.getCandidates(this._query);
-		for (let i = 0; i < candidates.length; i++) {
-			if (model.match(candidates[i], this._query)) {
-				res.push(candidates[i]);
+		let cached = this.db.cache.get(this._query);
+		if(!cached) {
+			const candidates = this.db.getCandidates(this._query);
+			for (let i = 0; i < candidates.length; i++) {
+				if (model.match(candidates[i], this._query)) {
+					res.push(candidates[i]);
+				}
 			}
-		}
+			this.db.cache.storeOrProspect(this._query, res);
+		} else res = cached;
 
 		// Apply all sorts
 		if (this._sort) {
