@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Benchmark</title>
+		<style>
+			table {
+				border-collapse: collapse;
+				width: 100%;
+				margin: 0 auto;
+				font-family: Arial, sans-serif;
+				text-align: center;
+			}
+
+			/* table header cells style */
+			th {
+				padding: 12px;
+				font-weight: bold;
+				color: #333333;
+				border: 1px solid #cccccc;
+			}
+
+			th i {
+				font-weight: 100;
+				font-size: 13px;
+			}
+
+			/* table rows style */
+			tr:nth-child(even) {
+				background-color: #f9f9f9;
+			}
+
+			tr:hover {
+				background-color: #f5f5f5;
+			}
+
+			/* table cell style */
+			td {
+				padding: 12px;
+				border: 1px solid #cccccc;
+			}
+
+			.db {
+				width: 30%;
+				padding: 10px;
+				border-left: 3px solid #a1a1a1;
+				float: left;
+				margin-left: 0.2%;
+				height: 80vh;
+			}
+
+			td,
+			p,
+			button,
+			h1,
+			h2,
+			h3 {
+				font-size: 13px;
+			}
+
+			.winner {
+				background: #4caf50;
+				color: #fff;
+				position: relative;
+			}
+
+			.winner::after {
+				content: "fastest";
+				display: block;
+				position: absolute;
+				top: 0;
+				background: #249626;
+				border-radius: 3px;
+				padding: 4px 10px;
+				margin-top: 5px;
+				left: -21px;
+				font-size: 12px;
+				transform: rotate(-49deg);
+				font-weight: 600;
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+			<div>
+				<button onclick="clearAllIndexedDBData()">Clear Everything</button>
+				<button id="run" onclick="runBenchmark()">Run</button>
+			</div>
+			<br />
+			<table>
+				<thead>
+					<tr>
+						<th>Database</th>
+						<th>
+							Bulk insert<br />
+							<i>ms per 1000 Docs</i>
+						</th>
+						<th>
+							Insert <br />
+							<i>inserts / second</i>
+						</th>
+						<th>Read <br /><i>reads / second</i></th>
+						<th>
+							Update <br />
+							<i>update / second</i>
+						</th>
+						<th>Delete <br /><i>deletes / second</i></th>
+					</tr>
+				</thead>
+				<tbody id="table"></tbody>
+			</table>
+			<pre id="log"><b>Log</b></pre>
+		</div>
+		<script src="../dist/xwebdb.js"></script>
+		<script src="//cdn.jsdelivr.net/npm/dexie@3.2.3/dist/dexie.min.js"></script>
+		<script src="//cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
+		<script src="//cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+
+		<script>
+			function log(text) {
+				document.getElementById("log").append("\n" + text);
+			}
+
+			function createDocument() {
+				const names = ["Alex", "David", "Bill", "Jim", "Tim", "Charles"];
+				return {
+					name: names[Math.floor(Math.random() * names.length)],
+					age: Math.floor(Math.random() * 90),
+				};
+			}
+
+			let documentsBulk = [];
+			let i = 1000;
+			while (i-- > 0) {
+				documentsBulk.push(createDocument());
+			}
+
+			function clearAllIndexedDBData() {
+				return new Promise(async (resolve, reject) => {
+					var databaseInfos = await indexedDB.databases();
+					var clearedCount = 0;
+					if (databaseInfos.length === 0) {
+						log("Trying to clear IndexedDB, already empty");
+						resolve();
+					}
+					for (var i = 0; i < databaseInfos.length; i++) {
+						var databaseInfo = databaseInfos[i];
+						var dbName = databaseInfo.name;
+						var dbRequest = indexedDB.open(dbName, databaseInfo.version);
+						dbRequest.onerror = function (event) {
+							reject(event.target.error);
+						};
+						dbRequest.onsuccess = function (event) {
+							var db = event.target.result;
+							var objectStoreNames = db.objectStoreNames;
+							var transaction = db.transaction(objectStoreNames, "readwrite");
+							transaction.onerror = function (event) {
+								reject(event.target.error);
+							};
+							transaction.oncomplete = function () {
+								clearedCount++;
+								if (clearedCount === databaseInfos.length) {
+									log("Cleared IndexedDB data");
+									resolve();
+								}
+							};
+							for (var j = 0; j < objectStoreNames.length; j++) {
+								var objectStoreName = objectStoreNames[j];
+								var objectStore = transaction.objectStore(objectStoreName);
+								objectStore.clear();
+							}
+						};
+					}
+				});
+			}
+
+			let xweb = new xwebdb.Database({
+				ref: "xweb",
+				indexes: ["age"],
+			});
+
+			const dexie = new Dexie("dexie");
+			dexie.version(1).stores({
+				documents: "++id, age",
+			});
+
+			const pouchdb = new PouchDB("pouchdb");
+
+			const lf = localforage.createInstance({
+				name: "lfdb",
+				storeName: "lfcollection",
+			});
+
+			async function benchmarkDB(name, operations) {
+				log(`starting ${name} Benchmark`);
+				document
+					.getElementById("table")
+					.insertAdjacentHTML("beforeend", `<tr id="${name}"><td>${name}</td></tr>`);
+
+				if (operations["bulkInsert"]) {
+					log(`${name}: Bulk inserting`);
+					let start = Date.now();
+					await operations["bulkInsert"]();
+					let time = Math.round(Date.now() - start);
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="${time}">${time}</td>`);
+				} else {
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="N/A">N/A</td>`);
+				}
+
+				if (operations["singleInsert"]) {
+					log(`${name}: single inserting`);
+					let start = Date.now();
+					let ops = 0;
+					while (Date.now() - start < 1000) {
+						await operations["singleInsert"](performance.now());
+						ops++;
+					}
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="${ops}">${ops}</td>`);
+				} else {
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="N/A">N/A</td>`);
+				}
+
+				if (operations["read"]) {
+					log(`${name}: reading`);
+					let start = Date.now();
+					let ops = 0;
+					let doc = createDocument();
+					while (Date.now() - start < 1000) {
+						await operations["read"]();
+						ops++;
+					}
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="${ops}">${ops}</td>`);
+				} else {
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="N/A">N/A</td>`);
+				}
+
+				if (operations["update"]) {
+					log(`${name}: updating`);
+					let start = Date.now();
+					let ops = 0;
+					let doc = createDocument();
+					while (Date.now() - start < 1000) {
+						await operations["update"]();
+						ops++;
+					}
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="${ops}">${ops}</td>`);
+				} else {
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="N/A">N/A</td>`);
+				}
+
+				if (operations["remove"]) {
+					log(`${name}: removing`);
+					let start = Date.now();
+					let ops = 0;
+					let doc = createDocument();
+					while (Date.now() - start < 1000) {
+						await operations["remove"]();
+						ops++;
+					}
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="${ops}">${ops}</td>`);
+				} else {
+					document
+						.getElementById(name)
+						.insertAdjacentHTML("beforeend", `<td data-res="N/A">N/A</td>`);
+				}
+			}
+
+			let singleDocument = createDocument();
+
+			async function benchmarkXWeb() {
+				await benchmarkDB("xweb", {
+					bulkInsert: () => xweb.insert(documentsBulk),
+					singleInsert: (i) => xweb.insert({ age: i }),
+					read: () => xweb.read({ age: 500 }),
+					update: () => xweb.update({ age: 500 }, { age: 500 }),
+					remove: () => xweb.remove({ age: 500 }),
+				});
+			}
+
+			async function benchmarkDexie() {
+				await benchmarkDB("dexie", {
+					bulkInsert: () => dexie.documents.bulkAdd(documentsBulk),
+					singleInsert: () => dexie.documents.add({ age: i }),
+					read: () => dexie.documents.get({ age: 500 }),
+					update: () => dexie.documents.where("age").equals(500).modify({ age: 500 }),
+					remove: () => dexie.documents.where("age").equals(500).delete(),
+				});
+			}
+
+			async function benchmarkPouchDB() {
+				await pouchdb.post({ age: 500 });
+				let id = (await pouchdb.allDocs()).rows[0].id;
+				await benchmarkDB("pouchdb", {
+					bulkInsert: () => pouchdb.bulkDocs(documentsBulk),
+					singleInsert: () => pouchdb.post({ age: i }),
+					read: () => pouchdb.get(id),
+					update: async () => {
+						let doc = await pouchdb.get(id);
+						return pouchdb.put(doc);
+					},
+					remove: async () => {
+						try {
+							let doc = await pouchdb.get(id);
+							return pouchdb.remove(doc);
+						} catch (e) {}
+					},
+				});
+			}
+
+			async function benchmarkLocalForage() {
+				await benchmarkDB("localforage", {
+					singleInsert: () => lf.setItem("id", { age: i }),
+					read: () => lf.getItem("id"),
+					remove: () => lf.removeItem("id"),
+				});
+			}
+
+			function decideWinner (col, byMin) {
+				let elements = Array.from(document.querySelectorAll(`#table td:nth-child(${col})`));
+				let numbers = elements.map(x=>x.innerText).map(x=>Number(x) || (byMin ? Infinity : 0));
+				let winner = Math[byMin ? "min" : "max"].apply(null, numbers);
+				console.log(winner)
+				let winnerIndex = numbers.indexOf(winner);
+				elements[winnerIndex].className = 'winner';
+			}
+
+			async function runBenchmark() {
+				document.getElementById("run").setAttribute("disabled", "true");
+				try {
+					document.getElementById("table").innerHTML = "";
+					await benchmarkLocalForage();
+					await benchmarkDexie();
+					await benchmarkPouchDB();
+					await benchmarkXWeb();
+				} catch (e) {
+					log(e);
+				}
+
+				document.getElementById("run").removeAttribute("disabled");
+
+				decideWinner(2, true);
+				decideWinner(3);
+				decideWinner(4);
+				decideWinner(5);
+				decideWinner(6);
+			}
+		</script>
+	</body>
+</html>
