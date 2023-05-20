@@ -167,13 +167,116 @@ Also, `res2` will have an updated value (automatically), but `res3` will have th
 ----
 # Deep Dive
 ## Configuration
+```typescript
+import {Database, Doc} from "xwebdb";
+
+// Model/Schema
+class Person extends Doc {
+	firstName: string = '';
+	lastName: string = '';
+	get fullName() {
+		return this.firstName + " " + this.lastName
+	}
+}
+
+let db = new Database<Person>({
+    ref: 'mydatabase',
+	model: Person,
+	timestampData: true,
+	stripDefaults: true,
+	corruptAlertThreshold: 0.2,
+	deferPersistence: 500,
+	indexes: ['firstName'],
+	cacheLimit: 1000,
+	encode: (obj) => JSON.stringify(obj),
+	decode: (str) => JSON.parse(str),
+});
+```
+
+###### `ref`:_`string`_ (Required, no default value)
+- The provided string will serve as the name for both the database and table in IndexedDB. It is crucial to ensure uniqueness for each database you create. If multiple instances utilize the same "ref" string, they will reference the same IndexedDB database, leading to data sharing among them and possibly unexpected behaviour.
+
+###### `model`:`a class that extends Doc` (Defaults to Doc)
+- This the model of your data. It must be a class that extends `Doc`. The properties of this model will serve as a type declaration for your document, essentially representing the document's schema. Additionally, the values assigned to these properties can act as defaults for the document. It is advisable to utilize this class when creating new documents in order to ensure consistency and adherence to the defined schema.
+
+```typescript
+import {Doc} from "xwebdb";
+
+class Person extends Doc {
+	firstName: string = 'default name';
+	age: number = 25;
+}
+
+// using .new to create a document
+Person.new({firstName: 'Ali'})
+// the above will return a document
+// with default value for 'age'
+// and "Ali" as a value for 'firstName'
+```
+
+- Strong typings for querying and modification actually comes from the type declarations of this class.
+
+###### `timestampData`:`boolean` (Defaults to false)
+- By default, the database does not include the "createdAt" and "updatedAt" fields in documents. However, if you set this parameter to true, these fields will be automatically added with their respective values as Date objects.
+
+###### `stripDefaults`:`boolean` (Defaults to false)
+- By default, both the IndexedDB database and the remote database (when syncing) will include all the properties of the documents. However, if you set this property to true, the default values will be removed. It is important to note that this stripping of default values will not impact the integrity of the data since they will be added again through the object mapping mechanism, unless a different model is used that does not include those default values or include different ones.
+
+###### `corruptAlertThreshold`:`number` (Defaults to 0)
+- While various measures have been implemented to mitigate data loss and corruption, it is important to acknowledge that there is always a possibility of such occurrences. To account for this, you can set this parameter to a value between 0 and 1, where 0 represents 0% tolerance for data corruption and 1 represents 100% tolerance. By setting a value greater than 0, you introduce a level of tolerance for corrupted data. The parameter defaults to 0, indicating no tolerance for data corruption by default.
+
+
+###### `deferPersistence`:`false | number` (Defaults to false)
+- During document insertion, updating, or deletion, these operations are initially performed on the in-memory copy of the database, subsequently, the changes are reflected in the persisted database, then the promises associated with these operations are resolved. However, if you set this property to a numeric value, the promises will be resolved before the operations are persisted to the IndexedDB database. After a specified number of milliseconds (determined by the value you provided) the operations will be persisted to IndexedDB.
+- This approach can offer optimal performance for applications that prioritize speed, since performance bottleneck is actually IndexedDB transactions. But it should be noted that consistency between the in-memory and persisted copies of the database may be compromised due to the time delay. Eventual consistency will occur, unless script execution stopped (like page reload or exit).
+
+###### `indexes`:`Array<string>` (Defaults to an empty array)
+- This is a way to define the indexes of your database. It's equivalent to calling `db.ensureIndex` However, it offers less options. For example, the indexes created using this approach will not be unique by default. If you require unique indexes, you would need to recreate them using `db.ensureIndex` and explicitly define them as unique (check `ensureIndex` below for more information).
+- Nevertheless, it can be considered as a shortcut for defining non-unique database indexes.
+
+###### `cacheLimit`:`number` (Defaults to 1000)
+- To avoid overwhelming user memory with cached data, a cache limit must be set. defaults to 1000 (read more about caching mechanism below).
+
+###### `encode`:`(input:string)=>string` (Defaults to undefined)
+###### `decode`:`(input:string)=>string` (Defaults to undefined)
+
+- The above two methods must be the reverse of each other.
+- By default your documents will be persisted on the IndexedDB database as pure javascript objects, and sent to the remote database as stringified version of those objects.
+- You would use those methods to implement an encryption for example.
+
+```typescript
+import {Database} from "xwebdb"
+
+function encrypt() { /* encrpytion code */ }
+function decrypt() { /* decrpytion code */ }
+
+let db = new Database({
+	ref: "database",
+	encode: (input: string) => encrpyt(input),
+	decode: (input: string) => decrypt(input)
+});
+
+```
+
+
+
+
 ## Object Mapping
-The advantages of defining a model:
+#### Why defining a model
 - It will be considered as a schema for strict typing.
 - `_id` field will be added automatically.
 - You can set getters in the class and use them when querying.
 - You can set default values for properties.
-- Properties with default values will be stripped on persistence so your documents will take less size and send less data when syncing.
+- Properties with default values will be stripped on persistence so your documents will take less size and send less data when syncing. If `stripDefaults` options is set to true on database instantiation.
+
+#### Defining models
+
+#### Defining submodels
+
+#### Inserting documents
+
+#### Using methods and getters
+
 ## Query API & Operators
 ## Update API & Operators
 ## Synchronization
