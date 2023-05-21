@@ -582,8 +582,8 @@ Syntax: `{ <fieldName>: { <operator>: <specification> } }`
 
 #### 2.1. Comparision Operators
 
-| Operator    | `$eq`                                                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `$eq`||
+|-|-|
 | Applies to  | `Any field type`                                                                                                                                                         |
 | Syntax      | `{ <fieldName> : { $eq: <value> } }`                                                                                                                                     |
 | Explanation | Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`. |
