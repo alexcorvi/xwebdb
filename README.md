@@ -1,4 +1,5 @@
 # XWebDB
+
 _pronounced: Cross Web Database_
 
 > Documentation work in progess
@@ -64,15 +65,16 @@ _pronounced: Cross Web Database_
 
 ### Comparision with other databases
 
-|Feature		|LocalForage|PouchDB		|Dexie.js	|XWebDB			|
-|-				|			|				|			|				|
-|Size			|29KB		|142KB			|80KB		|48KB			|
-|Performance^	|good		|good			|good		|fastest		|
-|Query Language	|Key/value	|Map/Reduce		|Mongo-like	|Mongo-like		|
-|Sync			|no sync	|CouchDB sync	|Paid/Server|Serverless services (free)|
-|Live Queries	|unsupported|unsupported	|Supported	|supported		|
+|Feature |LocalForage|PouchDB |Dexie.js |XWebDB |
+|- | | | | |
+|Size |29KB |142KB |80KB |48KB |
+|Performance^ |good |good |good |fastest |
+|Query Language |Key/value |Map/Reduce |Mongo-like |Mongo-like |
+|Sync |no sync |CouchDB sync |Paid/Server|Serverless services (free)|
+|Live Queries |unsupported|unsupported |Supported |supported |
 
 ### A Word on Performance
+
 [Benchmark](https://alexcorvi.github.io/xwebdb/_benchmark/index.html)
 XWebDB has a pretty good performance. It has the fastest insert, bulk-insert, update, delete, and read times even with large databases.
 
@@ -87,22 +89,27 @@ It's backed by a simple, yet efficient [caching mechanism](https://github.com/al
 However, it is important to note that achieving such high-performance results requires maintaining a complete copy of the database in memory. While this approach may seem unconventional, it poses no significant issues for the intended use cases of this database, particularly given today's standards. The memory footprint for storing 10,000 2KB documents is nearly 20MB, which is considered manageable.
 
 #### Data Complexity
-- Get `O(1)`
-- Insert `O(log n)`
-- Delete `O(log n)`
 
-----
+-   Get `O(1)`
+-   Insert `O(log n)`
+-   Delete `O(log n)`
+
+---
 
 #### A word of caution
+
 While XWebDB may appear to be a promising choice for your next project compared to other databases, it is essential to carefully weigh your decision. Other solutions have undergone rigorous testing, have been battle-tested, and enjoy robust support from larger communities. This is not to discourage you from using XWebDB; in fact, I am currently using it in multiple projects myself. However, it's important to acknowledge that XWebDB is a relatively new project. With time, it is expected to mature and improve. I hope that in the future, this cautionary section can be removed from the documentation. Until then, it is advisable to thoroughly consider your options before making a final decision.
 
 ## Quick start
 
 ### Installation
+
 Install using npm
+
 ```
 npm install xwebdb
 ```
+
 Alternatively, you can include the pre-built and minified file in your HTML:
 
 ```html
@@ -110,17 +117,16 @@ Alternatively, you can include the pre-built and minified file in your HTML:
 ```
 
 ### Database Creation and Configuration
+
 To create a database, you need to instantiate the Database class with a configuration object. The only required property is ref, which specifies the reference name of the database.
 
-
-``` typescript
+```typescript
 import { Database } from "xwebdb";
 
 // Database creation and configuration
 let db = new Database({
-  ref: 'mydatabase1' // Specify the reference name for the database
+	ref: "mydatabase1", // Specify the reference name for the database
 });
-
 ```
 
 For more advanced configurations, please refer to the [Configuration](#Configuration) section below.
@@ -134,24 +140,24 @@ import { Database, Doc } from "xwebdb";
 
 // Define a document class
 class Person extends Doc {
-  firstName: string = ''; // Define a firstName property
-  lastName: string = '';  // Define a lastName property
+	firstName: string = ""; // Define a firstName property
+	lastName: string = ""; // Define a lastName property
 
-  get fullName() {
-    return this.firstName + " " + this.lastName; // Define a computed property fullName
-  }
+	get fullName() {
+		return this.firstName + " " + this.lastName; // Define a computed property fullName
+	}
 }
 
 // Create a database with the specified model
 let db = new Database<Person>({
-  ref: 'mydatabase1',
-  model: Person // Specify the document model
+	ref: "mydatabase1",
+	model: Person, // Specify the document model
 });
 ```
 
 ### Operations
-Once you have a database instance, you can perform various operations on it, such as creating, finding, updating, and deleting documents. Here are some examples:
 
+Once you have a database instance, you can perform various operations on it, such as creating, finding, updating, and deleting documents. Here are some examples:
 
 ```typescript
 // Creating a document
@@ -174,7 +180,9 @@ db.update({ firstName: "Ali" }, { $set: { firstName: "Dina" } });
 db.delete({ firstName: { $eq: "Ali" } });
 // Delete documents with firstName "Ali"
 ```
+
 ### Live Queries
+
 You can also perform live queries that automatically update when the underlying data in the database changes, and also changes the database when it updates. Here's an example:
 
 ```typescript
@@ -186,7 +194,7 @@ let res2 = await db.live({ firstName: "Ali" });
 let res3 = await db.find({ firstName: "Ali" });
 // Get regular non-live results for documents with firstName "Ali"
 
-res1[0].firstName = 'Mario';
+res1[0].firstName = "Mario";
 // Update the firstName property
 
 // The above line updates the database and 'res1'
@@ -197,164 +205,184 @@ res1[0].firstName = 'Mario';
 // 'res3' will retain the old value
 // since it was obtained using 'find' instead of 'live'
 ```
-----
+
+---
+
 # Deep Dive
+
 ## Configuration
+
 ```typescript
 import { Database, Doc } from "xwebdb";
 
 // Model/Schema
 class Person extends Doc {
-  firstName: string = '';
-  lastName: string = '';
-  get fullName() {
-    return this.firstName + " " + this.lastName;
-  }
+	firstName: string = "";
+	lastName: string = "";
+	get fullName() {
+		return this.firstName + " " + this.lastName;
+	}
 }
 
 // Database Creation and Configuration
 let db = new Database<Person>({
-  ref: 'mydatabase',
-  // Define a reference to be used as a database name for IndexedDB
-  model: Person,
-  // Define model for object mapping
-  timestampData: true,
-  // Include "createdAt" and "updatedAt" fields in documents
-  stripDefaults: true,
-  // Remove default values from the IndexedDB and remote database
-  corruptAlertThreshold: 0.2,
-  // Set tolerance level for data corruption
-  deferPersistence: 500,
-  // Resolve promises before persisting operations to IndexedDB
-  indexes: ['firstName'],
-  // Define non-unique indexes
-  cacheLimit: 1000,
-  // Set cache limit to avoid overwhelming memory
-  encode: (obj) => JSON.stringify(obj),
-  // Implement encryption for data persistence
-  decode: (str) => JSON.parse(str),
-  // Implement decryption for data retrieval
+	ref: "mydatabase",
+	// Define a reference to be used as a database name for IndexedDB
+	model: Person,
+	// Define model for object mapping
+	timestampData: true,
+	// Include "createdAt" and "updatedAt" fields in documents
+	stripDefaults: true,
+	// Remove default values from the IndexedDB and remote database
+	corruptAlertThreshold: 0.2,
+	// Set tolerance level for data corruption
+	deferPersistence: 500,
+	// Resolve promises before persisting operations to IndexedDB
+	indexes: ["firstName"],
+	// Define non-unique indexes
+	cacheLimit: 1000,
+	// Set cache limit to avoid overwhelming memory
+	encode: (obj) => JSON.stringify(obj),
+	// Implement encryption for data persistence
+	decode: (str) => JSON.parse(str),
+	// Implement decryption for data retrieval
 });
-
 ```
 
 ###### `ref`:_`string`_ (Required, no default value)
-- The provided string will serve as the name for both the database and table in IndexedDB. Ensure uniqueness for each database to avoid data sharing and unexpected behavior.
+
+-   The provided string will serve as the name for both the database and table in IndexedDB. Ensure uniqueness for each database to avoid data sharing and unexpected behavior.
 
 ###### `model`:`a class that extends Doc` (Defaults to Doc)
-- The model represents the schema and type declaration for your data. It should be a class that extends Doc. The properties of this model define the document's schema, and the values assigned to these properties act as defaults. Using the model ensures consistency and adherence to the schema when creating new documents.
+
+-   The model represents the schema and type declaration for your data. It should be a class that extends Doc. The properties of this model define the document's schema, and the values assigned to these properties act as defaults. Using the model ensures consistency and adherence to the schema when creating new documents.
 
 ```typescript
 import { Doc } from "xwebdb";
 
 class Person extends Doc {
-  firstName: string = 'default name';
-  // Default value for 'firstName'
-  age: number = 25;
-  // Default value for 'age'
+	firstName: string = "default name";
+	// Default value for 'firstName'
+	age: number = 25;
+	// Default value for 'age'
 }
 
 // Create a document using .new
-Person.new({ firstName: 'Ali' });
+Person.new({ firstName: "Ali" });
 // The above returns a document
 // with the default value for 'age'
 // and "Ali" as the value for 'firstName'
 ```
 
-- Strong typing for querying and modification comes from the type declarations of this class.
+-   Strong typing for querying and modification comes from the type declarations of this class.
 
 ###### `timestampData`:`boolean` (Defaults to false)
-- When set to true, the database automatically includes "createdAt" and "updatedAt" fields in documents with their respective values as Date objects.
+
+-   When set to true, the database automatically includes "createdAt" and "updatedAt" fields in documents with their respective values as Date objects.
 
 ###### `stripDefaults`:`boolean` (Defaults to false)
-- By default, both the IndexedDB database and the remote database contain all properties of the documents. However, when the property is set to true, default values are stripped during persistence. These default values will be added back through the object mapping mechanism, ensuring the integrity of the data is preserved. It is important to note that if a different model is used that either does not include those default values or includes different ones, the behavior may vary.
+
+-   By default, both the IndexedDB database and the remote database contain all properties of the documents. However, when the property is set to true, default values are stripped during persistence. These default values will be added back through the object mapping mechanism, ensuring the integrity of the data is preserved. It is important to note that if a different model is used that either does not include those default values or includes different ones, the behavior may vary.
 
 ###### `corruptAlertThreshold`:`number` (Defaults to 0)
-- Set a value between 0 and 1 to introduce tolerance for data corruption. A value greater than 0 allows a level of tolerance for corrupted data. The default value of 0 indicates no tolerance for data corruption.
+
+-   Set a value between 0 and 1 to introduce tolerance for data corruption. A value greater than 0 allows a level of tolerance for corrupted data. The default value of 0 indicates no tolerance for data corruption.
 
 ###### `deferPersistence`:`false | number` (Defaults to false)
-- During document insertion, updating, or deletion, these operations are initially performed on the in-memory copy of the database, subsequently, the changes are reflected in the persisted database, then the promises associated with these operations are resolved. However, if you set this property to a numeric value, the promises will be resolved before the operations are persisted to the IndexedDB database. After a specified number of milliseconds (determined by the value you provided) the operations will be persisted to IndexedDB.
-- This approach can offer optimal performance for applications that prioritize speed, since performance bottleneck is actually IndexedDB transactions. But it should be noted that consistency between the in-memory and persisted copies of the database may be compromised due to the time delay. Eventual consistency will occur, unless script execution stopped (like page reload or exit).
+
+-   During document insertion, updating, or deletion, these operations are initially performed on the in-memory copy of the database, subsequently, the changes are reflected in the persisted database, then the promises associated with these operations are resolved. However, if you set this property to a numeric value, the promises will be resolved before the operations are persisted to the IndexedDB database. After a specified number of milliseconds (determined by the value you provided) the operations will be persisted to IndexedDB.
+-   This approach can offer optimal performance for applications that prioritize speed, since performance bottleneck is actually IndexedDB transactions. But it should be noted that consistency between the in-memory and persisted copies of the database may be compromised due to the time delay. Eventual consistency will occur, unless script execution stopped (like page reload or exit).
 
 ###### `indexes`:`Array<string>` (Defaults to an empty array)
-- This is a way to define the indexes of your database. It's equivalent to calling `db.ensureIndex` However, it offers less options. For example, the indexes created using this approach will not be unique by default. If you require unique indexes, you would need to recreate them using `db.ensureIndex` and explicitly define them as unique (check `ensureIndex` below for more information).
-- Nevertheless, it can be considered as a shortcut for defining non-unique database indexes.
+
+-   This is a way to define the indexes of your database. It's equivalent to calling `db.ensureIndex` However, it offers less options. For example, the indexes created using this approach will not be unique by default. If you require unique indexes, you would need to recreate them using `db.ensureIndex` and explicitly define them as unique (check `ensureIndex` below for more information).
+-   Nevertheless, it can be considered as a shortcut for defining non-unique database indexes.
 
 ###### `cacheLimit`:`number` (Defaults to 1000)
-- To avoid overwhelming user memory with cached data, a cache limit must be set. defaults to 1000 (read more about caching mechanism below).
+
+-   To avoid overwhelming user memory with cached data, a cache limit must be set. defaults to 1000 (read more about caching mechanism below).
 
 ###### `encode`:`(input:string)=>string` (Defaults to undefined)
+
 ###### `decode`:`(input:string)=>string` (Defaults to undefined)
 
-- Implement the encode and decode methods as reverse functions of each other. By default, documents are persisted as JavaScript objects in the IndexedDB database and sent to the remote database as stringified versions of those objects. Use these methods to implement encryption or other transformations for data persistence and retrieval.
+-   Implement the encode and decode methods as reverse functions of each other. By default, documents are persisted as JavaScript objects in the IndexedDB database and sent to the remote database as stringified versions of those objects. Use these methods to implement encryption or other transformations for data persistence and retrieval.
 
 ```typescript
-import {Database} from "xwebdb"
+import { Database } from "xwebdb";
 
-function encrypt() { /* encrpytion code */ }
-function decrypt() { /* decrpytion code */ }
+function encrypt() {
+	/* encrpytion code */
+}
+function decrypt() {
+	/* decrpytion code */
+}
 
 let db = new Database({
 	ref: "database",
 	encode: (input: string) => encrpyt(input),
-	decode: (input: string) => decrypt(input)
+	decode: (input: string) => decrypt(input),
 });
 ```
 
 ## Object Mapping
+
 Object mapping is mechanism by which you define a structure for your data using JavaScript classes.
 
 ```typescript
-import { Doc } from "xwebdb"
+import { Doc } from "xwebdb";
 class Person extends Doc {
-	firstName: string = '';
-    lastName: string = '';
+	firstName: string = "";
+	lastName: string = "";
 	birth: number = 20;
-    // getters
+	// getters
 	get fullName() {
-        return this.firstName + " " + this.lastName
-    }
+		return this.firstName + " " + this.lastName;
+	}
 	get age() {
-		(new Date()).getFullYear() - this.birth;
+		new Date().getFullYear() - this.birth;
 	}
 	// alias
 	name = fullname;
 	// helper method
 	setBirthByAge(age: number) {
-		this.birth = (new Date()).getFullYear() - age;
+		this.birth = new Date().getFullYear() - age;
 	}
 }
 ```
+
 From the above example you can see the following advantages when defining your model:
-- You can set __getters__ in the class and use them when querying.
-- You can use __aliases__ for properties.
-- You can use __helper methods__ as part of your document.
-- You can set __default values__ for properties.
+
+-   You can set **getters** in the class and use them when querying.
+-   You can use **aliases** for properties.
+-   You can use **helper methods** as part of your document.
+-   You can set **default values** for properties.
 
 The model class extends Doc, which is mandatory because:
-- `_id` field will be added automatically. XWebDB, by default uses UUID generator that is even faster than the native `crypto.randomUUID()`.
-- Properties with default values will be stripped on persistence so your documents will take less size and send less data when syncing. If `stripDefaults` options is set to true on database instantiation.
+
+-   `_id` field will be added automatically. XWebDB, by default uses UUID generator that is even faster than the native `crypto.randomUUID()`.
+-   Properties with default values will be stripped on persistence so your documents will take less size and send less data when syncing. If `stripDefaults` options is set to true on database instantiation.
 
 Having your model as a class allows for more creativity and flexibility, the following example implements a basic level of hierarchy in model definition, since two models share similar type of values:
 
 ```typescript
-import { Doc } from "xwebdb"
+import { Doc } from "xwebdb";
 class Person extends Doc {
 	// overwrites the default _id generator
 	_id: string = crypto.randomUUID();
-	firstName: string = '';
-    lastName: string = '';
+	firstName: string = "";
+	lastName: string = "";
 	get fullName() {
-        return this.firstName + " " + this.lastName
-    }
+		return this.firstName + " " + this.lastName;
+	}
 }
 
 class Doctor extends Person {
-	speciality: string = '';
+	speciality: string = "";
 }
 
 class Patient extends Person {
-	illness: string = '';
+	illness: string = "";
 }
 
 let doctorsDB = new Database<Doctor>({
@@ -375,13 +403,12 @@ You can explore more advanced concepts such as OOP, modularity, dependency injec
 Submodels (Child models/subdocuments) are also supported in object mapping using `SubDoc` class and `mapSubModel` function.
 
 ```typescript
-
-import {Doc, SubDoc, mapSubModel} from "xwebdb";
+import { Doc, SubDoc, mapSubModel } from "xwebdb";
 
 /**
-* Toy is a subdocument of a subdocument of a document
-* Sub document definintion must extend "SubDoc"
-*/
+ * Toy is a subdocument of a subdocument of a document
+ * Sub document definintion must extend "SubDoc"
+ */
 class Toy extends SubDoc {
 	name: string = "";
 	price: number = 0;
@@ -391,9 +418,9 @@ class Toy extends SubDoc {
 }
 
 /**
-* Child is a subdocument of a document
-* Sub document definintion must extend "SubDoc"
-*/
+ * Child is a subdocument of a document
+ * Sub document definintion must extend "SubDoc"
+ */
 class Child extends SubDoc {
 	name: string;
 	age: number = 0;
@@ -417,6 +444,7 @@ class Parent extends Doc {
 ```
 
 From the above example you can see that `mapSubModel` takes two arguments:
+
 1. First one: is model definition of the subdocument.
 2. Second one: is the default value for this property/field.
 
@@ -430,18 +458,20 @@ db.insert(Parent.new());
 // fields/properties of the document will all be the default values.
 // to define properties other than the defaults
 // you can pass them as a plain JS object.
-db.insert(Parent.new({
-	name: "Ali",
-	age: 31,
-	male: true,
-	mainChild: Child.new({
-		name: "Kiko"
-	}),
-	// properties that are not
-	// mentioned in this object
-	// will be the defaults defined
-	// in the class above
-}));
+db.insert(
+	Parent.new({
+		name: "Ali",
+		age: 31,
+		male: true,
+		mainChild: Child.new({
+			name: "Kiko",
+		}),
+		// properties that are not
+		// mentioned in this object
+		// will be the defaults defined
+		// in the class above
+	})
+);
 
 // Note that the .new() method
 // doesn't actually insert a new document.
@@ -449,10 +479,13 @@ db.insert(Parent.new({
 ```
 
 #### How would it look when persisiting?
+
 When persisting data, only the actual fields (neither getters nor methods) will be persisted. Using the stripDefaults option on database instantiation will also remove the default values from the persisted data ([StripDefaults](#stripdefaultsboolean-defaults-to-false)).
 
 #### Best practices
-- Define getters instead of functions and methods. This enables you to query documents using the getter value, use them as indexes, and simplifies your queries.
+
+-   Define getters instead of functions and methods. This enables you to query documents using the getter value, use them as indexes, and simplifies your queries.
+
 ```typescript
 class Parent extends Doc {
 	age: number = 9;
@@ -465,35 +498,37 @@ class Parent extends Doc {
 		this.numberOfChildren / this.age;
 	}
 }
-let parentsDB = new Database<Parent>({ref: "parents", model: Parent});
+let parentsDB = new Database<Parent>({ ref: "parents", model: Parent });
 // simple query
 parentsDB.find({ fertility: { $gt: 2 } });
 // if you wouldn't use the computed property your query will be very complex having to use many operators like: $or, $size, $gt and maybe even more.
 ```
-- Always use the static Model.new to prepare new documents before insertion.
+
+-   Always use the static Model.new to prepare new documents before insertion.
+
 ```typescript
 // all fields have default values
-db.insert(Parent.new())
+db.insert(Parent.new());
 // all fields have default values except 'age'
-db.insert(Parent.new({age: 30}))
+db.insert(Parent.new({ age: 30 }));
 ```
-- Define createdAt and updatedAt in your model when you're using them in you database.
-- Never try to directly set a computed property or update it via the update operators.
-- Use  Model.new in conjugation with the upsert operator `$setOnInsert` (more on upserting in the examples below).
-- Always define defaults for your fields in the model.
+
+-   Define createdAt and updatedAt in your model when you're using them in you database.
+-   Never try to directly set a computed property or update it via the update operators.
+-   Use Model.new in conjugation with the upsert operator `$setOnInsert` (more on upserting in the examples below).
+-   Always define defaults for your fields in the model.
 
 ## Query API & Operators
 
 The Query API closely resembles [MongoDB MQL](https://docs.mongodb.com/manual/tutorial/query-documents/). You can query documents based on field equality or utilize a range of comparison operators such as `$lt`, `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$ne`, and `$eq`. Additionally, logical operators like `$or`, `$and`, `$not`, and `$where` are available for more complex querying capabilities.
 
-1. __Field equality__, e.g. `{name:"Ali"}`
-2. __Comparison operators__ (at field level), e.g. `{age:{$gt:10}}`
-3. __logical operators__ (at top level), e.g. `{$and:[{age:10},{name:"Ali"}]`.
+1. **Field equality**, e.g. `{name:"Ali"}`
+2. **Comparison operators** (at field level), e.g. `{age:{$gt:10}}`
+3. **logical operators** (at top level), e.g. `{$and:[{age:10},{name:"Ali"}]`.
 
 ### 1. Field Level Equality
 
 To specify equality conditions in a query filter document, you can use `{ <FieldName> : <Value> }` expressions. This allows you to find documents that match specific field values. Here are some examples:
-
 
 ```javascript
 // Select all documents where the name is "ozzy"
@@ -502,10 +537,10 @@ db.find({ filter: { name: "ozzy" } });
 // Select all documents where the age is exactly 27
 // and the height is exactly 180
 db.find({
-    filter: {
-        age: 27,
-        height: 180
-    }
+	filter: {
+		age: 27,
+		height: 180,
+	},
 });
 ```
 
@@ -513,7 +548,7 @@ In these examples, the filter field is used to specify the equality conditions f
 
 However, like MongoDB, when dealing with deeply nested objects, simple field-level equality may not work as expected. Consider the following example:
 
-```
+```javascript
 // Suppose you have the following document:
 {
     item: "Box",
@@ -542,14 +577,16 @@ db.find({
 In the case of deeply nested objects, using field-level equality alone will not work. To query deeply nested documents, you need to use the `$deep` operator. The `$deep` operator allows you to specify nested fields and their values in a query. More information about the `$deep` operator can be found below.
 
 ### 2. Field-level operators
+
 Syntax: `{ <fieldName>: { <operator>: <specification> } }`
 
 #### 2.1. Comparision Operators
->|Operator|`$eq`|
-|-|-|
-|Applies to|`Any field type`|
-|Syntax|`{ <fieldName> : { $eq: <value> } }`|
-|Explanation|Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`.|
+
+| Operator    | `$eq`                                                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Applies to  | `Any field type`                                                                                                                                                         |
+| Syntax      | `{ <fieldName> : { $eq: <value> } }`                                                                                                                                     |
+| Explanation | Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`. |
 
 ```typescript
 // Example
@@ -558,94 +595,94 @@ db.find({ filter: { name: { $eq: "ozzy" } } });
 db.find({ filter: { name: "ozzy" } });
 ```
 
-
-
 ##### `$in`
 
 ##### `$in`
-
-
 
 ## Update API & Operators
+
 ## Synchronization
+
 ## Live Queries & Frontend Frameworks
+
 Live queries features enable you to query a set of documents as an observable array. Meaning, that the query value will change once the database has been updated and any modification you do on the query result will also be reflected on the database. Think of it like a two-way data-binding but for databases.
+
 ## Deeply nested documents
+
 ## Caching
 
-
 ### Current progress
-- [x] Split database options into fields
-- [x] indexing as an option on creation
-- [x] AVLTree & Indexing
-	- [ ] test sorted dictionary
-- [x] Modelling system
-- [x] Query API
-- [x] Persistence
-- [x] Strong-typing
-- [ ] Sync Adapters
-	- [x] Memory (for testing)
-	- [x] Cloudflare KV Adapter
-	- [ ] CosmosDB Adapter
-	- [ ] DynamoDB Adapter
-	- [ ] Firestore Adapter
-	- [ ] S3 Adapter (not advised)
-- [x] Replication/sync system
-	- [ ] Get all keys might be too expensive?
-	- [x] Basic functional sync functionality
-	- [x] Memory adapter (for demo & tests)
-	- [x] Write tests
-		- [x] Sync Integration
-		- [x] Check sync function step (diff) on all tests
-	- [x] Work with conflicts
-	- [x] transaction log truncation (deleted? updated again?)
-	- [x] idb operations in bulk for perf improvements
-	- [x] invalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
-	- [x] force sync (regardless of ongoing/hash)
-	- [x] test devalidation
-- [ ] Setup Sync demo
-- [ ] Split optional functionalities into modules
-	- [ ] Extensibility (hooks?)
-	- [ ] Adapters (each)
-	- [ ] Syncing
-	- [ ] e2e data encryption
-	- [ ] Reactive
-- [ ] Performance
-	- [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
-	- [x] q
-	- [ ] $ deep?
-	- [x] Defer all IndexedDB interactions and do them in bulk (especially writes & deletes)
-		- [x] test
-	- [ ] Compare with other DBs
-	- [x] AVL Tree
-- [x] Reactive
-	- [x] Make observable nested arrays possible 
-		- [x] TESTING REQUIRED: write unit core tests for "observable"
-	- [x] use live() to return an observable result that will be consumed by the application
-		- [x] TESTING REQUIRED: write integration tests for "live"
-	- [x] UI frameworks state should update automatically once the database updates (if the update)
-	- [x] observe this result for changes from the UI framework side and reflect those changes onto the DB
-		- [x] since updates are in batch, merge multiple operations on the same document
-		- [x] TESTING REQUIRED: write integration tests for "live"
-	- [x] observe changes in the database and reflect them onto the live query and hence the application
-		- [x] TESTING REQUIRED: write integration tests for "live"
-	- [x] Ability to kill live query
-- [x] Improve `Class Database` API
-- [x] Strip defaults before persisting
-	- [x] Test (include date objects in the test)
-- [x] Test modelling (and submodelling) integration
-- [ ] Implement more mongodb operators
-- [x] Strong-typing of $deep and deeply nested
-- [ ] Code review of all old code base
-	- [ ] cursor.ts
-	- [ ] datastore.ts
-	- [ ] indexes.ts
-- [ ] Implement pure dot notation (other than $deep)
-- [ ] Examples
-- [ ] Benchmark
-- [ ] Docs
-- [ ] Landing page
 
+-   [x] Split database options into fields
+-   [x] indexing as an option on creation
+-   [x] AVLTree & Indexing
+    -   [ ] test sorted dictionary
+-   [x] Modelling system
+-   [x] Query API
+-   [x] Persistence
+-   [x] Strong-typing
+-   [ ] Sync Adapters
+    -   [x] Memory (for testing)
+    -   [x] Cloudflare KV Adapter
+    -   [ ] CosmosDB Adapter
+    -   [ ] DynamoDB Adapter
+    -   [ ] Firestore Adapter
+    -   [ ] S3 Adapter (not advised)
+-   [x] Replication/sync system
+    -   [ ] Get all keys might be too expensive?
+    -   [x] Basic functional sync functionality
+    -   [x] Memory adapter (for demo & tests)
+    -   [x] Write tests
+        -   [x] Sync Integration
+        -   [x] Check sync function step (diff) on all tests
+    -   [x] Work with conflicts
+    -   [x] transaction log truncation (deleted? updated again?)
+    -   [x] idb operations in bulk for perf improvements
+    -   [x] invalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
+    -   [x] force sync (regardless of ongoing/hash)
+    -   [x] test devalidation
+-   [ ] Setup Sync demo
+-   [ ] Split optional functionalities into modules
+    -   [ ] Extensibility (hooks?)
+    -   [ ] Adapters (each)
+    -   [ ] Syncing
+    -   [ ] e2e data encryption
+    -   [ ] Reactive
+-   [ ] Performance
+    -   [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
+    -   [x] q
+    -   [ ] $ deep?
+    -   [x] Defer all IndexedDB interactions and do them in bulk (especially writes & deletes)
+        -   [x] test
+    -   [ ] Compare with other DBs
+    -   [x] AVL Tree
+-   [x] Reactive
+    -   [x] Make observable nested arrays possible
+        -   [x] TESTING REQUIRED: write unit core tests for "observable"
+    -   [x] use live() to return an observable result that will be consumed by the application
+        -   [x] TESTING REQUIRED: write integration tests for "live"
+    -   [x] UI frameworks state should update automatically once the database updates (if the update)
+    -   [x] observe this result for changes from the UI framework side and reflect those changes onto the DB
+        -   [x] since updates are in batch, merge multiple operations on the same document
+        -   [x] TESTING REQUIRED: write integration tests for "live"
+    -   [x] observe changes in the database and reflect them onto the live query and hence the application
+        -   [x] TESTING REQUIRED: write integration tests for "live"
+    -   [x] Ability to kill live query
+-   [x] Improve `Class Database` API
+-   [x] Strip defaults before persisting
+    -   [x] Test (include date objects in the test)
+-   [x] Test modelling (and submodelling) integration
+-   [ ] Implement more mongodb operators
+-   [x] Strong-typing of $deep and deeply nested
+-   [ ] Code review of all old code base
+    -   [ ] cursor.ts
+    -   [ ] datastore.ts
+    -   [ ] indexes.ts
+-   [ ] Implement pure dot notation (other than $deep)
+-   [ ] Examples
+-   [ ] Benchmark
+-   [ ] Docs
+-   [ ] Landing page
 
 Reactive queries with UI frameworks:
 TODO: react classes
