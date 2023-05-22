@@ -9,7 +9,68 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, minimum-scale=1.0"
 		/>
+		<script src="./dist/xwebdb.js"></script>
 		<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
+		<style>
+			section.cover.show {
+				display: block !important;
+			}
+			.cover .title {
+				padding: 15px;
+				text-align: center;
+				width: 100%;
+			}
+
+			.cover .title h1,
+			.cover .title p {
+				margin-bottom: 0;
+				margin-top: 0;
+			}
+			.cover .editor {
+				width: 100%;
+				height: 400px;
+			}
+			table#playground {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			table#playground tr:nth-of-type(1) td {
+				background: #ffffff9c;
+				padding: 5px;
+				border-right: 1px solid #ffffff;
+				border-top: 1px solid #ffffff;
+			}
+
+			table#playground caption {
+				background: #fafafa91;
+				padding: 10px;
+				border-top: 1px solid #ffffff;
+			}
+
+			table#playground td {
+				position: relative;
+			}
+
+			table#playground button {
+				background: #607d8b;
+				color: #fff;
+				border: 1px solid #e3e3e3;
+				padding: 10px;
+				width: 38%;
+				display: block;
+				position: absolute;
+				bottom: 5px;
+				z-index: 9999;
+				border-radius: 5px;
+				right: 5px;
+				cursor: pointer;
+			}
+
+			table#playground button:hover {
+				background: #263238;
+			}
+		</style>
 	</head>
 	<body>
 		<div id="app"></div>
@@ -24,11 +85,79 @@
 		<script>
 			window.$docsify = {
 				maxLevel: 4,
+				coverpage: true,
 			};
 		</script>
 		<script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
 		<script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
-		<script src="https://unpkg.com/docsify-plugin-flexible-alerts"></script>
+		<script src="//cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
+		<script src="//unpkg.com/docsify-plugin-flexible-alerts"></script>
+		<script src="//cdn.jsdelivr.net/npm/ace-builds@1.22.0/src-min-noconflict/ace.min.js"></script>
+    <script src="//unpkg.com/json5@2.2.3/dist/index.min.js"></script>
+		<link
+			href="//cdn.jsdelivr.net/npm/ace-builds@1.22.0/css/ace.min.css"
+			rel="stylesheet"
+		/>
+		<script>
+			let db, query, result;
+			window.addEventListener("load", function () {
+				// Code to be executed when all resources (including images and stylesheets) have finished loading
+				let cover = document.getElementsByClassName("cover")[0];
+				cover.innerHTML = `
+          <div class="title">
+            <h1>XWebDB</h1>
+            <p>A fast, lightweight, NoSQL, persisting & syncing database for the browser</p>
+          </div>
+          <table id="playground">
+            <caption>Playground</caption>
+            <tr>
+              <td width="33.33%">Database (documents in JSON)</td>
+              <td width="33.33%">Query (MQL in JSON)</td>
+              <td width="33.33%">Result</td>
+            </tr>
+            <tr>
+              <td><div id="database" class="editor">[
+  {
+    "name": "Ali",
+    "age": 31,
+    "male": true,
+    "languages": ["js", "php"],
+    "days": [2, 5, 6]
+  },
+  {
+    "name": "Dina",
+    "age": 30,
+    "male": false,
+    "languages": [],
+    "days": [1, 5, 7]
+  }
+]</div></td>
+              <td><div id="query" class="editor">{"name": "Ali"}</div><button onclick="runQuery()">Run</button></td>
+              <td><div id="result" class="editor"></div></td>
+            </tr>
+          </table>
+        `;
+
+				db = ace.edit("database");
+				query = ace.edit("query");
+				result = ace.edit("result");
+
+				result.setReadOnly(true);
+			});
+
+			async function runQuery() {
+				try {
+          let xWeb = new xwebdb.Database({ref: "playground"});
+          await xWeb.delete({}, true);
+          let dbJSON = JSON5.parse(db.getValue());
+          await xWeb.insert(dbJSON);
+          let queryJSON = JSON5.parse(query.getValue());
+          let queryResult = await xWeb.find(queryJSON);
+          result.setValue(JSON5.stringify(queryResult, null, '\t'))
+				} catch (e) {
+					result.setValue(e.toString());
+				}
+			}
+		</script>
 	</body>
 </html>
