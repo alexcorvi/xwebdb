@@ -124,7 +124,7 @@ import { Database } from "xwebdb";
 
 // Database creation and configuration
 let db = new Database({
-	ref: "mydatabase1", // Specify the reference name for the database
+	ref: "my-database", // Specify the reference name for the database
 });
 ```
 
@@ -152,7 +152,7 @@ let db =
 	new Database() <
 	Person >
 	{
-		ref: "mydatabase1",
+		ref: "my-database1",
 		model: Person, // Specify the document model
 	};
 ```
@@ -229,7 +229,7 @@ let db =
 	new Database() <
 	Person >
 	{
-		ref: "mydatabase",
+		ref: "my-database",
 		// Define a reference to be used as a database name for IndexedDB
 		model: Person,
 		// Define model for object mapping
@@ -407,15 +407,15 @@ let patientsDB =
 
 You can explore more advanced concepts such as OOP, modularity, dependency injection, decorators, mixins, and more.
 
-### Subdocuments Mapping
+### Sub-documents Mapping
 
-Submodels (Child models/subdocuments) are also supported in object mapping using `SubDoc` class and `mapSubModel` function.
+Submodels (Child models/sub-documents) are also supported in object mapping using `SubDoc` class and `mapSubModel` function.
 
 ```javascript
 import { Doc, SubDoc, mapSubModel } from "xwebdb";
 
 /**
- * Toy is a subdocument of a subdocument of a document
+ * Toy is a sub-document of a sub-document of a document
  * Sub document definintion must extend "SubDoc"
  */
 class Toy extends SubDoc {
@@ -427,7 +427,7 @@ class Toy extends SubDoc {
 }
 
 /**
- * Child is a subdocument of a document
+ * Child is a sub-document of a document
  * Sub document definintion must extend "SubDoc"
  */
 class Child extends SubDoc {
@@ -454,7 +454,7 @@ class Parent extends Doc {
 
 From the above example you can see that `mapSubModel` takes two arguments:
 
-1. First one: is model definition of the subdocument.
+1. First one: is model definition of the sub-document.
 2. Second one: is the default value for this property/field.
 
 ### Inserting documents
@@ -954,6 +954,7 @@ db.find({
 	},
 });
 ```
+
 <!-- tabs:end -->
 
 ##### `$size`
@@ -974,6 +975,332 @@ The `$size` operator matches any array with the number of elements (length of th
 // field is an array that has 10 elements.
 db.find({ filter: { tags: { $size: 10 } } });
 ```
+
+<!-- tabs:end -->
+
+##### Other operators behavior on arrays
+
+The array fields has the operators `$all`, `$elemMatch` and `$size` specific for them. However, all the operators mentioned earlier can also be applied to arrays, and they will return true if any element in the array matches the specified condition.
+
+Here is a summary of how the operators work when applied to arrays:
+
+-   `$eq`: Matches an array if it contains an element equal to the value specified by the operator.
+-   `$ne`: Matches an array if it contains an element different from the value specified by the operator.
+-   `$gt`: Matches an array if it contains a number greater than the value specified by the operator.
+-   `$lt`: Matches an array if it contains a number less than the value specified by the operator.
+-   `$gte`: Matches an array if it contains a number greater than or equal to the value specified by the operator.
+-   `$lte`: Matches an array if it contains a number less than or equal to the value specified by the operator.
+-   `$in`: Matches an array if it contains any of the values specified by the operator.
+-   `$nin`: Matches an array if it contains none of the values specified by the operator.
+-   `$mod`: Matches an array if it contains a number that, when divided by the divisor specified by the operator, yields the remainder specified by the operator.
+-   `$regex`: Matches an array if it contains a string that matches the regular expression specified by the operator.
+-   `$exists`: Matches any given array.
+-   `$type`: Matches an array if the array itself is of the type "array" as specified by the operator.
+
+These operators provide flexibility for querying and filtering arrays based on various conditions.
+
+#### 2.5 Negation operator
+
+All the above operators can be negated using the `$not` operator.
+
+```javascript
+// find all documents
+// where they have "tags" that is not of length 10
+db.find({ filter: { tags: { $not: { $size: 10 } } } });
+
+// similar to $ne
+db.find({ filter: { name: { $not: { $eq: "ozzy" } } } });
+
+// find documents where the "name" field
+// is a not a string
+db.find({ filter: { name: { $not: { $type: "string" } } } });
+
+// select documents where the "tags"
+// field is an array that doesn't have "music" & "art"
+db.find({ filter: { tags: { $not: { $all: ["music", "art"] } } } });
+
+// select documents where the "years" field
+// is an even number
+db.find({
+	filter: {
+		years: {
+			$not: {
+				$mod: [2, 1],
+			},
+		},
+	},
+});
+
+// ...etc
+```
+
+### 3. Top-level operators
+
+##### `$and`
+
+`$and` performs a logical AND operation on an array of two or more expressions (e.g. `<field level query 1>`, `<field level query 2>` , etc.) and selects the documents that satisfy all the expressions in the array. The `$and` operator uses short-circuit evaluation. If the first expression (e.g. `<field level query 1>`) evaluates to false, XWebDB will not evaluate the remaining expressions.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+**Syntax**
+
+```javascript
+{
+    $and: [
+        <query1>,
+        <query2>,
+        <query3>,
+        ...etc
+    ]
+}
+```
+
+###### **Example**
+
+```javascript
+/**
+ * Select a document where the name
+ * isn't equal to "ali" and the property exists
+ */
+db.find({
+	filter: {
+		$and: [{ $name: { $ne: "ali" } }, { $name: { $exists: true } }],
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$nor`
+
+`$nor` performs a logical NOR operation on an array of one or more query expression and selects the documents that fail all the query expressions in the array.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+**Syntax**
+
+```javascript
+{
+    $nor: [
+        <query1>,
+        <query2>,
+        <query3>,
+        ...etc
+    ]
+}
+```
+
+###### **Example**
+
+```javascript
+/**
+ * Select a document where the "name" is not "alex"
+ * and the age is not 13
+ */
+db.find({
+	filter: {
+		$nor: [{ $name: "alex" }, { $age: 13 }],
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$or`
+
+The `$or` operator performs a logical OR operation on an array of two or more expressions and selects the documents that satisfy at least one of the expressions.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+**Syntax**
+
+```javascript
+{
+    $or: [
+        <query1>,
+        <query2>,
+        <query3>,
+        ...etc
+    ]
+}
+```
+
+###### **Example**
+
+```javascript
+/**
+ * Select a document where the "name" is not "ali"
+ * or the age is not 13
+ */
+
+db.find({
+	filter: {
+		$or: [{ name: "ali" }, { $age: 13 }],
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$where`
+
+Matches the documents that when evaluated by the given function would return true.
+
+> [!WARNING]
+> The `$where` provides greatest flexibility, but requires that the database processes the JavaScript expression or function for each document in the collection. It's highly advisable to avoid using the `$where` operator and instead use indexed getters as explained in the object mapping section of this documentation.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+**Syntax**
+
+```javascript
+{
+    $where: (this: Model) => boolean
+}
+```
+
+###### **Example**
+
+```javascript
+/**
+ * Select a document where the "name"
+ * is 5 characters long and ends with "x"
+ */
+
+db.find({
+	filter: {
+		$where: function () {
+			// DO NOT use arrow function here
+			return this.name.length === 5 && this.name.endsWith("x");
+		},
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$deep`
+
+The `$deep` operator is the only operator in XWebDB that doesn't exist in MongoDB. It has been introduced as an alternative to the dot notation to match deep fields in sub-documents.
+
+Take the following document for example:
+
+```javascript
+{
+	item: "box",
+	dimensions: {
+		height: 100,
+		width: 50
+	}
+}
+```
+
+The following queries will behave as follows:
+
+```javascript
+db.find({ dimensions: { height: 100 } });
+// will not match, because field-level literal equality
+// requires the query object to exactly equal the document object
+
+db.find({ $deep: { dimensions: { height: 100 } } });
+// the above query will match the document
+```
+
+The reason that the `$deep` operator has been added is to keep strict typing even when querying deeply nested objects. Since it is not possible (in typescript) to define strict typings for the dot notation.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+**Syntax**
+
+```javascript
+{
+    $deep: <query>
+}
+```
+
+###### **Example**
+
+Basic example:
+
+```javascript
+// document
+{
+	item: "box",
+	dimensions: {
+		height: 100,
+		width: 50
+	}
+}
+
+db.find({ $deep: { dimensions: { height: 100 } } });
+```
+
+You can specify multiple deep fields:
+
+```javascript
+//documents
+{
+	name: {
+		first: "ali",
+		last: "saleem",
+	}
+}
+{
+	name: {
+		first: "john",
+		last: "cena",
+	}
+}
+
+db.find({
+	$deep: {
+		name: {
+			first: { $in: ["ali", "john"] },
+			last: { $in: ["saleem", "cena"] },
+		},
+	}
+});
+```
+
+You can use the `$deep` operator even in array elements by defining their index:
+
+```javascript
+// document:
+{
+	name: "ali",
+	children: [
+		{
+			name: "keko",
+			age: 2,
+		},
+		{
+			name: "kika",
+			age: 1,
+		}
+	]
+}
+
+db.find({
+	$deep: {
+		children: {
+			0: {
+				age: { $gt : 1 }
+			}
+		}
+	}
+})
+```
+
 <!-- tabs:end -->
 
 ## Update API & Operators
