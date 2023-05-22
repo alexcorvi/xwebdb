@@ -99,8 +99,6 @@ However, it is important to note that achieving such high-performance results re
 > [!WARNING]
 > While XWebDB may appear to be a promising choice for your next project compared to other databases, it is essential to carefully weigh your decision. Other solutions have undergone rigorous testing, have been battle-tested, and enjoy robust support from larger communities. This is not to discourage you from using XWebDB; in fact, I am currently using it in multiple projects myself. However, it's important to acknowledge that XWebDB is a relatively new project. With time, it is expected to mature and improve. I hope that in the future, this cautionary section can be removed from the documentation. Until then, it is advisable to thoroughly consider your options before making a final decision.
 
-
-
 ## Quick start
 
 ### Installation
@@ -390,15 +388,21 @@ class Patient extends Person {
 	illness: string = "";
 }
 
-let doctorsDB = new Database<Doctor>({
-	model: Doctor,
-	ref: "doctors",
-});
+let doctorsDB =
+	new Database() <
+	Doctor >
+	{
+		model: Doctor,
+		ref: "doctors",
+	};
 
-let patientsDB = new Database<Patient>({
-	model: Patient,
-	ref: "patients",
-});
+let patientsDB =
+	new Database() <
+	Patient >
+	{
+		model: Patient,
+		ref: "patients",
+	};
 ```
 
 You can explore more advanced concepts such as OOP, modularity, dependency injection, decorators, mixins, and more.
@@ -503,7 +507,7 @@ class Parent extends Doc {
 		this.numberOfChildren / this.age;
 	}
 }
-let parentsDB = new Database<Parent>({ ref: "parents", model: Parent });
+let parentsDB = new Database() < Parent > { ref: "parents", model: Parent };
 // simple query
 parentsDB.find({ fertility: { $gt: 2 } });
 // if you wouldn't use the computed property your query will be very complex having to use many operators like: $or, $size, $gt and maybe even more.
@@ -585,19 +589,20 @@ In the case of deeply nested objects, using field-level equality alone will not 
 
 Syntax: `{ <fieldName>: { <operator>: <specification> } }`
 
-#### 2.1. Comparision Operators
+#### 2.1. Comparison Operators
 
-#### `$eq`
+##### `$eq`
 
 Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`.
 
 <!-- tabs:start -->
 
-##### **Specification**
-- Applies to: `Any field type`
-- Syntax: `{ <fieldName> : { $eq: <value> } }`
+###### **Specification**
 
-##### **Example**
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $eq: <value> } }`
+
+###### **Example**
 
 ```javascript
 // Example
@@ -606,6 +611,369 @@ db.find({ filter: { name: { $eq: "ozzy" } } });
 db.find({ filter: { name: "ozzy" } });
 ```
 
+<!-- tabs:end -->
+
+##### `$ne`
+
+$ne selects the documents where the value of the field is not equal to the specified value. This includes documents that do not contain the field.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $ne: <value> } }`
+
+###### **Example**
+
+```javascript
+// selecting all documents where "name"
+// does not equal "ozzy"
+db.find({ filter: { name: { $ne: "ozzy" } } });
+```
+
+<!-- tabs:end -->
+
+##### `$gt`
+
+selects those documents where the value of the field is greater than (i.e. `>`) the specified value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax: `{ <fieldName> : { $gt: <value> } }`
+
+###### **Example**
+
+```javascript
+// applied on a number field
+db.find({ filter: { year: { $gt: 9 } } });
+
+// applied on a date field
+db.find({
+	filter: {
+		createdAt: { $gt: new Date(1588134729462) },
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$lt`
+
+selects those documents where the value of the field is less than (i.e. `<`) the specified value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax: `{ <fieldName> : { $lt: <value> } }`
+
+###### **Example**
+
+```javascript
+// applied on a number field
+db.find({ filter: { year: { $lt: 9 } } });
+
+// applied on a date field
+db.find({
+	filter: {
+		createdAt: { $lt: new Date(1588134729462) },
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$gte`
+
+selects those documents where the value of the field is greater than or equal to (i.e. `>=`) the specified value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax: `{ <fieldName> : { $gte: <value> } }`
+
+###### **Example**
+
+```javascript
+// applied on a number field
+db.find({ filter: { year: { $gte: 9 } } });
+
+// applied on a date field
+db.find({
+	filter: {
+		createdAt: { $gte: new Date(1588134729462) },
+	},
+});
+```
+
+##### `$lte`
+
+selects those documents where the value of the field is less than or equal to (i.e. `<=`) the specified value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax: `{ <fieldName> : { $lte: <value> } }`
+
+###### **Example**
+
+```javascript
+// applied on a number field
+db.find({ filter: { year: { $lte: 9 } } });
+
+// applied on a date field
+db.find({
+	filter: {
+		createdAt: { $lte: new Date(1588134729462) },
+	},
+});
+```
+
+<!-- tabs:end -->
+
+##### `$in`
+
+The `$in` operator selects the documents where the value of a field equals any value in the specified array.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $in: [<value1>, <value2>, ... etc] } }`
+
+###### **Example**
+
+```javascript
+// find documents where the "name"
+// field is one of the specified
+// in the array
+db.find({ filter: { name: { $in: ["ali", "john", "dina"] } } });
+```
+
+<!-- tabs:end -->
+
+##### `$nin`
+
+The `$nin` operator (opposite of `$in`) selects the documents where the value of a field **doesn't** equals any value in the specified array.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $nin: [<value1>, <value2>, ... etc] } }`
+
+###### **Example**
+
+```javascript
+// find documents where the "name"
+// field is one of the specified
+// in the array
+db.find({ filter: { name: { $nin: ["ali", "john", "dina"] } } });
+```
+
+<!-- tabs:end -->
+
+#### 2.2 Element operators
+
+##### `$exists`
+
+When `<boolean>` is passed and is `true`, `$exists` matches the documents that contain the field, including documents where the field value is null. If `<boolean>` is `false`, the query returns only the documents that do not contain the field.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $exists: <boolean> } }`
+
+###### **Example**
+
+```javascript
+// select documents where the "name"
+// field is defined, even if it is null
+db.find({ filter: { name: { $exists: true } } });
+
+// select documents where the "name"
+// field is not defined
+db.find({ filter: { name: { $exists: false } } });
+```
+
+<!-- tabs:end -->
+
+##### `$type`
+
+`$type` selects documents where the value of the field is an instance of the specified type. Type specification can be one of the following:
+
+-   `"string"`
+-   `"number"`
+-   `"boolean"`
+-   `"undefined"`
+-   `"array"`
+-   `"null"`
+-   `"date"`
+-   `"object"`
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Any field type`
+-   Syntax: `{ <fieldName> : { $type: <spec> } }`
+
+###### **Example**
+
+```javascript
+// find documents where the "name" field
+// is a string.
+db.find({ filter: { name: { $type: "string" } } });
+```
+
+<!-- tabs:end -->
+
+#### 2.3 Evaluation operators
+
+##### `$mod`
+
+Select documents where the value of a field divided by a divisor has the specified remainder (i.e. perform a modulo operation to select documents).
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax: `{ <fieldName> : { $mod: [divisor, remainder] } }`
+
+###### **Example**
+
+```javascript
+// select documents where the "years" field
+// is an even number
+db.find({
+	filter: {
+		years: {
+			$mod: [2, 0],
+		},
+	},
+});
+
+// select documents where the "years" field
+// is an odd number
+db.find({
+	filter: {
+		years: {
+			$mod: [2, 1],
+		},
+	},
+});
+```
+
+##### `$regex`
+
+Selects documents which tests true for a given regular expression.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `string` fields
+-   Syntax: `{ <fieldName> : { $regex: <RegExp> } }`
+
+###### **Example**
+
+```javascript
+// select documents where the "name"
+// field starts with either "a" or "A".
+db.find({ filter: { name: { $regex: /^a/i } } });
+```
+
+<!-- tabs:end -->
+
+#### 2.4 Array operators
+
+##### `$all`
+
+The `$all` operator selects the documents where the value of a field is an array that contains all the specified elements.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `array` fields
+-   Syntax: `{ <fieldName> : { $all: [<value1>, <value2>,...etc] } }`
+
+###### **Example**
+
+```javascript
+// select documents where the "tags" field
+// is an array that has "music" & "art"
+db.find({ filter: { tags: { $all: ["music", "art"] } } });
+```
+
+<!-- tabs:end -->
+
+##### `$elemMatch`
+
+The `$elemMatch` operator matches documents that contain an array field with at least one element that matches all the specified query criteria.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `array` fields
+-   Syntax: `{{<fieldName>:{$elemMatch:{<query1>,<query2>,...etc}}}`
+
+###### **Example**
+
+```javascript
+// select documents where the "price" field
+// is an array field that has an element
+// matching the following criteria
+// has an even number
+// less than 8
+// and greater than 0
+db.find({
+	filter: {
+		price: {
+			$elemMatch: {
+				$mod: [2, 0],
+				$lt: 8,
+				$gt: 0,
+			},
+		},
+	},
+});
+```
+<!-- tabs:end -->
+
+##### `$size`
+
+The `$size` operator matches any array with the number of elements (length of the array) specified by the argument.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `array` fields
+-   Syntax: `{ <fieldName> : { $size: number } }`
+
+###### **Example**
+
+```javascript
+// select documents where the "tags"
+// field is an array that has 10 elements.
+db.find({ filter: { tags: { $size: 10 } } });
+```
 <!-- tabs:end -->
 
 ## Update API & Operators
@@ -705,3 +1073,7 @@ TODO: react classes
 // ========================
 // REACT: https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js
 // ========================
+
+```
+
+```
