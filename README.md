@@ -4,7 +4,7 @@ _pronounced: Cross Web Database_
 
 > Documentation work in progess
 
-### What is this?
+## What is this?
 
 <table>
 	<tr>
@@ -96,9 +96,10 @@ However, it is important to note that achieving such high-performance results re
 
 ---
 
-#### A word of caution
+> [!WARNING]
+> While XWebDB may appear to be a promising choice for your next project compared to other databases, it is essential to carefully weigh your decision. Other solutions have undergone rigorous testing, have been battle-tested, and enjoy robust support from larger communities. This is not to discourage you from using XWebDB; in fact, I am currently using it in multiple projects myself. However, it's important to acknowledge that XWebDB is a relatively new project. With time, it is expected to mature and improve. I hope that in the future, this cautionary section can be removed from the documentation. Until then, it is advisable to thoroughly consider your options before making a final decision.
 
-While XWebDB may appear to be a promising choice for your next project compared to other databases, it is essential to carefully weigh your decision. Other solutions have undergone rigorous testing, have been battle-tested, and enjoy robust support from larger communities. This is not to discourage you from using XWebDB; in fact, I am currently using it in multiple projects myself. However, it's important to acknowledge that XWebDB is a relatively new project. With time, it is expected to mature and improve. I hope that in the future, this cautionary section can be removed from the documentation. Until then, it is advisable to thoroughly consider your options before making a final decision.
+
 
 ## Quick start
 
@@ -120,7 +121,7 @@ Alternatively, you can include the pre-built and minified file in your HTML:
 
 To create a database, you need to instantiate the Database class with a configuration object. The only required property is ref, which specifies the reference name of the database.
 
-```typescript
+```javascript
 import { Database } from "xwebdb";
 
 // Database creation and configuration
@@ -135,7 +136,7 @@ For more advanced configurations, please refer to the [Configuration](#Configura
 
 You can define a document model by extending the Doc class and specifying its properties and methods. Here's an example using a Person class:
 
-```typescript
+```javascript
 import { Database, Doc } from "xwebdb";
 
 // Define a document class
@@ -149,17 +150,20 @@ class Person extends Doc {
 }
 
 // Create a database with the specified model
-let db = new Database<Person>({
-	ref: "mydatabase1",
-	model: Person, // Specify the document model
-});
+let db =
+	new Database() <
+	Person >
+	{
+		ref: "mydatabase1",
+		model: Person, // Specify the document model
+	};
 ```
 
 ### Operations
 
 Once you have a database instance, you can perform various operations on it, such as creating, finding, updating, and deleting documents. Here are some examples:
 
-```typescript
+```javascript
 // Creating a document
 db.insert(Person.new({ firstName: "Ali" }));
 // Create a new document with firstName "Ali"
@@ -185,7 +189,7 @@ db.delete({ firstName: { $eq: "Ali" } });
 
 You can also perform live queries that automatically update when the underlying data in the database changes, and also changes the database when it updates. Here's an example:
 
-```typescript
+```javascript
 // Perform a live query
 let res1 = await db.live({ firstName: "Ali" });
 // Get live results for documents with firstName "Ali"
@@ -208,11 +212,9 @@ res1[0].firstName = "Mario";
 
 ---
 
-# Deep Dive
-
 ## Configuration
 
-```typescript
+```javascript
 import { Database, Doc } from "xwebdb";
 
 // Model/Schema
@@ -225,28 +227,31 @@ class Person extends Doc {
 }
 
 // Database Creation and Configuration
-let db = new Database<Person>({
-	ref: "mydatabase",
-	// Define a reference to be used as a database name for IndexedDB
-	model: Person,
-	// Define model for object mapping
-	timestampData: true,
-	// Include "createdAt" and "updatedAt" fields in documents
-	stripDefaults: true,
-	// Remove default values from the IndexedDB and remote database
-	corruptAlertThreshold: 0.2,
-	// Set tolerance level for data corruption
-	deferPersistence: 500,
-	// Resolve promises before persisting operations to IndexedDB
-	indexes: ["firstName"],
-	// Define non-unique indexes
-	cacheLimit: 1000,
-	// Set cache limit to avoid overwhelming memory
-	encode: (obj) => JSON.stringify(obj),
-	// Implement encryption for data persistence
-	decode: (str) => JSON.parse(str),
-	// Implement decryption for data retrieval
-});
+let db =
+	new Database() <
+	Person >
+	{
+		ref: "mydatabase",
+		// Define a reference to be used as a database name for IndexedDB
+		model: Person,
+		// Define model for object mapping
+		timestampData: true,
+		// Include "createdAt" and "updatedAt" fields in documents
+		stripDefaults: true,
+		// Remove default values from the IndexedDB and remote database
+		corruptAlertThreshold: 0.2,
+		// Set tolerance level for data corruption
+		deferPersistence: 500,
+		// Resolve promises before persisting operations to IndexedDB
+		indexes: ["firstName"],
+		// Define non-unique indexes
+		cacheLimit: 1000,
+		// Set cache limit to avoid overwhelming memory
+		encode: (obj) => JSON.stringify(obj),
+		// Implement encryption for data persistence
+		decode: (str) => JSON.parse(str),
+		// Implement decryption for data retrieval
+	};
 ```
 
 ###### `ref`:_`string`_ (Required, no default value)
@@ -257,7 +262,7 @@ let db = new Database<Person>({
 
 -   The model represents the schema and type declaration for your data. It should be a class that extends Doc. The properties of this model define the document's schema, and the values assigned to these properties act as defaults. Using the model ensures consistency and adherence to the schema when creating new documents.
 
-```typescript
+```javascript
 import { Doc } from "xwebdb";
 
 class Person extends Doc {
@@ -308,7 +313,7 @@ Person.new({ firstName: "Ali" });
 
 -   Implement the encode and decode methods as reverse functions of each other. By default, documents are persisted as JavaScript objects in the IndexedDB database and sent to the remote database as stringified versions of those objects. Use these methods to implement encryption or other transformations for data persistence and retrieval.
 
-```typescript
+```javascript
 import { Database } from "xwebdb";
 
 function encrypt() {
@@ -329,7 +334,7 @@ let db = new Database({
 
 Object mapping is mechanism by which you define a structure for your data using JavaScript classes.
 
-```typescript
+```javascript
 import { Doc } from "xwebdb";
 class Person extends Doc {
 	firstName: string = "";
@@ -365,7 +370,7 @@ The model class extends Doc, which is mandatory because:
 
 Having your model as a class allows for more creativity and flexibility, the following example implements a basic level of hierarchy in model definition, since two models share similar type of values:
 
-```typescript
+```javascript
 import { Doc } from "xwebdb";
 class Person extends Doc {
 	// overwrites the default _id generator
@@ -398,11 +403,11 @@ let patientsDB = new Database<Patient>({
 
 You can explore more advanced concepts such as OOP, modularity, dependency injection, decorators, mixins, and more.
 
-#### Subdocuments Mapping
+### Subdocuments Mapping
 
 Submodels (Child models/subdocuments) are also supported in object mapping using `SubDoc` class and `mapSubModel` function.
 
-```typescript
+```javascript
 import { Doc, SubDoc, mapSubModel } from "xwebdb";
 
 /**
@@ -448,11 +453,11 @@ From the above example you can see that `mapSubModel` takes two arguments:
 1. First one: is model definition of the subdocument.
 2. Second one: is the default value for this property/field.
 
-#### Inserting documents
+### Inserting documents
 
 When trying to insert/create a new document use the `.new()` method.
 
-```typescript
+```javascript
 db.insert(Parent.new());
 // inserts a new "Parent" document.
 // fields/properties of the document will all be the default values.
@@ -478,15 +483,15 @@ db.insert(
 // it merely returns a document in preparation for insertion.
 ```
 
-#### How would it look when persisiting?
+### How would it look when persisiting?
 
 When persisting data, only the actual fields (neither getters nor methods) will be persisted. Using the stripDefaults option on database instantiation will also remove the default values from the persisted data ([StripDefaults](#stripdefaultsboolean-defaults-to-false)).
 
-#### Best practices
+### Best practices
 
 -   Define getters instead of functions and methods. This enables you to query documents using the getter value, use them as indexes, and simplifies your queries.
 
-```typescript
+```javascript
 class Parent extends Doc {
 	age: number = 9;
 	maleChildren: Child[] = mapSubModel(Child, []);
@@ -506,7 +511,7 @@ parentsDB.find({ fertility: { $gt: 2 } });
 
 -   Always use the static Model.new to prepare new documents before insertion.
 
-```typescript
+```javascript
 // all fields have default values
 db.insert(Parent.new());
 // all fields have default values except 'age'
@@ -582,22 +587,26 @@ Syntax: `{ <fieldName>: { <operator>: <specification> } }`
 
 #### 2.1. Comparision Operators
 
-| `$eq`||
-|-|-|
-| Applies to  | `Any field type`                                                                                                                                                         |
-| Syntax      | `{ <fieldName> : { $eq: <value> } }`                                                                                                                                     |
-| Explanation | Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`. |
+#### `$eq`
 
-```typescript
+Specifies equality condition. The $eq operator matches documents where the value of a field equals the specified value. It is equivalent to `{ <FieldName> : <Value> }`.
+
+<!-- tabs:start -->
+
+##### **Specification**
+- Applies to: `Any field type`
+- Syntax: `{ <fieldName> : { $eq: <value> } }`
+
+##### **Example**
+
+```javascript
 // Example
 db.find({ filter: { name: { $eq: "ozzy" } } });
 // same as:
 db.find({ filter: { name: "ozzy" } });
 ```
 
-##### `$in`
-
-##### `$in`
+<!-- tabs:end -->
 
 ## Update API & Operators
 
@@ -611,7 +620,9 @@ Live queries features enable you to query a set of documents as an observable ar
 
 ## Caching
 
-### Current progress
+---
+
+Current progress
 
 -   [x] Split database options into fields
 -   [x] indexing as an option on creation
