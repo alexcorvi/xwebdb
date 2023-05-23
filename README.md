@@ -119,7 +119,7 @@ Alternatively, you can include the pre-built and minified file in your HTML:
 
 To create a database, you need to instantiate the Database class with a configuration object. The only required property is ref, which specifies the reference name of the database.
 
-```javascript
+```typescript
 import { Database } from "xwebdb";
 
 // Database creation and configuration
@@ -128,13 +128,16 @@ let db = new Database({
 });
 ```
 
+> [!WARNING]
+> The above example is oversimplified and shouldn't be used in a real-world application as it doesn't specify the model to be used in the database for object mapping.
+
 For more advanced configurations, please refer to the [Configuration](#Configuration) section below.
 
 ### Object Mapping
 
-You can define a document model by extending the Doc class and specifying its properties and methods. Here's an example using a Person class:
+You can define a document model by extending the Doc class and specifying its properties and methods:
 
-```javascript
+```typescript
 import { Database, Doc } from "xwebdb";
 
 // Define a document class
@@ -148,20 +151,17 @@ class Person extends Doc {
 }
 
 // Create a database with the specified model
-let db =
-	new Database() <
-	Person >
-	{
-		ref: "my-database1",
-		model: Person, // Specify the document model
-	};
+let db = new Database<Person>({
+	ref: "my-database1",
+	model: Person, // Specify the document model
+});
 ```
 
 ### Operations
 
 Once you have a database instance, you can perform various operations on it, such as creating, finding, updating, and deleting documents. Here are some examples:
 
-```javascript
+```typescript
 // Creating a document
 db.insert(Person.new({ firstName: "Ali" }));
 // Create a new document with firstName "Ali"
@@ -187,7 +187,7 @@ db.delete({ firstName: { $eq: "Ali" } });
 
 You can also perform live queries that automatically update when the underlying data in the database changes, and also changes the database when it updates. Here's an example:
 
-```javascript
+```typescript
 // Perform a live query
 let res1 = await db.live({ firstName: "Ali" });
 // Get live results for documents with firstName "Ali"
@@ -212,7 +212,7 @@ res1[0].firstName = "Mario";
 
 ## Configuration
 
-```javascript
+```typescript
 import { Database, Doc } from "xwebdb";
 
 // Model/Schema
@@ -225,31 +225,28 @@ class Person extends Doc {
 }
 
 // Database Creation and Configuration
-let db =
-	new Database() <
-	Person >
-	{
-		ref: "my-database",
-		// Define a reference to be used as a database name for IndexedDB
-		model: Person,
-		// Define model for object mapping
-		timestampData: true,
-		// Include "createdAt" and "updatedAt" fields in documents
-		stripDefaults: true,
-		// Remove default values from the IndexedDB and remote database
-		corruptAlertThreshold: 0.2,
-		// Set tolerance level for data corruption
-		deferPersistence: 500,
-		// Resolve promises before persisting operations to IndexedDB
-		indexes: ["firstName"],
-		// Define non-unique indexes
-		cacheLimit: 1000,
-		// Set cache limit to avoid overwhelming memory
-		encode: (obj) => JSON.stringify(obj),
-		// Implement encryption for data persistence
-		decode: (str) => JSON.parse(str),
-		// Implement decryption for data retrieval
-	};
+let db = new Database<Person>({
+	ref: "my-database",
+	// Define a reference to be used as a database name for IndexedDB
+	model: Person,
+	// Define model for object mapping
+	timestampData: true,
+	// Include "createdAt" and "updatedAt" fields in documents
+	stripDefaults: true,
+	// Remove default values from the IndexedDB and remote database
+	corruptAlertThreshold: 0.2,
+	// Set tolerance level for data corruption
+	deferPersistence: 500,
+	// Resolve promises before persisting operations to IndexedDB
+	indexes: ["firstName"],
+	// Define non-unique indexes
+	cacheLimit: 1000,
+	// Set cache limit to avoid overwhelming memory
+	encode: (obj) => JSON.stringify(obj),
+	// Implement encryption for data persistence
+	decode: (str) => JSON.parse(str),
+	// Implement decryption for data retrieval
+});
 ```
 
 ###### `ref`:_`string`_ (Required, no default value)
@@ -260,7 +257,7 @@ let db =
 
 -   The model represents the schema and type declaration for your data. It should be a class that extends Doc. The properties of this model define the document's schema, and the values assigned to these properties act as defaults. Using the model ensures consistency and adherence to the schema when creating new documents.
 
-```javascript
+```typescript
 import { Doc } from "xwebdb";
 
 class Person extends Doc {
@@ -311,7 +308,7 @@ Person.new({ firstName: "Ali" });
 
 -   Implement the encode and decode methods as reverse functions of each other. By default, documents are persisted as JavaScript objects in the IndexedDB database and sent to the remote database as stringified versions of those objects. Use these methods to implement encryption or other transformations for data persistence and retrieval.
 
-```javascript
+```typescript
 import { Database } from "xwebdb";
 
 function encrypt() {
@@ -332,7 +329,7 @@ let db = new Database({
 
 Object mapping is mechanism by which you define a structure for your data using JavaScript classes.
 
-```javascript
+```typescript
 import { Doc } from "xwebdb";
 class Person extends Doc {
 	firstName: string = "";
@@ -368,7 +365,7 @@ The model class extends Doc, which is mandatory because:
 
 Having your model as a class allows for more creativity and flexibility, the following example implements a basic level of hierarchy in model definition, since two models share similar type of values:
 
-```javascript
+```typescript
 import { Doc } from "xwebdb";
 class Person extends Doc {
 	// overwrites the default _id generator
@@ -388,21 +385,15 @@ class Patient extends Person {
 	illness: string = "";
 }
 
-let doctorsDB =
-	new Database() <
-	Doctor >
-	{
-		model: Doctor,
-		ref: "doctors",
-	};
+let doctorsDB = new Database<Doctor>({
+	model: Doctor,
+	ref: "doctors",
+});
 
-let patientsDB =
-	new Database() <
-	Patient >
-	{
-		model: Patient,
-		ref: "patients",
-	};
+let patientsDB = new Database<Patient>({
+	model: Patient,
+	ref: "patients",
+});
 ```
 
 You can explore more advanced concepts such as OOP, modularity, dependency injection, decorators, mixins, and more.
@@ -411,7 +402,7 @@ You can explore more advanced concepts such as OOP, modularity, dependency injec
 
 Submodels (Child models/sub-documents) are also supported in object mapping using `SubDoc` class and `mapSubModel` function.
 
-```javascript
+```typescript
 import { Doc, SubDoc, mapSubModel } from "xwebdb";
 
 /**
@@ -461,7 +452,7 @@ From the above example you can see that `mapSubModel` takes two arguments:
 
 When trying to insert/create a new document use the `.new()` method.
 
-```javascript
+```typescript
 db.insert(Parent.new());
 // inserts a new "Parent" document.
 // fields/properties of the document will all be the default values.
@@ -495,27 +486,30 @@ When persisting data, only the actual fields (neither getters nor methods) will 
 
 -   Define getters instead of functions and methods. This enables you to query documents using the getter value, use them as indexes, and simplifies your queries.
 
-```javascript
-class Parent extends Doc {
+```typescript
+class Child extends Doc {
 	age: number = 9;
-	maleChildren: Child[] = mapSubModel(Child, []);
-	femaleChildren: Child[] = mapSubModel(Child, []);
-	get numberOfChildren() {
-		return this.maleChildren.length + this.femaleChildren.length;
+	oldToys: Toy[] = mapSubModel(Toy, []);
+	newToys: Toy[] = mapSubModel(Toy, []);
+	get numberOfToys() {
+		return this.oldToys.length + this.newToys.length;
 	}
-	get fertility() {
-		this.numberOfChildren / this.age;
+	get toyEachYear() {
+		return this.numberOfToys / this.age > 1;
 	}
 }
-let parentsDB = new Database() < Parent > { ref: "parents", model: Parent };
+let childrenDB = new Database<Child>({ ref: "children", model: Child });
 // simple query
-parentsDB.find({ fertility: { $gt: 2 } });
-// if you wouldn't use the computed property your query will be very complex having to use many operators like: $or, $size, $gt and maybe even more.
+childrenDB.find({ toyEachYear: { $gt: 2 } });
+// if you wouldn't use the computed property
+// your query will be very complex
+// having to use many operators
+// like: $or, $size, $gt and maybe even more.
 ```
 
 -   Always use the static Model.new to prepare new documents before insertion.
 
-```javascript
+```typescript
 // all fields have default values
 db.insert(Parent.new());
 // all fields have default values except 'age'
@@ -527,29 +521,131 @@ db.insert(Parent.new({ age: 30 }));
 -   Use Model.new in conjugation with the upsert operator `$setOnInsert` (more on upserting in the examples below).
 -   Always define defaults for your fields in the model.
 
-## Query API & Operators
+## Inserting
 
-The Query API closely resembles [MongoDB MQL](https://docs.mongodb.com/manual/tutorial/query-documents/). You can query documents based on field equality or utilize a range of comparison operators such as `$lt`, `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$ne`, and `$eq`. Additionally, logical operators like `$or`, `$and`, `$not`, and `$where` are available for more complex querying capabilities.
+To insert documents in the database use the `insert` method (or alias: `create`), which can either take single document or an array of documents. Remember to always use the `Model.new()` when inserting document.
+
+```typescript
+import { Database, Doc } from "xwebdb";
+
+class Person extends Doc {
+	name: string = "";
+	age: number = 0;
+}
+
+let db = new Database<Person>({ ref: "database", model: Person });
+
+// insert an empty document (with default values)
+db.insert(Person.new({}));
+
+// insert a document with fields
+db.insert(
+	Person.new({
+		name: "ali",
+		age: 12,
+	})
+);
+
+db.insert(
+	Person.new({
+		name: "ali",
+		// age field will have the default value
+	})
+);
+
+// inserting multiple documents at once
+db.insert([Person.new({ name: "ali" }), Person.new({ name: "dina" })]);
+```
+
+The insert method will return a promise that resolves to the number of inserted documents and an array of the inserted documents. The last line of the above example will return a promise that resolves to the following:
+
+```typescript
+{
+	number: 2,
+	docs: [
+		{
+			_id: "ad9436a8-ef8f-4f4c-b051-aa7c7d26a20e",
+			name: "ali",
+			age: 0,
+		},
+		{
+			_id: "38ae1bbd-60a7-4980-bbe9-fce3ffaec51c",
+			name: "dina",
+			age: 0,
+		}
+	]
+}
+```
+
+## Reading
+
+Reading from the database using `read` (alias: `find`):
+
+```typescript
+db.read({ name: "ali" });
+db.find({ name: "ali" }); // alias
+```
+
+The `read` (or `find`) method takes two arguments:
+
+1. The first one is the read query (resembles MongoDB).
+2. The second one is an object that you can use to `skip`, `limit`, `sort`, and `project` the matched documents.
+
+Here's a more elaborate example:
+
+```typescript
+db.read(
+	{ name: "ali" }, // query
+	{
+		skip: 2, // skip the first two matches
+		limit: 10, // limit matches to 10 results
+		project: {
+			// pick-type projection
+			// result will only have
+			// the following props
+			name: 1,
+			age: 1,
+
+			// omit-type projection
+			// result will not have
+			// the following props
+			address: 0,
+			email: 0,
+
+			// NOTE: you can either use
+			// pick-type or omit-type projection
+			// except for _id which is by default
+			// always returned and which you can choose to omit
+		},
+		sort: {
+			name: 1, // ascending sort by name
+			age: -1, // descending sort by age
+			// single or multiple sort elements
+			// can be specified at the same time
+		},
+	}
+);
+```
+
+The Query API (first argument of `read`) closely resembles [MongoDB MQL](https://docs.mongodb.com/manual/tutorial/query-documents/). You can query documents based on field equality or utilize a range of comparison operators such as `$lt`, `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$ne`, and `$eq`. Additionally, logical operators like `$or`, `$and`, `$not`, and `$where` are available for more complex querying capabilities.
 
 1. **Field equality**, e.g. `{name:"Ali"}`
-2. **Comparison operators** (at field level), e.g. `{age:{$gt:10}}`
-3. **logical operators** (at top level), e.g. `{$and:[{age:10},{name:"Ali"}]`.
+2. **Field level operators** (comparison at field level), e.g. `{age:{$gt:10}}`
+3. **Top level operators** (logical at top level), e.g. `{$and:[{age:10},{name:"Ali"}]`.
 
 ### 1. Field Level Equality
 
 To specify equality conditions in a query filter document, you can use `{ <FieldName> : <Value> }` expressions. This allows you to find documents that match specific field values. Here are some examples:
 
-```javascript
-// Select all documents where the name is "ozzy"
-db.find({ filter: { name: "ozzy" } });
+```typescript
+// Select all documents where the name is "ali"
+db.find({ name: "ali" });
 
 // Select all documents where the age is exactly 27
 // and the height is exactly 180
 db.find({
-	filter: {
-		age: 27,
-		height: 180,
-	},
+	age: 27,
+	height: 180,
 });
 ```
 
@@ -557,7 +653,7 @@ In these examples, the filter field is used to specify the equality conditions f
 
 However, like MongoDB, when dealing with deeply nested objects, simple field-level equality may not work as expected. Consider the following example:
 
-```javascript
+```typescript
 // Suppose you have the following document:
 {
     item: "Box",
@@ -604,11 +700,11 @@ Specifies equality condition. The $eq operator matches documents where the value
 
 ###### **Example**
 
-```javascript
+```typescript
 // Example
-db.find({ filter: { name: { $eq: "ozzy" } } });
+db.find({ name: { $eq: "ali" } });
 // same as:
-db.find({ filter: { name: "ozzy" } });
+db.find({ name: "ali" });
 ```
 
 <!-- tabs:end -->
@@ -626,10 +722,10 @@ $ne selects the documents where the value of the field is not equal to the speci
 
 ###### **Example**
 
-```javascript
+```typescript
 // selecting all documents where "name"
-// does not equal "ozzy"
-db.find({ filter: { name: { $ne: "ozzy" } } });
+// does not equal "ali"
+db.find({ name: { $ne: "ali" } });
 ```
 
 <!-- tabs:end -->
@@ -647,15 +743,13 @@ selects those documents where the value of the field is greater than (i.e. `>`) 
 
 ###### **Example**
 
-```javascript
+```typescript
 // applied on a number field
-db.find({ filter: { year: { $gt: 9 } } });
+db.find({ year: { $gt: 9 } });
 
 // applied on a date field
 db.find({
-	filter: {
-		createdAt: { $gt: new Date(1588134729462) },
-	},
+	createdAt: { $gt: new Date(1588134729462) },
 });
 ```
 
@@ -674,15 +768,13 @@ selects those documents where the value of the field is less than (i.e. `<`) the
 
 ###### **Example**
 
-```javascript
+```typescript
 // applied on a number field
-db.find({ filter: { year: { $lt: 9 } } });
+db.find({ year: { $lt: 9 } });
 
 // applied on a date field
 db.find({
-	filter: {
-		createdAt: { $lt: new Date(1588134729462) },
-	},
+	createdAt: { $lt: new Date(1588134729462) },
 });
 ```
 
@@ -701,15 +793,13 @@ selects those documents where the value of the field is greater than or equal to
 
 ###### **Example**
 
-```javascript
+```typescript
 // applied on a number field
-db.find({ filter: { year: { $gte: 9 } } });
+db.find({ year: { $gte: 9 } });
 
 // applied on a date field
 db.find({
-	filter: {
-		createdAt: { $gte: new Date(1588134729462) },
-	},
+	createdAt: { $gte: new Date(1588134729462) },
 });
 ```
 
@@ -726,15 +816,13 @@ selects those documents where the value of the field is less than or equal to (i
 
 ###### **Example**
 
-```javascript
+```typescript
 // applied on a number field
-db.find({ filter: { year: { $lte: 9 } } });
+db.find({ year: { $lte: 9 } });
 
 // applied on a date field
 db.find({
-	filter: {
-		createdAt: { $lte: new Date(1588134729462) },
-	},
+	createdAt: { $lte: new Date(1588134729462) },
 });
 ```
 
@@ -753,11 +841,11 @@ The `$in` operator selects the documents where the value of a field equals any v
 
 ###### **Example**
 
-```javascript
+```typescript
 // find documents where the "name"
 // field is one of the specified
 // in the array
-db.find({ filter: { name: { $in: ["ali", "john", "dina"] } } });
+db.find({ name: { $in: ["ali", "john", "dina"] } });
 ```
 
 <!-- tabs:end -->
@@ -775,11 +863,11 @@ The `$nin` operator (opposite of `$in`) selects the documents where the value of
 
 ###### **Example**
 
-```javascript
+```typescript
 // find documents where the "name"
 // field is one of the specified
 // in the array
-db.find({ filter: { name: { $nin: ["ali", "john", "dina"] } } });
+db.find({ name: { $nin: ["ali", "john", "dina"] } });
 ```
 
 <!-- tabs:end -->
@@ -799,14 +887,14 @@ When `<boolean>` is passed and is `true`, `$exists` matches the documents that c
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "name"
 // field is defined, even if it is null
-db.find({ filter: { name: { $exists: true } } });
+db.find({ name: { $exists: true } });
 
 // select documents where the "name"
 // field is not defined
-db.find({ filter: { name: { $exists: false } } });
+db.find({ name: { $exists: false } });
 ```
 
 <!-- tabs:end -->
@@ -833,10 +921,10 @@ db.find({ filter: { name: { $exists: false } } });
 
 ###### **Example**
 
-```javascript
+```typescript
 // find documents where the "name" field
 // is a string.
-db.find({ filter: { name: { $type: "string" } } });
+db.find({ name: { $type: "string" } });
 ```
 
 <!-- tabs:end -->
@@ -856,24 +944,20 @@ Select documents where the value of a field divided by a divisor has the specifi
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "years" field
 // is an even number
 db.find({
-	filter: {
-		years: {
-			$mod: [2, 0],
-		},
+	years: {
+		$mod: [2, 0],
 	},
 });
 
 // select documents where the "years" field
 // is an odd number
 db.find({
-	filter: {
-		years: {
-			$mod: [2, 1],
-		},
+	years: {
+		$mod: [2, 1],
 	},
 });
 ```
@@ -891,10 +975,10 @@ Selects documents which tests true for a given regular expression.
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "name"
 // field starts with either "a" or "A".
-db.find({ filter: { name: { $regex: /^a/i } } });
+db.find({ name: { $regex: /^a/i } });
 ```
 
 <!-- tabs:end -->
@@ -914,10 +998,10 @@ The `$all` operator selects the documents where the value of a field is an array
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "tags" field
 // is an array that has "music" & "art"
-db.find({ filter: { tags: { $all: ["music", "art"] } } });
+db.find({ tags: { $all: ["music", "art"] } });
 ```
 
 <!-- tabs:end -->
@@ -935,7 +1019,7 @@ The `$elemMatch` operator matches documents that contain an array field with at 
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "price" field
 // is an array field that has an element
 // matching the following criteria
@@ -943,13 +1027,11 @@ The `$elemMatch` operator matches documents that contain an array field with at 
 // less than 8
 // and greater than 0
 db.find({
-	filter: {
-		price: {
-			$elemMatch: {
-				$mod: [2, 0],
-				$lt: 8,
-				$gt: 0,
-			},
+	price: {
+		$elemMatch: {
+			$mod: [2, 0],
+			$lt: 8,
+			$gt: 0,
 		},
 	},
 });
@@ -970,10 +1052,10 @@ The `$size` operator matches any array with the number of elements (length of th
 
 ###### **Example**
 
-```javascript
+```typescript
 // select documents where the "tags"
 // field is an array that has 10 elements.
-db.find({ filter: { tags: { $size: 10 } } });
+db.find({ tags: { $size: 10 } });
 ```
 
 <!-- tabs:end -->
@@ -1003,30 +1085,28 @@ These operators provide flexibility for querying and filtering arrays based on v
 
 All the above operators can be negated using the `$not` operator.
 
-```javascript
+```typescript
 // find all documents
 // where they have "tags" that is not of length 10
-db.find({ filter: { tags: { $not: { $size: 10 } } } });
+db.find({ tags: { $not: { $size: 10 } } });
 
 // similar to $ne
-db.find({ filter: { name: { $not: { $eq: "ozzy" } } } });
+db.find({ name: { $not: { $eq: "ali" } } });
 
 // find documents where the "name" field
 // is a not a string
-db.find({ filter: { name: { $not: { $type: "string" } } } });
+db.find({ name: { $not: { $type: "string" } } });
 
 // select documents where the "tags"
 // field is an array that doesn't have "music" & "art"
-db.find({ filter: { tags: { $not: { $all: ["music", "art"] } } } });
+db.find({ tags: { $not: { $all: ["music", "art"] } } });
 
 // select documents where the "years" field
 // is an even number
 db.find({
-	filter: {
-		years: {
-			$not: {
-				$mod: [2, 1],
-			},
+	years: {
+		$not: {
+			$mod: [2, 1],
 		},
 	},
 });
@@ -1046,7 +1126,7 @@ db.find({
 
 **Syntax**
 
-```javascript
+```typescript
 {
     $and: [
         <query1>,
@@ -1059,15 +1139,13 @@ db.find({
 
 ###### **Example**
 
-```javascript
+```typescript
 /**
  * Select a document where the name
  * isn't equal to "ali" and the property exists
  */
 db.find({
-	filter: {
-		$and: [{ $name: { $ne: "ali" } }, { $name: { $exists: true } }],
-	},
+	$and: [{ $name: { $ne: "ali" } }, { $name: { $exists: true } }],
 });
 ```
 
@@ -1083,7 +1161,7 @@ db.find({
 
 **Syntax**
 
-```javascript
+```typescript
 {
     $nor: [
         <query1>,
@@ -1096,15 +1174,13 @@ db.find({
 
 ###### **Example**
 
-```javascript
+```typescript
 /**
  * Select a document where the "name" is not "alex"
  * and the age is not 13
  */
 db.find({
-	filter: {
-		$nor: [{ $name: "alex" }, { $age: 13 }],
-	},
+	$nor: [{ $name: "alex" }, { $age: 13 }],
 });
 ```
 
@@ -1120,7 +1196,7 @@ The `$or` operator performs a logical OR operation on an array of two or more ex
 
 **Syntax**
 
-```javascript
+```typescript
 {
     $or: [
         <query1>,
@@ -1133,16 +1209,14 @@ The `$or` operator performs a logical OR operation on an array of two or more ex
 
 ###### **Example**
 
-```javascript
+```typescript
 /**
  * Select a document where the "name" is not "ali"
  * or the age is not 13
  */
 
 db.find({
-	filter: {
-		$or: [{ name: "ali" }, { $age: 13 }],
-	},
+	$or: [{ name: "ali" }, { $age: 13 }],
 });
 ```
 
@@ -1161,26 +1235,24 @@ Matches the documents that when evaluated by the given function would return tru
 
 **Syntax**
 
-```javascript
+```typescript
 {
-    $where: (this: Model) => boolean
+	$where: (this: Model) => boolean;
 }
 ```
 
 ###### **Example**
 
-```javascript
+```typescript
 /**
  * Select a document where the "name"
  * is 5 characters long and ends with "x"
  */
 
 db.find({
-	filter: {
-		$where: function () {
-			// DO NOT use arrow function here
-			return this.name.length === 5 && this.name.endsWith("x");
-		},
+	$where: function () {
+		// DO NOT use arrow function here
+		return this.name.length === 5 && this.name.endsWith("x");
 	},
 });
 ```
@@ -1193,7 +1265,7 @@ The `$deep` operator is the only operator in XWebDB that doesn't exist in MongoD
 
 Take the following document for example:
 
-```javascript
+```typescript
 {
 	item: "box",
 	dimensions: {
@@ -1205,7 +1277,7 @@ Take the following document for example:
 
 The following queries will behave as follows:
 
-```javascript
+```typescript
 db.find({ dimensions: { height: 100 } });
 // will not match, because field-level literal equality
 // requires the query object to exactly equal the document object
@@ -1222,7 +1294,7 @@ The reason that the `$deep` operator has been added is to keep strict typing eve
 
 **Syntax**
 
-```javascript
+```typescript
 {
     $deep: <query>
 }
@@ -1232,7 +1304,7 @@ The reason that the `$deep` operator has been added is to keep strict typing eve
 
 Basic example:
 
-```javascript
+```typescript
 // document
 {
 	item: "box",
@@ -1247,7 +1319,7 @@ db.find({ $deep: { dimensions: { height: 100 } } });
 
 You can specify multiple deep fields:
 
-```javascript
+```typescript
 //documents
 {
 	name: {
@@ -1274,7 +1346,7 @@ db.find({
 
 You can use the `$deep` operator even in array elements by defining their index:
 
-```javascript
+```typescript
 // document:
 {
 	name: "ali",
@@ -1303,15 +1375,820 @@ db.find({
 
 <!-- tabs:end -->
 
-## Update API & Operators
+## Counting
 
-## Synchronization
+To count the number of documents matching a specific query use the `count` method.
+
+Count method always returns a promise that resolves to a number.
+
+```typescript
+// count number of documents
+// that has "ali" in the "name" field
+db.count({ name: "ali" });
+
+// count number of documents
+// that has age greater than 20
+db.count({ age: { $gt: 20 } });
+```
+
+The query API in the `count` method is the same as the query API in `read` method, which in turn very similar to MongoDB query language.
+
+## Updating
+
+To update documents in the database use the `update` method.
+
+```typescript
+db.update(
+	// first argument is the find query
+	// matching target documents
+	// to be updated
+	{
+		name: "ali",
+	},
+	// second argument is the update
+	// must be supplied with one of the update operators
+	{
+		$set: {
+			age: 32,
+		},
+	},
+	// third argument is a boolean
+	// whether to update multiple documents
+	// or to update the first match only
+	// defaults to "false"
+	// i.e. update first match only
+	false
+);
+```
+
+The first argument of the update method takes a query with the same syntax as the `find` & `count` methods as explained above. The second argument must be supplied with the update operators.
+
+> [!INFO]
+> Although it is possible in MongoDB to use the direct field updates (no operator, `{age:5}`), this is not supported in XWebDB to enforce a more strict type declaration.
+
+The update operators are:
+
+1. Field operators
+2. Mathematical operators
+3. Array operators
+
+### 1. Field Update Operators
+
+##### `$set`
+
+Sets the value of a field in a document to a specified value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `any field type`
+-   Syntax
+
+```typescript
+{
+    $set: {
+        <fieldName1>: <value1>,
+        <fieldName2>: <value2>,
+        ...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * update the name "ali" to "dina"
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$set: {
+			name: "dina",
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$unset`
+
+Sets the value of a field in a document to `undefined`.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `any field type`
+-   Syntax
+
+```typescript
+{
+    $unset: {
+        <fieldName1>: "",
+        <fieldName2>: "",
+        ...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * setting the name "ali" to undefined
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$unset: {
+			name: "",
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$currentDate`
+
+Sets the value of a field in a document to a `Date` object or a timestamp `number` representing the current date.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Date` & `number` fields
+-   Syntax
+
+```typescript
+{
+    $currentDate: {
+		// date object (applies to Date fields)
+        <fieldName1>: true,
+		// date object (alternative syntax)
+        <fieldName2>: { $type: "date" },
+        // timestamp (applies to number fields)
+		<fieldName3>: { $type: "timestamp" },
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * setting the name "ali" to undefined
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$currentDate: {
+			lastLogin: true,
+			lastLoginTimestamp: {
+				$type: "timestamp",
+			},
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$rename`
+
+Renames a property name to a different one while keeping the value the same.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `any field type`
+-   Syntax
+
+```typescript
+{
+    $rename: {
+        <fieldName1>: <newName1>,
+        <fieldName2>: <newName2>,
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * setting the property name "name" to "firstName"
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$rename: {
+			name: "firstName",
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+### 2. Mathematical Update Operators
+
+##### `$inc`
+
+increments the value of a field in a document to by a specific value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` fields
+-   Syntax
+
+```typescript
+{
+    $inc: {
+        <fieldName1>: <number>,
+        <fieldName2>: <number>,
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * increment the age field by 2, and the months by 24
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$inc: {
+			age: 2,
+			months: 24,
+		},
+	}
+);
+```
+
+You can also pass a negative value to decrement
+
+```typescript
+/**
+ * decrement the age field by 2, and the months by 24
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$inc: {
+			age: -2,
+			months: -24,
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$mul`
+
+multiplies the value of a field in a document to by a specific value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` fields
+-   Syntax
+
+```typescript
+{
+    $mul: {
+        <fieldName1>: <number>,
+        <fieldName2>: <number>,
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * multiplies the age field by 2, and the months by 24
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$mul: {
+			age: 2,
+			months: 24,
+		},
+	}
+);
+```
+
+You can also use the `$mul` operator to do a division mathematical operation:
+
+```typescript
+/**
+ * divides the age field by 2, and the months by 24
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$mul: {
+			age: 1 / 2,
+			months: 1 / 24,
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$max`
+
+Updates the field value to a new value only if the specified value is greater than the existing value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax
+
+```typescript
+{
+    $max: {
+        <fieldName1>: <number|Date>,
+        <fieldName2>: <number|Date>,
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * sets the age field to 10 if it's less than 10
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$max: {
+			age: 10,
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$min`
+
+Updates the field value to a new value only if the specified value is less than the existing value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `number` & `Date` fields
+-   Syntax
+
+```typescript
+{
+    $min: {
+        <fieldName1>: <number|Date>,
+        <fieldName2>: <number|Date>,
+		...etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * sets the age field to 10 if it's greater than 10
+ */
+db.update(
+	{
+		name: "ali",
+	},
+	{
+		$min: {
+			age: 10,
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+### 3. Array Update Operators
+
+##### `$addToSet`
+
+Adds elements to an array only if they do not already exist in it.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Array` fields
+-   Syntax
+
+```typescript
+{
+    $addToSet: {
+        // adds a single value
+        <fieldName1>: <value>,
+        // adds multiple values
+        <fieldName2>: {
+            $each: [
+                <value1>,
+                <value2>,
+                <value3>,
+                ... etc
+            ]
+        }
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * Update a document where "name" is "ali"
+ * by adding the skill "javascript"
+ * and adding two projects
+ */
+db.update(
+	{ name: "ali" },
+	{
+		$addToSet: {
+			skills: "javascript",
+			projects: {
+				$each: ["projectA.js", "projectB.js"],
+			},
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$pop`
+
+removes the first or last element of an array. Pass $pop a value of -1 to remove the first element of an array and 1 to remove the last element in an array.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Array` fields
+-   Syntax
+
+```typescript
+{
+    $pop: {
+        // removes first element
+        <fieldName1>: -1,
+        // removes last element
+        <fieldName2>: 1
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * Update a document where name is "ali"
+ * removing last element of "skills"
+ * and removes first element of "projects"
+ */
+
+db.update(
+	{ name: "ali" },
+	{
+		$pop: {
+			skills: 1,
+			projects: -1,
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$pull`
+
+Removes all array elements that match a specified query or value.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Array` fields
+-   Syntax
+
+```typescript
+{
+    $pull: {
+        // remove by value
+        <fieldName1>: <value>,
+        // or remove by query
+        <fieldName2>: <query>
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * Update a document where name is "ali"
+ * removing skill "javascript"
+ * and removing any project that ends with .js
+ */
+
+db.update(
+	{ name: "ali" },
+	{
+		$pop: {
+			projects: {
+				$regex: /\.js$/i,
+			},
+			skills: "javascript",
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$pullAll`
+
+The $pullAll operator removes all instances of the specified values from an existing array.
+
+Unlike the $pull operator that removes elements by specifying a query, $pullAll removes elements that match the listed values.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Array` fields
+-   Syntax
+
+```typescript
+{
+    $pullAll: {
+        <fieldName1>: [<value1>, <value2> ... etc],
+        <fieldName2>: [<value1>, <value2> ... etc],
+        ... etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * Update a document where name is "ali"
+ * removing skills: "javascript" and "php"
+ * and removes "new", "x-client"
+ */
+
+db.update(
+	{ name: "ali" },
+	{
+		$pullAll: {
+			skills: ["php", "javascript"],
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$push`
+
+The $push operator appends a specified value to an array.
+
+<!-- tabs:start -->
+
+###### **Specification**
+
+-   Applies to: `Array` fields
+-   Syntax
+
+```typescript
+{
+    $push: {
+        <fieldName1>: <value>,
+        // or
+        <fieldName2>: {
+
+            // multiple fields
+            $each: [<value1>, <value2>, ...etc]
+
+            // with modifiers
+            // discussed below
+            $slice: <number>,
+            $position: <number>,
+            $sort: <sort-specification>
+
+        },
+        ... etc
+    }
+}
+```
+
+###### **Example**
+
+```typescript
+/**
+ * Update a document where name is "ali"
+ * removing skills: "javascript" and "php"
+ * and removes "new", "x-client"
+ */
+
+db.update(
+	{ name: "ali" },
+	{
+		$push: {
+			skills: "javascript",
+			projects: {
+				$each: ["projectA.js", "projectB.js"],
+			},
+		},
+	}
+);
+```
+
+<!-- tabs:end -->
+
+##### `$push` with `$each` modifier
+
+Modifies the `$push` operators to append multiple items for array updates. It can also be used with `$addToSet` operator.
+
+```javascript
+db.update(
+	{ name: "ali" },
+	{
+		$push: {
+			projects: {
+				$each: ["projectA.js", "projectB.js"],
+			},
+		},
+	}
+);
+```
+
+##### `$push` with `$position` modifier
+
+$position modifier must be supplied with a number. It specifies the location in the array at which the $push operator insert elements. Without the `$position`modifier, the`$push` operator inserts elements to the end of the array.
+Must be used with `$each` modifier.
+
+```javascript
+db.update(
+	{ name: "ali" },
+	{
+		$push: {
+			projects: {
+				$each: ["projectA.js", "projectB.js"],
+				$position: 1,
+				// the array items above will be pushed
+				// starting from position 1
+			},
+		},
+	}
+);
+```
+
+If the `$position` modifier is supplied with a number larger than the length of the array the items will be pushed at the end without leaving empty or null slots.
+
+##### `$push` with `$slice` modifier
+
+Modifies the `$push` operator to limit the size of updated arrays.
+Must be used with `$each` modifier. Otherwise it will throw. You can pass an empty array (`[ ]`) to the `$each` modifier such that only the `$slice` modifier has an effect.
+
+```javascript
+/**
+ * Update a document where name is "ali"
+ * by appending "a" & "b" to "tags"
+ * unless the size of the array goes
+ * over 6 elements
+ */
+
+db.update(
+	{ name: "ali" },
+	{
+		$push: {
+			tags: {
+				$each: ["a", "b"],
+				$slice: 6,
+			},
+		},
+	}
+);
+```
+
+##### `$push` with `$sort` modifier
+
+he `$sort` modifier orders the elements of an array during a `$push` operation. Pass `1` to sort ascending and `-1` to sort descending.
+
+Must be used with `$each` modifier. Otherwise it will throw. You can pass an empty array (`[]`) to the `$each` modifier such that only the `$sort` modifier has an effect.
+
+Here's an elaborate example explaining all the modifiers that can be used with `$push` operator:
+
+```javascript
+/**
+ * Update a document where name is "john"
+ * by appending a new child to "children"
+ * at the start of the array
+ * then sorting the children by
+ * the "age" / ascending
+ * and the "name" / descending
+ * then allow only 10 children in the array
+ * by removing the last elements that goes
+ * over 10
+ */
+
+db.update(
+	{ name: "john" },
+	{
+		$push: {
+			children: {
+				$each: [{ name: "tim", age: 3 }],
+				$position: 0,
+				$sort: {
+					age: 1,
+					name: -1,
+				},
+				$slice: 10,
+			},
+		},
+	}
+);
+```
+
+>[!INFO]
+> You can use the `$slice` and `$sort` modifiers with empty `$each` array, so they have an effect without actually pushing items to the array, i.e. only sorting (for `$sort` modifier) or only slicing (for `$slice` modifier).
+
+## Upserting
+
+Upserting is a combination of updating & inserting. Meaning that if the target document to be updated was found it will be updated regularly, if it's not found a new document will be inserted with a specified values.
+
+To do upsert operations use the `upsert` method. The `upsert` method required the `$setOnInsert` operator.
+
+## Deleting
+
+## Indexing
+
+## Synchronizing
 
 ## Live Queries & Frontend Frameworks
 
 Live queries features enable you to query a set of documents as an observable array. Meaning, that the query value will change once the database has been updated and any modification you do on the query result will also be reflected on the database. Think of it like a two-way data-binding but for databases.
 
 ## Deeply nested documents
+
+### Querying
+
+### Updating
+
+### Projecting
+
+### Sorting
 
 ## Caching
 
