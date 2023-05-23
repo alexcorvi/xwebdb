@@ -19,6 +19,7 @@ export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
     deferPersistence?: number;
     stripDefaults?: boolean;
     indexes?: NOP<D>[];
+    cacheLimit?: number;
 }
 export declare class Database<S extends Doc> {
     private ref;

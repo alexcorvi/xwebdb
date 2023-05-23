@@ -981,12 +981,18 @@ class Cursor {
      */
     __exec_unsafe() {
         let res = [];
-        const candidates = this.db.getCandidates(this._query);
-        for (let i = 0; i < candidates.length; i++) {
-            if (match(candidates[i], this._query)) {
-                res.push(candidates[i]);
+        let cached = this.db.cache.get(this._query);
+        if (!cached) {
+            const candidates = this.db.getCandidates(this._query);
+            for (let i = 0; i < candidates.length; i++) {
+                if (match(candidates[i], this._query)) {
+                    res.push(candidates[i]);
+                }
             }
+            this.db.cache.storeOrProspect(this._query, res);
         }
+        else
+            res = cached;
         // Apply all sorts
         if (this._sort) {
             res.sort((a, b) => {
@@ -2285,6 +2291,7 @@ class Live {
     async update() {
         for (let index = 0; index < this.queries.length; index++) {
             const q = this.queries[index];
+            this.db.cache.evict();
             const newRes = await this.db.find(q.query);
             const newHash = hash(newRes);
             const oldHash = hash(q.observable.observable);
@@ -2301,6 +2308,91 @@ class Live {
         const index = this.queries.findIndex((q) => q.id === uid);
         if (index > -1) {
             this.queries.splice(index, 1);
+        }
+    }
+}
+
+/**
+ * Caching class
+ * using a javascript Map, dHash of the query as a key, result (and usage counter) as value
+ * call "get" to get from cache (would return undefined) if not found
+ * call "storeOrProspect" on every query that hasn't been found in cache
+ * call "evict" to validate specific query or all queries from this cache
+ */
+class Cache {
+    constructor(limit = 1000) {
+        this.cached = new Map();
+        this.prospected = {};
+        this.limit = limit;
+    }
+    /**
+     * Generates a unique cache key for a given query.
+     * @param query The query object.
+     * @returns The cache key.
+     */
+    toKey(query) {
+        return dHash(JSON.stringify(query));
+    }
+    /**
+     * Retrieves the cached results for a given query.
+     * @param query The query object.
+     * @returns The cached results or undefined if not found.
+     */
+    get(query) {
+        let hashed = this.toKey(query);
+        let cached = this.cached.get(hashed);
+        if (cached) {
+            this.prospected[hashed]++;
+            return cached;
+        }
+        else
+            return undefined;
+    }
+    /**
+     * Stores or prospects a query and its results in the cache.
+     * @param query The query object.
+     * @param res The results to be cached.
+     */
+    storeOrProspect(query, res) {
+        let newHashed = this.toKey(query);
+        if (this.cached.has(newHashed)) {
+            return;
+        }
+        if (this.prospected[newHashed]) {
+            this.prospected[newHashed]++;
+            this.cached.set(newHashed, res);
+            if (this.cached.size > this.limit) {
+                let leastUsed = { usage: Infinity, key: 0 };
+                for (const key of this.cached.keys()) {
+                    // if it's just 2, then it has only prospected then added
+                    if (this.prospected[key] === 2 && key !== newHashed) {
+                        this.cached.delete(key);
+                        leastUsed.key = 0;
+                        break;
+                    }
+                    else if (this.prospected[key] < leastUsed.usage) {
+                        leastUsed.usage = this.prospected[key];
+                        leastUsed.key = key;
+                    }
+                }
+                if (leastUsed.key !== 0)
+                    this.cached.delete(leastUsed.key);
+            }
+        }
+        else {
+            this.prospected[newHashed] = 1;
+        }
+    }
+    /**
+     * Evicts the cached results for a given query or clears the entire cache.
+     * @param query Optional query object to evict specific results.
+     */
+    evict(query) {
+        if (query) {
+            this.cached.delete(this.toKey(query));
+        }
+        else {
+            this.cached.clear();
         }
     }
 }
@@ -2323,6 +2415,7 @@ class Datastore {
         if (options.ref) {
             this.ref = options.ref;
         }
+        this.cache = new Cache(options.cacheLimit);
         // Persistence handling
         this.persistence = new Persistence({
             db: this,
@@ -2379,6 +2472,7 @@ class Datastore {
                 await this.ensureIndex({ fieldName });
             }
         }
+        this.cache.evict();
         return loaded;
     }
     /**
@@ -2611,6 +2705,7 @@ class Datastore {
             }
             throw error;
         }
+        this.cache.evict();
         try {
             this.live.update();
         }
@@ -2694,6 +2789,7 @@ class Datastore {
             }
             // Change the docs in memory
             this.updateIndexes(modifications);
+            this.cache.evict();
             try {
                 this.live.update();
             }
@@ -2749,6 +2845,7 @@ class Datastore {
                 this.removeFromIndexes(d);
             }
         });
+        this.cache.evict();
         try {
             this.live.update();
         }
@@ -3568,6 +3665,7 @@ class Database {
             syncInterval: options.sync ? options.sync.syncInterval : undefined,
             defer: options.deferPersistence,
             stripDefaults: options.stripDefaults || false,
+            cacheLimit: options.cacheLimit,
         });
         this.loaded = this._datastore.loadDatabase();
     }
@@ -3684,7 +3782,7 @@ class Database {
         for (let index = 0; index < deepOperators.length; index++) {
             const operator = deepOperators[index];
             if (update[operator]) {
-                update[operator] = toDotNotation(update[operator]);
+                update[operator] = toDotNotation(update[operator] || {});
             }
         }
         const res = await this._datastore.update(filter, update, {
@@ -3787,7 +3885,8 @@ const _internal = {
     modelling,
     Q,
     Persistence,
-    Dictionary
+    Dictionary,
+    Cache,
 };
 
 export { Database, Doc, SubDoc, _internal, index as adapters, mapSubModel };

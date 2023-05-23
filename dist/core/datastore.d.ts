@@ -6,6 +6,7 @@ import { Doc } from "../types/base-schema";
 import { Q } from "./q";
 import { remoteStore } from "./adapters/type";
 import { Live } from "./live";
+import { Cache } from "./cache";
 type MongoDBQuery = Record<string, any>;
 export interface EnsureIndexOptions {
     fieldName: string;
@@ -24,6 +25,7 @@ export interface DataStoreOptions<G extends typeof Doc> {
     defer?: number;
     stripDefaults?: boolean;
     indexes?: string[];
+    cacheLimit?: number;
 }
 interface UpdateOptions {
     multi?: boolean;
@@ -45,6 +47,7 @@ export declare class Datastore<G extends types.Doc & {
     defer: boolean;
     deferredWrites: G[];
     deferredDeletes: string[];
+    cache: Cache<G>;
     constructor(options: DataStoreOptions<C>);
     private _processDeferred;
     /**

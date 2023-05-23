@@ -1,4 +1,4 @@
-import { Persistence, Cursor, Q, customUtils, Datastore, Index, modelling, adapters, observable, Dictionary } from "./core";
+import { Persistence, Cursor, Q, customUtils, Datastore, Index, modelling, adapters, observable, Dictionary, Cache } from "./core";
 import { Database } from "./database";
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
 declare const _internal: {
@@ -11,5 +11,6 @@ declare const _internal: {
     Q: typeof Q;
     Persistence: typeof Persistence;
     Dictionary: typeof Dictionary;
+    Cache: typeof Cache;
 };
 export { Database, Doc, SubDoc, mapSubModel, adapters, _internal };
