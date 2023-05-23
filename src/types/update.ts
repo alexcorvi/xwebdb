@@ -34,7 +34,7 @@ export interface UpsertOperators<A, S = NFP<A>> extends UpdateOperators<A> {
 	 * { $setOnInsert: { <field1>: <value1>, ... } },
 	 *
 	 */
-	$setOnInsert?: S;
+	$setOnInsert: S;
 }
 
 type $DeepSpecific<S, V> = {
