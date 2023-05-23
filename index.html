@@ -30,9 +30,24 @@
 				width: 100%;
 				height: 400px;
 			}
+			.cover .hint {
+				text-align: center;
+				margin-top: 25px;
+				font-size: 16px;
+			}
+			.cover .hint a {
+				text-decoration: underline;
+				font-weight: bold;
+			}
+			.cover .hint a:hover {
+				text-decoration: dotted;
+			}
 			table#playground {
-				width: 100%;
+				width: 98%;
 				border-collapse: collapse;
+				margin: 0 auto;
+				border: 1px solid #fff;
+				box-shadow: -2px -8px 51px #000000a1;
 			}
 
 			table#playground tr:nth-of-type(1) td {
@@ -46,6 +61,7 @@
 				background: #fafafa91;
 				padding: 10px;
 				border-top: 1px solid #ffffff;
+				border-radius: 5px 5px 0 0;
 			}
 
 			table#playground td {
@@ -57,7 +73,6 @@
 				color: #fff;
 				border: 1px solid #e3e3e3;
 				padding: 10px;
-				width: 38%;
 				display: block;
 				position: absolute;
 				bottom: 5px;
@@ -93,13 +108,14 @@
 		<script src="//cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
 		<script src="//unpkg.com/docsify-plugin-flexible-alerts"></script>
 		<script src="//cdn.jsdelivr.net/npm/ace-builds@1.22.0/src-min-noconflict/ace.min.js"></script>
-    <script src="//unpkg.com/json5@2.2.3/dist/index.min.js"></script>
+		<script src="//unpkg.com/json5@2.2.3/dist/index.min.js"></script>
+		<script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js"></script>
 		<link
 			href="//cdn.jsdelivr.net/npm/ace-builds@1.22.0/css/ace.min.css"
 			rel="stylesheet"
 		/>
 		<script>
-			let db, query, result;
+			let db, query, result, update;
 			window.addEventListener("load", function () {
 				// Code to be executed when all resources (including images and stylesheets) have finished loading
 				let cover = document.getElementsByClassName("cover")[0];
@@ -111,9 +127,10 @@
           <table id="playground">
             <caption>Playground</caption>
             <tr>
-              <td width="33.33%">Database (documents in JSON)</td>
-              <td width="33.33%">Query (MQL in JSON)</td>
-              <td width="33.33%">Result</td>
+              <td width="25%">Database (documents in JSON)</td>
+              <td width="25%">Find Query (MQL in JSON)</td>
+              <td width="25%">Update Query (MQL in JSON)</td>
+              <td width="25%">Result</td>
             </tr>
             <tr>
               <td><div id="database" class="editor">[
@@ -132,28 +149,46 @@
     "days": [1, 5, 7]
   }
 ]</div></td>
-              <td><div id="query" class="editor">{"name": "Ali"}</div><button onclick="runQuery()">Run</button></td>
+              <td><div id="query" class="editor">{"name": "Ali"}</div><button onclick="runQuery()">db.find({ .. })</button></td>
+              <td><div id="update" class="editor">{$inc: {"age": 1}}</div><button onclick="runUpdate()">db.update({ .. })</button></td>
               <td><div id="result" class="editor"></div></td>
             </tr>
           </table>
+		  <p class="hint">Scroll down for documentation, and also checkout <a href="./_benchmark/index.html">benchmark</a>, <a href="https://github.com/alexcorvi/xwebdb">github repo</a>, and <a href="./_test/index.html">tests</a></p>
         `;
 
 				db = ace.edit("database");
 				query = ace.edit("query");
+				update = ace.edit("update");
 				result = ace.edit("result");
-
 				result.setReadOnly(true);
 			});
 
 			async function runQuery() {
 				try {
-          let xWeb = new xwebdb.Database({ref: "playground"});
-          await xWeb.delete({}, true);
-          let dbJSON = JSON5.parse(db.getValue());
-          await xWeb.insert(dbJSON);
-          let queryJSON = JSON5.parse(query.getValue());
-          let queryResult = await xWeb.find(queryJSON);
-          result.setValue(JSON5.stringify(queryResult, null, '\t'))
+					let xWeb = new xwebdb.Database({ ref: "playground" });
+					await xWeb.delete({}, true);
+					let dbJSON = JSON5.parse(db.getValue());
+					await xWeb.insert(dbJSON);
+					let queryJSON = JSON5.parse(query.getValue());
+					let queryResult = await xWeb.find(queryJSON);
+					result.setValue(JSON5.stringify(queryResult, null, "\t"));
+				} catch (e) {
+					result.setValue(e.toString());
+				}
+			}
+
+			async function runUpdate() {
+				try {
+					let xWeb = new xwebdb.Database({ ref: "playground" });
+					await xWeb.delete({}, true);
+					let dbJSON = JSON5.parse(db.getValue());
+					await xWeb.insert(dbJSON);
+					let queryJSON = JSON5.parse(query.getValue());
+					let updateJSON = JSON5.parse(update.getValue());
+					let queryResult = await xWeb.update(queryJSON, updateJSON);
+					result.setValue(JSON5.stringify(queryResult, null, "\t"));
+					db.setValue(JSON5.stringify(await xWeb.find({}), null, "\t"));
 				} catch (e) {
 					result.setValue(e.toString());
 				}
