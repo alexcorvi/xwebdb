@@ -229,7 +229,7 @@ export class Database<S extends Doc> {
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
 			if (update[operator]) {
-				update[operator] = toDotNotation(update[operator]!) as any;
+				update[operator] = toDotNotation(update[operator] || {}) as any;
 			}
 		}
 		const res = await this._datastore.update(filter, update, {
