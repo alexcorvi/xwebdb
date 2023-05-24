@@ -2503,7 +2503,7 @@ class Datastore {
             err.missingFieldName = true;
             throw err;
         }
-        if (this.indexes[options.fieldName]) {
+        if (this.indexes[options.fieldName] && this.indexes[options.fieldName].unique === options.unique) {
             return { affectedIndex: options.fieldName };
         }
         this.indexes[options.fieldName] = new Index(options);

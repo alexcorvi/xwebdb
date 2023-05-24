@@ -154,7 +154,10 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			err.missingFieldName = true;
 			throw err;
 		}
-		if (this.indexes[options.fieldName]) {
+		if (
+			this.indexes[options.fieldName] &&
+			this.indexes[options.fieldName].unique === options.unique
+		) {
 			return { affectedIndex: options.fieldName };
 		}
 
@@ -336,7 +339,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 		 * Clone all documents, add _id, add timestamps and validate
 		 * then add to indexes
 		 * if an error occurred rollback everything
-		*/
+		 */
 		let cloned: G[] = [];
 		let failingI = -1;
 		let error;
@@ -345,7 +348,7 @@ export class Datastore<G extends types.Doc & { [key: string]: any }, C extends t
 			if (cloned[index]._id === undefined) {
 				cloned[index]._id = this.createNewId();
 			}
-			if( this.timestampData) {
+			if (this.timestampData) {
 				let now = new Date();
 				if (cloned[index].createdAt === undefined) {
 					cloned[index].createdAt = now;
