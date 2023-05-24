@@ -557,21 +557,21 @@ db.insert(
 db.insert([Person.new({ name: "ali" }), Person.new({ name: "dina" })]);
 ```
 
-The insert method will return a promise that resolves to the number of inserted documents and an array of the inserted documents. The last line of the above example will return a promise that resolves to the following:
+The `insert` method will return a promise that resolves to the number of inserted documents and an array of the inserted documents. The last line of the above example will return a promise that resolves to the following:
 
-```typescript
+```json
 {
-	number: 2,
-	docs: [
+	"number": 2,
+	"docs": [
 		{
-			_id: "ad9436a8-ef8f-4f4c-b051-aa7c7d26a20e",
-			name: "ali",
-			age: 0,
+			"_id": "ad9436a8-ef8f-4f4c-b051-aa7c7d26a20e",
+			"name": "ali",
+			"age": 0
 		},
 		{
-			_id: "38ae1bbd-60a7-4980-bbe9-fce3ffaec51c",
-			name: "dina",
-			age: 0,
+			"_id": "38ae1bbd-60a7-4980-bbe9-fce3ffaec51c",
+			"name": "dina",
+			"age": 0
 		}
 	]
 }
@@ -1395,7 +1395,7 @@ The query API in the `count` method is the same as the query API in `read` metho
 
 ## Updating
 
-To update documents in the database use the `update` method.
+To update documents matching a specific query use the `update` method.
 
 ```typescript
 db.update(
@@ -1425,6 +1425,27 @@ The first argument of the update method takes a query with the same syntax as th
 
 > [!INFO]
 > Although it is possible in MongoDB to use the direct field updates (no operator, `{age:5}`), this is not supported in XWebDB to enforce a more strict type declaration.
+
+The `insert` method will return a promise that resolves to the number of updated documents, a boolean of whether the update was an upsert or not, and an array of the updated documents. the following is an example:
+
+```json
+{
+	"number": 2,
+	"upsert": false,
+	"docs": [
+		{
+			"_id": "ad9436a8-ef8f-4f4c-b051-aa7c7d26a20e",
+			"name": "ali",
+			"age": 0
+		},
+		{
+			"_id": "38ae1bbd-60a7-4980-bbe9-fce3ffaec51c",
+			"name": "dina",
+			"age": 0
+		}
+	]
+}
+```
 
 The update operators are:
 
@@ -2161,20 +2182,366 @@ db.update(
 );
 ```
 
->[!INFO]
+> [!INFO]
 > You can use the `$slice` and `$sort` modifiers with empty `$each` array, so they have an effect without actually pushing items to the array, i.e. only sorting (for `$sort` modifier) or only slicing (for `$slice` modifier).
 
 ## Upserting
 
-Upserting is a combination of updating & inserting. Meaning that if the target document to be updated was found it will be updated regularly, if it's not found a new document will be inserted with a specified values.
+Upserting is a combination of updating & inserting. If the document you want to update already exists, it will be updated with new information. But if the document doesn't exist, a completely new document will be created with the specified information.
 
-To do upsert operations use the `upsert` method. The `upsert` method required the `$setOnInsert` operator.
+To do upsert operations use the `upsert` method. The `upsert` method has the same API as the `update` method but requires the `$setOnInsert` operator.
+
+In short, The `upsert` method behaves exactly the same as the `update` method, with one exception: if no target document matched the query in the first argument, a new document will be created and the contents of the new document will be based on `$setOnInsert` operator.
+
+```typescript
+import { Database, Doc } from "xwebdb";
+
+class Person extends Doc {
+	name: string = "";
+	age: number = 0;
+}
+
+let db = new Database<Person>({
+	ref: "database",
+	model: Person,
+});
+
+db.upsert(
+	// for documents matching the following query:
+	{
+		name: "ali",
+	},
+	{
+		// update the name to "dina"
+		$set: {
+			name: "dina",
+		},
+		// if no documents matches
+		// create a new document with the name "dina"
+		$setOnInsert: Person.new({
+			name: "dina",
+		}),
+	}
+);
+```
+
+The `upsert` method will return a promise that resolves to the number of updated (or inserted) documents, a boolean of whether the update was an upsert or not, and an array of the updated (or inserted) documents. the following is an example:
+
+```json
+{
+	"number": 1,
+	"upsert": true,
+	"docs": [
+		{
+			"_id": "ad9436a8-ef8f-4f4c-b051-aa7c7d26a20e",
+			"name": "ali",
+			"age": 0
+		}
+	]
+}
+```
 
 ## Deleting
 
+To delete documents matching a specific query use the `delete` (alias: `remove`) method.
+
+The delete method takes two arguments, the first one is the query that the target documents to be deleted needs to match, and the second one is a boolean of whether to delete multiple documents or the first one matching the query.
+
+```typescript
+// delete a document with "name" field that equals "ali"
+db.delete(
+	// query
+	{
+		name: {
+			$eq: "ali",
+		},
+	},
+	// multi-delete:
+	// true: delete all documents matching
+	// false: delete the first match only
+	false // default: false
+);
+
+// delete all documents with "age" field greater than 45
+db.delete(
+	// query
+	{
+		age: {
+			$gte: 45,
+		},
+	},
+	// multi-delete:
+	// true: delete all documents matching
+	// false: delete the first match only
+	true // default: false
+);
+```
+
 ## Indexing
 
+Database indexing is a powerful technique that optimizes the performance of database queries by creating a separate data structure known as an index. When an index is created for a specific field, it acts as a reference point for the database engine, enabling fast retrieval of data when querying that field. By eliminating the need for full table scans, indexing significantly improves search and retrieval operations, especially when dealing with large amounts of data. However, it's important to note that indexing does introduce additional overhead during write operations. Therefore, thoughtful consideration should be given to the selection and design of indexes to strike a balance between read and write performance.
+
+In short, creating an index for a specific field is beneficial when you expect that field to be frequently used in queries. XWebDB provides complete support for indexes on any field in the database. By default, all databases have an index on the `_id` field, and you may add additional indexes to support important queries and operations.
+
+To create an index use the method `createIndex`, It takes an object as an argument with the following properties:
+
+-   `fieldName` (required): Specifies the name of the field that you want to index. You can use dot notation to index a field within a nested document.
+
+-   `unique` (optional, defaults to `false`): This option enforces field uniqueness. When a unique index is created, attempting to index two documents with the same field value will result in an error.
+
+-   `sparse` (optional, defaults to `false`): When set to `true`, this option ensures that documents without a defined value for the indexed field are not indexed. This can be useful in scenarios where you want to allow multiple documents without the field, while still enforcing uniqueness.
+
+```typescript
+db.createIndex({
+	// field name to be indexed
+	fieldName: "email",
+	// enforce uniqueness for this field
+	unique: true,
+	// don't index documents with 'undefined' value for this field
+	// when this option is set to "true"
+	// even if the index unique, multiple documents that has
+	// the field value as "undefined" can be inserted in the
+	// database and not cause a rejection.
+	sparse: true,
+});
+
+db.createIndex({
+	// index on a field that is in a sub-document
+	fieldName: "address.city",
+	unique: false,
+	sparse: true,
+});
+```
+
+To remove an index, use the `removeIndex` method
+
+```typescript
+db.removeIndex("email");
+```
+
+The `createIndex` and `removeIndex` methods return a promise that resolves to an object specifying the affected index:
+
+```json
+{
+	"affectedIndex": "email"
+}
+```
+
+To create indexes on database initialization use the `indexes` configuration parameter:
+
+```typescript
+import { Database, Doc } from "xwebdb";
+
+class Person extends Doc {
+	name: string = "";
+	email: string = "";
+	age: number = 0;
+}
+
+let db = new Database<Person>({
+	ref: "myDB",
+	model: Person,
+	indexes: ["email"],
+});
+```
+
+However, the indexes created on the database initialization are non-unique, to make them unique you have to recreate them using the `createIndex` method.
+
+> [!NOTE] `createIndex` can be called when you want, even after some data was inserted, though it's best to call it at application startup.
+
+## Loading and reloading
+
+When you initialize a database using new Database, the existing documents stored in the persistence layer (i.e. IndexedDB) will be read asynchronously. The database object will have `loaded` property, which represents a promise. This promise will be resolved once all the previous documents have finished loading. In other words, you can use the load property to determine when the database has finished loading the existing data and is ready for use.
+
+```typescript
+import { Database, Doc } from "xwebdb";
+
+class Person extends Doc {
+	name: string = "";
+	email: string = "";
+	age: number = 0;
+}
+
+let db = new Database<Person>({
+	ref: "myDB",
+	model: Person,
+	indexes: ["email"],
+});
+
+// will return empty array even if there were documents previously
+db.read({});
+
+// will return previous documents if there were documents previously
+db.loaded.then(db.read);
+```
+
+If for any reason you want to reload the database from IndexedDB you can use the `reload` method:
+
+```typescript
+db.reload();
+```
+
 ## Synchronizing
+
+<p align="center">
+	<img src="https://i.postimg.cc/J1hNQ0bQ/sync.png" width="450px">
+</p>
+
+XWebDB synchronization empowers seamless data replication and consistency across multiple instances, following a multi-master model. Synchronization can be backed by various remote cloud databases like Cloudflare KV, S3 cloud file system, CosmosSB, DynamoDB, and more using synchronization adapters. Additionally you can write your own synchronization adapter to add support any remote Cloud database.
+
+Synchronization protocol in XWebDB utilizes a unique revision ID methodology, ensuring a reliable and conflict-aware data replication. Each instance generates a revision ID for every data modification, enabling effective comparison during synchronization.
+
+Conflict resolution in XWebDB follows the "latest-win" principle, prioritizing the most recent modification to automatically resolve conflicts. While this is an over-simplification of the real-world conflicts, its sufficient for the expected use-cases, avoiding needless complexity and manual intervention.
+
+### Synchronizing data
+
+To synchronize data, the database must be instantiated with a sync adapter:
+
+```typescript
+import { Database, Doc } from "xwebdb";
+import { kvAdapter } from "xwebdb-cloudflarekv";
+
+class Person extends Doc {
+	name: string = "";
+	email: string = "";
+	age: number = 0;
+}
+
+let db = new Database<Person>({
+	ref: "myDB",
+	model: Person,
+	// sync related configurations
+	sync: {
+		// define remote sync adapter
+		syncToRemote: kvAdapter("endpoint", "token"),
+		// define an interval at which the database will
+		// automatically sync with the remote database
+		syncInterval: 500,
+	},
+});
+```
+
+When a database is configured for synchronization, you can use the `sync` method to manually synchronize the database with remote database. The method will wait for any database operation, or sync operation to complete before starting the sync progress.
+
+```typescript
+db.sync();
+```
+
+However, if you want a more forceful synchronization (i.e. doesn't wait for other operation or checkpoints matching) you can use the method `forceSync`.
+
+```typescript
+db.forceSync();
+```
+
+Both methods will return a promise that resolves to an object indicating the number of documents sent, number of documents received, and whether the sync found a difference or not.
+
+```json
+{
+	// number of documents sent
+	"sent": 2,
+	// number of documents received
+	"received": 3,
+	// a number indicating whether a sync operation
+	// found a difference or not
+	// 1: 	documents have been sent or received
+	// -1:	remote and local databases have the same checkpoint
+	//		i.e. no further checks or comparisons were made
+	// 0:	checkpoints were unequal for the local and remote DB
+	//		but the documents were the same
+	//		when this occurs checkpoints will be automatically unified
+	"diff": 1
+}
+```
+
+Finally, to check whether a sync operation is currently in progress or not, use the `syncInProgress` property, this will be `true` if there's a sync currently in progress, or `false` otherwise.
+
+### Writing sync adapters
+
+The sync adapter must be a function that when called with a name it returns a class that implements `remoteStore` interface:
+
+```typescript
+interface remoteStore {
+	name: string;
+	clear: () => Promise<boolean>;
+	del: (key: string) => Promise<boolean>;
+	set: (key: string, value: string) => Promise<boolean>;
+	get: (key: string) => Promise<string>;
+	delBulk: (keys: string[]) => Promise<boolean[]>;
+	setBulk: (couples: [string, string][]) => Promise<boolean[]>;
+	getBulk: (keys: string[]) => Promise<(string | undefined)[]>;
+	keys: () => Promise<string[]>;
+}
+```
+
+To go through authentication definition you can write a function that returns the adapter after having the required authentication information. Here's an example that you can use as a starting point:
+
+
+```typescript
+import { remoteStore } from "xwebdb";
+
+function createAdapter(APIToken: string, endpoint: string) {
+	return function (name: string) {
+		return new Store(APIToken, endpoint, name);
+	};
+}
+class Store implements remoteStore {
+	APIToken: string = "";
+	endpoint: string = "";
+	name: string = "";
+	constructor(APIToken: string, endpoint: string, name: string) {
+		this.APIToken = APIToken;
+		this.endpoint = endpoint;
+		this.name = name;
+	}
+	async clear() {
+		// deleting all data
+		// returns a boolean:
+		/// true for a successful operation
+		/// false for a failed operation
+	}
+	async del(key: string) {
+		// delete a specific document by key
+		// returns a boolean:
+		/// true for a successful operation
+		/// false for a failed operation
+	}
+	async set(key: string, value: string) {
+		// set a document (update/insert)
+		// returns a boolean:
+		/// true for a successful operation
+		/// false for a failed operation
+	}
+	async get(key: string) {
+		// gets a document by key
+		// returns the document as a serialized string
+	}
+	async delBulk(keys: string[]) {
+		// deletes multiple documents
+		// returns an array of booleans:
+		/// true for a successful operation
+		/// false for a failed operation
+	}
+	async setBulk(couples: [string, string][]) {
+		// sets a number of documents
+		// the argument is an array of couples
+		// where the first element of each couple is the key
+		// and the second element of each couple is the value
+		// returns an array of booleans:
+		/// true for a successful operation
+		/// false for a failed operation
+	}
+	async getBulk(keys: string[]) {
+		// returns an array of documents
+		// specified by the argument "keys" array
+		// returns an array of serialized (stringified) documents
+		// at the same order of the passed keys
+	}
+	async keys() {
+		// returns all the keys in the database
+		// as an array of strings
+	}
+}
+```
 
 ## Live Queries & Frontend Frameworks
 
@@ -2182,13 +2549,13 @@ Live queries features enable you to query a set of documents as an observable ar
 
 ## Deeply nested documents
 
-### Querying
+### `$deep` querying
 
-### Updating
+### `$deep` updating
 
-### Projecting
+### `$deep` projecting
 
-### Sorting
+### `$deep` sorting
 
 ## Caching
 
