@@ -11,5 +11,3 @@ export interface remoteStore {
 	getBulk: (keys: string[])=> Promise<(string | undefined)[]>;
 	keys: () => Promise<string[]>;
 }
-
-// TODO: unify API of persistence layer and remote store
