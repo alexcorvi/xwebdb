@@ -13,6 +13,7 @@ import {
 	kvAdapter,
 } from "./core";
 import { Database } from "./database";
+import { ObservableArray } from './core/observable';
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
 
 const _internal = {
@@ -28,4 +29,4 @@ const _internal = {
 	Cache,
 };
 
-export { Database, Doc, SubDoc, mapSubModel, kvAdapter, _internal, remoteStore };
+export { Database, Doc, SubDoc, mapSubModel, kvAdapter, _internal, remoteStore, ObservableArray };
