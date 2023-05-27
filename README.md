@@ -2475,7 +2475,6 @@ interface remoteStore {
 
 To go through authentication definition you can write a function that returns the adapter after having the required authentication information. Here's an example that you can use as a starting point:
 
-
 ```typescript
 import { remoteStore } from "xwebdb";
 
@@ -2543,9 +2542,471 @@ class Store implements remoteStore {
 }
 ```
 
+### Currently implemented adapters
+
+-   [CloudflareKV](https://) (TODO)
+-   [S3-Compatible storage](https://) (TODO)
+-   [DynamoDB](https://) (TODO)
+-   [CouchDB](https://) (TODO)
+-   [CosmosDB](https://) (TODO)
+
 ## Live Queries & Frontend Frameworks
 
 Live queries features enable you to query a set of documents as an observable array. Meaning, that the query value will change once the database has been updated and any modification you do on the query result will also be reflected on the database. Think of it like a two-way data-binding but for databases.
+
+To use live queries use the `live` method, The `live` method takes two arguments:
+
+1. The first one is the read query (resembles MongoDB, same as `find`, `delete`, and `update`).
+2. The second one is an object that you can use to `skip`, `limit`, `sort`, and `project` the matched documents, and also to define the direction of the live data, meaning if it's a one way binding, either reflect changes from the database to the query result or reflect modification on the query result to the database, or it's both.
+
+```typescript
+db.live(
+	{
+		// query
+		name: "ali",
+	},
+	{
+		// automatically update the query result
+		// once the database updates
+		toDB: true, // default: true
+		// automatically update the database
+		// if the query result object gets modified
+		fromDB: true, // default: true
+		// limiting, skipping, sorting & projecting
+		// same as `db.find()`
+		limit: 10,
+		skip: 1,
+		project: {
+			_id: -1,
+			name: 1,
+		},
+		sort: {
+			name: -1,
+		},
+	}
+);
+```
+
+The `live` method will return a promise that resolves to an object like this:
+
+```json
+{
+	// actual observable array
+	observable: [
+		{
+			_id: "1",
+			name: "ali"
+		},
+		{
+			_id: "2",
+			name: "dina"
+		}
+	],
+	// call a callback function when the array changes (i.e. creates an observer)
+	observe(callback),
+	// removes a specific (or all) observers (i.e. callbacks)
+	unobserve(callback?),
+	// do something to the array without notifying the observers
+	silently(modifier),
+	// stop data binding in a specific direction or both directions
+	kill(direction)
+}
+```
+
+### Observing live queries
+
+To add an observer to the resulting query use the `observe` method:
+
+```typescript
+let liveResult = await db.live({ name: "ali" });
+
+console.log(liveResult.observable); // will print the query result
+
+liveResult.observe((changes) => {
+	console.log(changes);
+});
+```
+
+When the query result gets modified (whether by a database update or query result direct modification) the `observe` callback will be called with argument of array of changes:
+
+```typescript
+db.insert([
+	{
+		_id: "1",
+		name: "ali",
+	},
+	{
+		_id: "2",
+		name: "dina",
+	},
+]);
+
+// get everything in the database as a live query
+let live = db.live({});
+
+// observe the live query
+live.observe((change) => {
+	console.log(change);
+});
+
+// modify the query result
+live.observable[1].name = "lilly";
+```
+
+In the above example, the database will update, setting the name of the second document to `lilly` instead of `dina`. In addition, since we're observing the query result and printing the changes, the following object will be printed to the console:
+
+```typescript
+[
+	{
+		// the object that has been modified
+		// this can be a document or a sub-document
+		// depending on the depth of the modification
+		object: {
+			_id: "1",
+			name: "lilly",
+		},
+		// the old value
+		oldValue: "dina",
+		// the new value
+		// after the update
+		value: "lilly",
+		// the path of the modification
+		path: [0, "name"],
+		// a snapshot of the live query result
+		snapshot: [
+			{
+				_id: "1",
+				name: "ali",
+			},
+			{
+				_id: "2",
+				name: "lilly",
+			},
+		],
+		// change type
+		// this can be "insert", "update", "delete"
+		// "reverse", or "shuffle"
+		type: "update",
+	},
+];
+```
+
+### Unobserving live queries
+
+Observers, like the one above, can be stopped using the `unobserve` method.
+
+```typescript
+// get everything in the database as a live query
+let live = db.live({});
+
+function myObserver1() {
+	// observer 1 code
+}
+
+function myObserver2() {
+	// observer 2 code
+}
+
+// observe the live query
+live.observe(myObserver1);
+live.observe(myObserver2);
+
+// you can pass the observer to stop it
+live.unobserve(myObserver1); // stop observer 1
+// or pass an array of observers to stop them
+live.unobserve([myObserver1, myObserver2]); // stop observer 1 & 2
+// or don't pass anything to stop all observers
+live.unobserve(); // stop all observers
+// this will also stop reflecting changes to the database
+```
+
+### Silently modifying live queries
+
+If you don't want to reflect specific modification to the database, you can use the method `silently` this will apply your modification without notifying (calling) any observer (even the ones you write):
+
+```typescript
+let live = db.live({});
+live.silently((observable) => {
+	// the document will be added without notifying
+	// any observer
+	// it even won't be added to the database
+	// it will only be added to `live.observable`
+	observable.push({
+		_id: "3",
+		name: "John",
+	});
+});
+```
+
+### Killing live queries
+
+If you'd like to stop reflecting changes to the database use the method `kill("toDB")`
+
+```typescript
+let live = db.live({});
+live.kill("toDB");
+// modifications to live.observable
+// will not be reflected to the database now
+
+// equivalent to:
+let live = db.live({}, { toDB: false });
+```
+
+If you'd like to stop reflecting DB updates to the live query result use `kill("fromDB")`
+
+```typescript
+let live = db.live({});
+live.kill("fromDB");
+// updates on the database will not cause the live.observable
+// to update
+
+// equivalent to:
+let live = db.live({}, { fromDB: false });
+```
+
+If you'd like to stop reflecting updates on both sides on both sides use `kill()` without passing any argument, and this will turn the `live` query to a regular `find` query.
+
+```typescript
+let live = db.live({});
+live.kill();
+// this will kill the live query, turning it to a regular query
+// however, you can still register observers yourself
+
+// equivalent to
+let live = db.live({}, { fromDB: false, toDB: false });
+```
+
+### Front-end frameworks
+
+Live queries can be very useful when you use XWebDB as a state manager for your front-end framework.
+
+#### React functional components
+
+In the following example, I've used the hook `useXWebDB` to observe the `live` query and used `stateChange` to tell react the state of the application has changed:
+
+```javascript
+import { useCallback, useEffect, useState } from "react";
+
+let db = new xwebdb.Database({ ref: "react-example" });
+let liveData = Promise.resolve(db.loaded).then(() => db.live({}));
+
+function useXWebDB(req) {
+	const [, stateChange] = useState(0);
+	const [v, data] = useState([]);
+
+	const stateChangeCallback = useCallback((a) => {
+		stateChange((prev) => prev + 1);
+	}, []);
+
+	const observerFn = useCallback(() => {
+		stateChangeCallback();
+	}, [stateChangeCallback]);
+
+	useEffect(() => {
+		req.then((res) => {
+			res.observe(observerFn);
+			data(res.observable);
+		});
+		return () => {
+			req.then((res) => {
+				res.unobserve(observerFn);
+			});
+		};
+	}, [req, observerFn]);
+	return v;
+}
+
+export default function App() {
+	const res = useXWebDB(liveData);
+	return (
+		<div className="App">
+			{res.map((x) => (
+				<div className="document" key={x._id}>
+					<pre>{JSON.stringify(x, null, "  ")}</pre>
+				</div>
+			))}
+			<br />
+			<button onClick={() => insert()}>Insert document in DB</button>
+			<p>
+				The button above will insert a document in the DB and this insertion will be
+				reflected automatically to the state of the component since it is using the
+				"live" method.
+			</p>
+		</div>
+	);
+}
+
+function insert() {
+	db.insert({
+		randomNumber: Math.floor(Math.random() * 100),
+	});
+}
+```
+
+[Live example](https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js:0-1411)
+
+#### React class components
+
+If you prefer to use react class class components the following example has two methods `observer` as a decorator for your react class components and `livePromise` that enables you ro utilize live query promises directly in your class components:
+
+```typescript
+import * as React from "react";
+import { Database, Doc, ObservableArray } from "xwebdb";
+
+var observableSymbol = Symbol("observable_metadata");
+
+function livePromise<D extends Doc, G extends ObservableArray<D[]>>(input: Promise<G>): D[] {
+	let placeholder = [];
+	placeholder[observableSymbol] = input;
+	return placeholder;
+}
+
+function observer(target: Function) {
+	const originalConstructor = target as any;
+	const newConstructor: any = function (...args: any[]) {
+		const instance = new originalConstructor(...args);
+		const unobservers: (() => void)[] = [];
+		Object.keys(instance).forEach((key) => {
+			if (instance[key][observableSymbol] instanceof Promise) {
+				instance[key][observableSymbol].then((liveRes) => {
+					instance[key] = liveRes.observable;
+					instance.setState({});
+					const observer = () => {
+						instance.setState({});
+					};
+					liveRes.observe(observer);
+					unobservers.push(() => liveRes.unobserve(observer));
+				});
+			}
+		});
+
+		const oComponentWillUnmount = instance.componentWillUnmount;
+		instance.componentWillUnmount = function () {
+			unobservers.forEach((u) => u());
+			oComponentWillUnmount && oComponentWillUnmount.call(instance);
+		};
+		return instance;
+	};
+	newConstructor.prototype = Object.create(originalConstructor.prototype);
+	newConstructor.prototype.constructor = originalConstructor;
+	return newConstructor;
+}
+
+let db = new Database({
+	ref: "react-class-example",
+});
+
+@observer // class decorator used
+export class App extends React.Component {
+	// wrap your live queries so they are initially usable
+	data = livePromise(db.live());
+	render() {
+		return (
+			<div>
+				Documents:
+				{this.data.map((x) => (
+					<div key={x._id}>
+						<pre>{JSON.stringify(x, null, "  ")}</pre>
+					</div>
+				))}
+				<button onClick={() => db.insert({ _id: Math.random().toString() })}>
+					Insert Document
+				</button>
+			</div>
+		);
+	}
+}
+```
+
+>[!INFO]
+>The functions that I defined in the example above, `observer` & `livePromise`, are reusable, so you may define them in a separate file and use them on different components.
+
+[Live example](https://stackblitz.com/edit/react-starter-typescript-3tmpgu?file=style.scss,App.tsx)
+
+#### Angular
+
+The following angular component implements XWebDB live queries using the `detectChanges` whenever a change occurs in the live query:
+
+```typescript
+import { Component, ChangeDetectorRef } from "@angular/core";
+
+let db = new xwebdb.Database({ ref: "vue-example" });
+let liveData = Promise.resolve(db.loaded).then(() => db.live({}));
+
+@Component({
+	selector: "app-root",
+	styleUrls: ["./app.component.css"],
+	template: `<div class="document" *ngFor="let item of items$">
+			<pre>{{ JSON.stringify(item, null, "  ") }}</pre>
+		</div>
+		<br />
+		<button (click)="insert()">Add document in DB</button>
+		<p>
+			The button above will insert a document in the DB and this insertion will be
+			reflected automatically to the state of the component since it is using the "live"
+			method.
+		</p>`,
+})
+export class AppComponent {
+	items$ = undefined;
+	observer = () => undefined;
+	constructor(private cd: ChangeDetectorRef) {}
+	ngOnInit() {
+		liveData.then((live) => {
+			this.items$ = live.observable;
+			this.observer = () => {
+				// observe the live query result
+				// and whenever it changes
+				// update the UI
+				this.cd.detectChanges();
+			};
+			live.observe(this.observer);
+		});
+	}
+	ngOnDestroy() {
+		this.items$.unobserve(this.observer);
+	}
+	insert() {
+		db.insert({
+			randomNumber: Math.floor(Math.random() * 100),
+		});
+	}
+	JSON = JSON;
+}
+```
+
+[Live example](https://codesandbox.io/s/trusting-framework-hqvv17?file=/src/app/app.component.ts)
+
+#### Vue
+
+You can implement xWebDB live queries in your vue applications as well, the following example calls `$forceUpdate` whenever a change occurs in the live query:
+
+```html
+<script>
+	let db = new xwebdb.Database({ ref: "ref" });
+	let liveData = Promise.resolve(db.loaded) // load previously written data
+		.then(() => db.live({})); // then get live data
+	export default {
+		data() {
+			return {
+				// a promise will be replace in mount()
+				items: liveData,
+			};
+		},
+		async mounted() {
+			this.items = await liveData;
+			this.items.observe((c) => {
+				// forceful update on query result change
+				this.$forceUpdate();
+			});
+		},
+	};
+</script>
+```
+
+[More elaborate example](https://codesandbox.io/s/thirsty-ace-w7ggho?file=/src/App.vue)
+
+#### React
 
 ## Deeply nested documents
 
@@ -2558,6 +3019,37 @@ Live queries features enable you to query a set of documents as an observable ar
 ### `$deep` sorting
 
 ## Caching
+
+## Credits
+
+-   [Louis Chatriot](https://github.com/louischatriot) for writing `nedb`, I've used his logic when writing query runner similar to MongoDB.
+-   [Yuri Guller](https://github.com/gullerya) for writing `object-observer`, that helped me a lot when writing live queries.
+-   [Jake Archibald](https://github.com/jakearchibald) for writing `idb`, since I've used much of his code when writing the persistence layer specific to `IndexedDB`.
+-   [Zhihao Chen](https://github.com/chenzhihao) for writing `easy-promise-queue`, a simple promise queue, that has been used as a task-queue for database operations.
+
+## License
+
+The MIT License (MIT)
+
+Copyright (c) 2023 Ali Saleem
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ---
 
@@ -2636,9 +3128,6 @@ Current progress
 
 Reactive queries with UI frameworks:
 TODO: react classes
-// ========================
-// Vue: https://codesandbox.io/s/heuristic-hamilton-w7nu1m?file=/src/components/HelloWorld.vue
-// Still not reactive...
 // ========================
 // Angular: https://codesandbox.io/s/billowing-dream-872me1?file=/src/app/app.component.ts
 // ========================
