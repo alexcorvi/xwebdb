@@ -72,6 +72,7 @@ export class Database<S extends Doc> {
 	 * insert documents
 	 */
 	public async insert(docs: S[] | S): Promise<{ docs: S[]; number: number }> {
+		await this.loaded;
 		const res = await this._datastore.insert(docs);
 		return res;
 	}
@@ -103,6 +104,7 @@ export class Database<S extends Doc> {
 			kill: (w?: "toDB" | "fromDB") => Promise<void>;
 		}
 	> {
+		await this.loaded;
 		const res = await this.read(...arguments);
 		const ob = o.observable(res);
 		let toDBObserver: (changes: observable.Change<S[]>[]) => void = () => undefined;
@@ -197,6 +199,7 @@ export class Database<S extends Doc> {
 			project?: SchemaKeyProjection<S>;
 		} = {}
 	): Promise<S[]> {
+		await this.loaded;
 		filter = toDotNotation(filter);
 		sort = toDotNotation(sort);
 		project = toDotNotation(project);
@@ -225,6 +228,7 @@ export class Database<S extends Doc> {
 		update: UpdateOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
+		await this.loaded;
 		filter = toDotNotation(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
@@ -248,6 +252,7 @@ export class Database<S extends Doc> {
 		update: UpsertOperators<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number; upsert: boolean }> {
+		await this.loaded;
 		filter = toDotNotation(filter || {});
 		for (let index = 0; index < deepOperators.length; index++) {
 			const operator = deepOperators[index];
@@ -266,6 +271,7 @@ export class Database<S extends Doc> {
 	 * Count documents that meets the specified criteria
 	 */
 	public async count(filter: Filter<S> = {}): Promise<number> {
+		await this.loaded;
 		filter = toDotNotation(filter || {});
 		return await this._datastore.count(filter);
 	}
@@ -278,6 +284,7 @@ export class Database<S extends Doc> {
 		filter: Filter<S>,
 		multi: boolean = false
 	): Promise<{ docs: S[]; number: number }> {
+		await this.loaded;
 		filter = toDotNotation(filter || {});
 		const res = await this._datastore.remove(filter, {
 			multi: multi || false,
@@ -291,6 +298,7 @@ export class Database<S extends Doc> {
 	public async createIndex(
 		options: EnsureIndexOptions & { fieldName: keyof NFP<S> }
 	): Promise<{ affectedIndex: string }> {
+		await this.loaded;
 		return await this._datastore.ensureIndex(options);
 	}
 
@@ -300,6 +308,7 @@ export class Database<S extends Doc> {
 	public async removeIndex(
 		fieldName: string & keyof NFP<S>
 	): Promise<{ affectedIndex: string }> {
+		await this.loaded;
 		return await this._datastore.removeIndex(fieldName);
 	}
 
@@ -307,13 +316,16 @@ export class Database<S extends Doc> {
 	 * Reload database from the persistence layer
 	 */
 	async reload(): Promise<{}> {
-		return await this._datastore.loadDatabase();
+		let promise = this._datastore.loadDatabase();
+		this.loaded = promise;
+		return promise;
 	}
 
 	/**
 	 * Synchronies the database with remote source using the remote adapter
 	 */
 	async sync() {
+		await this.loaded;
 		if (!this._datastore.persistence.sync) {
 			throw new Error(
 				"XWebDB: Can not perform sync operation unless provided with remote DB adapter"
