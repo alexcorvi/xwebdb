@@ -7,7 +7,7 @@ import { EnsureIndexOptions } from "./datastore";
 export type Line = Partial<Doc & {
     $$indexCreated?: EnsureIndexOptions;
 }> & Record<string, any>;
-interface PersistenceLayer {
+export interface PersistenceLayer {
     get(key: string): Promise<Line | undefined>;
     getBulk(keys: string[]): Promise<(Line | undefined)[]>;
     set(key: string, value: Line): Promise<void>;
@@ -74,4 +74,3 @@ export declare class IDB implements PersistenceLayer {
      */
     length(): Promise<number>;
 }
-export {};

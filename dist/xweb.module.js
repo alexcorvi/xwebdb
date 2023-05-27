@@ -2503,7 +2503,8 @@ class Datastore {
             err.missingFieldName = true;
             throw err;
         }
-        if (this.indexes[options.fieldName] && this.indexes[options.fieldName].unique === options.unique) {
+        if (this.indexes[options.fieldName] &&
+            this.indexes[options.fieldName].unique === options.unique) {
             return { affectedIndex: options.fieldName };
         }
         this.indexes[options.fieldName] = new Index(options);
@@ -2671,7 +2672,7 @@ class Datastore {
          * Clone all documents, add _id, add timestamps and validate
          * then add to indexes
          * if an error occurred rollback everything
-        */
+         */
         let cloned = [];
         let failingI = -1;
         let error;
@@ -3095,11 +3096,6 @@ class Namespace {
         return result;
     }
 }
-
-var index = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    kvAdapter: kvAdapter
-});
 
 /**
  * Creating an an observable array
@@ -3673,6 +3669,7 @@ class Database {
      * insert documents
      */
     async insert(docs) {
+        await this.loaded;
         const res = await this._datastore.insert(docs);
         return res;
     }
@@ -3682,6 +3679,7 @@ class Database {
      * or either from or to DB
      */
     async live(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, toDB = true, fromDB = true, } = {}) {
+        await this.loaded;
         const res = await this.read(...arguments);
         const ob = observable(res);
         let toDBObserver = () => undefined;
@@ -3756,6 +3754,7 @@ class Database {
      * Find document(s) that meets a specified criteria
      */
     async read(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, } = {}) {
+        await this.loaded;
         filter = toDotNotation(filter);
         sort = toDotNotation(sort);
         project = toDotNotation(project);
@@ -3778,6 +3777,7 @@ class Database {
      * Update document(s) that meets the specified criteria
      */
     async update(filter, update, multi = false) {
+        await this.loaded;
         filter = toDotNotation(filter || {});
         for (let index = 0; index < deepOperators.length; index++) {
             const operator = deepOperators[index];
@@ -3796,6 +3796,7 @@ class Database {
      * and do an insertion if no documents are matched
      */
     async upsert(filter, update, multi = false) {
+        await this.loaded;
         filter = toDotNotation(filter || {});
         for (let index = 0; index < deepOperators.length; index++) {
             const operator = deepOperators[index];
@@ -3813,6 +3814,7 @@ class Database {
      * Count documents that meets the specified criteria
      */
     async count(filter = {}) {
+        await this.loaded;
         filter = toDotNotation(filter || {});
         return await this._datastore.count(filter);
     }
@@ -3821,6 +3823,7 @@ class Database {
      *
      */
     async delete(filter, multi = false) {
+        await this.loaded;
         filter = toDotNotation(filter || {});
         const res = await this._datastore.remove(filter, {
             multi: multi || false,
@@ -3831,24 +3834,29 @@ class Database {
      * Create an index specified by options
      */
     async createIndex(options) {
+        await this.loaded;
         return await this._datastore.ensureIndex(options);
     }
     /**
      * Remove an index by passing the field name that it is related to
      */
     async removeIndex(fieldName) {
+        await this.loaded;
         return await this._datastore.removeIndex(fieldName);
     }
     /**
      * Reload database from the persistence layer
      */
     async reload() {
-        return await this._datastore.loadDatabase();
+        let promise = this._datastore.loadDatabase();
+        this.loaded = promise;
+        return promise;
     }
     /**
      * Synchronies the database with remote source using the remote adapter
      */
     async sync() {
+        await this.loaded;
         if (!this._datastore.persistence.sync) {
             throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
         }
@@ -3889,4 +3897,4 @@ const _internal = {
     Cache,
 };
 
-export { Database, Doc, SubDoc, _internal, index as adapters, mapSubModel };
+export { Database, Doc, SubDoc, _internal, kvAdapter, mapSubModel };

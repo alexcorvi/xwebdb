@@ -2509,7 +2509,8 @@
                 err.missingFieldName = true;
                 throw err;
             }
-            if (this.indexes[options.fieldName] && this.indexes[options.fieldName].unique === options.unique) {
+            if (this.indexes[options.fieldName] &&
+                this.indexes[options.fieldName].unique === options.unique) {
                 return { affectedIndex: options.fieldName };
             }
             this.indexes[options.fieldName] = new Index(options);
@@ -2677,7 +2678,7 @@
              * Clone all documents, add _id, add timestamps and validate
              * then add to indexes
              * if an error occurred rollback everything
-            */
+             */
             let cloned = [];
             let failingI = -1;
             let error;
@@ -3101,11 +3102,6 @@
             return result;
         }
     }
-
-    var index = /*#__PURE__*/Object.freeze({
-        __proto__: null,
-        kvAdapter: kvAdapter
-    });
 
     /**
      * Creating an an observable array
@@ -3679,6 +3675,7 @@
          * insert documents
          */
         async insert(docs) {
+            await this.loaded;
             const res = await this._datastore.insert(docs);
             return res;
         }
@@ -3688,6 +3685,7 @@
          * or either from or to DB
          */
         async live(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, toDB = true, fromDB = true, } = {}) {
+            await this.loaded;
             const res = await this.read(...arguments);
             const ob = observable(res);
             let toDBObserver = () => undefined;
@@ -3762,6 +3760,7 @@
          * Find document(s) that meets a specified criteria
          */
         async read(filter = {}, { skip = 0, limit = 0, project = {}, sort = {}, } = {}) {
+            await this.loaded;
             filter = toDotNotation(filter);
             sort = toDotNotation(sort);
             project = toDotNotation(project);
@@ -3784,6 +3783,7 @@
          * Update document(s) that meets the specified criteria
          */
         async update(filter, update, multi = false) {
+            await this.loaded;
             filter = toDotNotation(filter || {});
             for (let index = 0; index < deepOperators.length; index++) {
                 const operator = deepOperators[index];
@@ -3802,6 +3802,7 @@
          * and do an insertion if no documents are matched
          */
         async upsert(filter, update, multi = false) {
+            await this.loaded;
             filter = toDotNotation(filter || {});
             for (let index = 0; index < deepOperators.length; index++) {
                 const operator = deepOperators[index];
@@ -3819,6 +3820,7 @@
          * Count documents that meets the specified criteria
          */
         async count(filter = {}) {
+            await this.loaded;
             filter = toDotNotation(filter || {});
             return await this._datastore.count(filter);
         }
@@ -3827,6 +3829,7 @@
          *
          */
         async delete(filter, multi = false) {
+            await this.loaded;
             filter = toDotNotation(filter || {});
             const res = await this._datastore.remove(filter, {
                 multi: multi || false,
@@ -3837,24 +3840,29 @@
          * Create an index specified by options
          */
         async createIndex(options) {
+            await this.loaded;
             return await this._datastore.ensureIndex(options);
         }
         /**
          * Remove an index by passing the field name that it is related to
          */
         async removeIndex(fieldName) {
+            await this.loaded;
             return await this._datastore.removeIndex(fieldName);
         }
         /**
          * Reload database from the persistence layer
          */
         async reload() {
-            return await this._datastore.loadDatabase();
+            let promise = this._datastore.loadDatabase();
+            this.loaded = promise;
+            return promise;
         }
         /**
          * Synchronies the database with remote source using the remote adapter
          */
         async sync() {
+            await this.loaded;
             if (!this._datastore.persistence.sync) {
                 throw new Error("XWebDB: Can not perform sync operation unless provided with remote DB adapter");
             }
@@ -3899,7 +3907,7 @@
     exports.Doc = Doc;
     exports.SubDoc = SubDoc;
     exports._internal = _internal;
-    exports.adapters = index;
+    exports.kvAdapter = kvAdapter;
     exports.mapSubModel = mapSubModel;
 
     Object.defineProperty(exports, '__esModule', { value: true });
