@@ -65,17 +65,18 @@ _pronounced: Cross Web Database_
 
 ### Comparision with other databases
 
-|Feature |LocalForage|PouchDB |Dexie.js |XWebDB |
-|--- | ---|--- |--- |---- |
-|Minified size |29KB |142KB |80KB |48KB |
-|Performance^ |good |good |good |fastest |
-|Query Language |Key/value |Map/Reduce |Mongo-like |Mongo-like |
-|Sync |no sync |CouchDB sync |Paid/Server|Serverless services (free)|
-|Live Queries |unsupported|unsupported |Supported |supported |
+| Feature        | LocalForage | PouchDB      | Dexie.js    | XWebDB                     |
+| -------------- | ----------- | ------------ | ----------- | -------------------------- |
+| Minified size  | 29KB        | 142KB        | 80KB        | 48KB                       |
+| Performance^   | good        | good         | good        | fastest                    |
+| Query Language | Key/value   | Map/Reduce   | Mongo-like  | Mongo-like                 |
+| Sync           | no sync     | CouchDB sync | Paid/Server | Serverless services (free) |
+| Live Queries   | unsupported | unsupported  | Supported   | supported                  |
 
 ### A Word on Performance
 
 [Benchmark](https://alexcorvi.github.io/xwebdb/_benchmark/index.html)
+
 XWebDB has a pretty good performance. It has the fastest insert, bulk-insert, update, delete, and read times even with large databases.
 
 <p align="center">
@@ -84,9 +85,13 @@ XWebDB has a pretty good performance. It has the fastest insert, bulk-insert, up
 	<br>
 </p>
 
-It's backed by a simple, yet efficient [caching mechanism](https://github.com/alexcorvi/xwebdb/blob/master/src/core/cache.ts), and a [custom data structure](https://github.com/alexcorvi/xwebdb/blob/master/src/core/dictionary.ts) (similar to sorted dictionary in C#) that has been designed to perform well on various data types and sizes.
+The performance of XWebDB can be attributed to:
 
-However, it is important to note that achieving such high-performance results requires maintaining a complete copy of the database in memory. While this approach may seem unconventional, it poses no significant issues for the intended use cases of this database, particularly given today's standards. The memory footprint for storing 10,000 2KB documents is nearly 20MB, which is considered manageable.
+1. Most notably, a [custom data structure](https://github.com/alexcorvi/xwebdb/blob/master/src/core/dictionary.ts) that is specifically optimized for browser usage in JavaScript and offers a unique combination of a sorted array and a map. It leverages efficient methods, such as binary search, map get, and array concatenation, to provide high-performance operations for reading, inserting, and deleting elements. Unlike tree-based structures, which often require additional memory for node structures, this data structure minimizes memory overhead by only utilizing memory for the array and the map, resulting in improved performance and reduced memory consumption.
+2. A built-in [caching mechanism](https://github.com/alexcorvi/xwebdb/blob/master/src/core/cache.ts), that is quite simple yet efficient.
+3. Leveraging bulk-operations in IndexedDB whenever possible, as it has been proven to be faster.
+
+However, it is important to note that achieving such high-performance requires maintaining a complete copy of the database in memory. While this approach may seem unconventional, it poses no significant issues for the intended use cases of this database, particularly given today's standards. The memory footprint for storing 10,000 2KB documents is nearly 20MB, which is considered manageable.
 
 #### Data Complexity
 
@@ -238,7 +243,6 @@ res1.kill();
 res1.kill("fromDB");
 // will not reflect changes to DB anymore
 res1.kill("toDB");
-
 ```
 
 With Live Queries, you can build dynamic applications that respond to data changes in real-time. Live queries enable you to use XWebDB directly as a state manager in your front-end framework (react, angular, vue, svelte, solid ...etc). This is discussed extensively in [Live queries](#live-queries-and-frontend-frameworks) section.
