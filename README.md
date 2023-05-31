@@ -67,7 +67,7 @@ _pronounced: Cross Web Database_
 
 | Feature        | LocalForage | PouchDB      | Dexie.js    | XWebDB                     |
 | -------------- | ----------- | ------------ | ----------- | -------------------------- |
-| Minified size  | 29KB        | 142KB        | 80KB        | 48KB                       |
+| Minified Size  | 29KB        | 142KB        | 80KB        | 48KB                       |
 | Performance^   | good        | good         | good        | fastest                    |
 | Query Language | Key/value   | Map/Reduce   | Mongo-like  | Mongo-like                 |
 | Sync           | no sync     | CouchDB sync | Paid/Server | Serverless services (free) |
@@ -93,7 +93,7 @@ The performance of XWebDB can be attributed to:
 
 However, it is important to note that achieving such high-performance requires maintaining a complete copy of the database in memory. While this approach may seem unconventional, it poses no significant issues for the intended use cases of this database, particularly given today's standards. The memory footprint for storing 10,000 2KB documents is nearly 20MB, which is considered manageable.
 
-#### Data Complexity
+#### Data complexity
 
 -   Get `O(1)`
 -   Insert `O(log n)`
@@ -202,7 +202,7 @@ db.sync();
 
 Those operations are explained extensively in their respective sections below (check: [Inserting](#inserting), [Indexing](#indexing), [Reading](#reading), [Counting](#counting), [Updating](#updating), [Upserting](#upserting), [Deleting](#deleting), [Reloading](#loading-and-reloading), and [Synchronization](#synchronizing)).
 
-### Live Queries
+### Live queries
 
 By leveraging Live Queries, you can perform queries that not only return initial results but also establish a continuous connection to the queried data. This connection ensures that any changes made to the data in the database are automatically reflected in the query results in real-time, without the need for manual refreshing or re-querying. It also means that any changes made to the query resulting object will be persisted to the database.
 
@@ -245,7 +245,7 @@ res1.kill("fromDB");
 res1.kill("toDB");
 ```
 
-With Live Queries, you can build dynamic applications that respond to data changes in real-time. Live queries enable you to use XWebDB directly as a state manager in your front-end framework (react, angular, vue, svelte, solid ...etc). This is discussed extensively in [Live queries](#live-queries-and-frontend-frameworks) section.
+With live queries, you can build dynamic applications that respond to data changes in real-time. Live queries enable you to use XWebDB directly as a state manager in your front-end framework (react, angular, vue, svelte, solid ...etc). This is discussed extensively in [Live queries](#live-queries-and-frontend-frameworks) section.
 
 ---
 
@@ -263,7 +263,7 @@ class Person extends Doc {
 	}
 }
 
-// Database Creation and Configuration
+// Database creation and configuration
 let db = new Database<Person>({
 	ref: "my-database",
 	// Define a reference to be used as a database name for IndexedDB
@@ -364,7 +364,7 @@ let db = new Database({
 });
 ```
 
-## Object Mapping
+## Object mapping
 
 Object mapping is mechanism by which you define a structure for your data using JavaScript classes.
 
@@ -666,13 +666,13 @@ db.read(
 );
 ```
 
-The Query API (first argument of `read`) closely resembles [MongoDB MQL](https://docs.mongodb.com/manual/tutorial/query-documents/). You can query documents based on field equality or utilize a range of comparison operators such as `$lt`, `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$ne`, and `$eq`. Additionally, logical operators like `$or`, `$and`, `$not`, and `$where` are available for more complex querying capabilities.
+The query API (first argument of `read`) closely resembles [MongoDB MQL](https://docs.mongodb.com/manual/tutorial/query-documents/). You can query documents based on field equality or utilize a range of comparison operators such as `$lt`, `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$ne`, and `$eq`. Additionally, logical operators like `$or`, `$and`, `$not`, and `$where` are available for more complex querying capabilities.
 
 1. **Field equality**, e.g. `{name:"Ali"}`
 2. **Field level operators** (comparison at field level), e.g. `{age:{$gt:10}}`
 3. **Top level operators** (logical at top level), e.g. `{$and:[{age:10},{name:"Ali"}]`.
 
-### 1. Field Level Equality
+### 1. Field level Equality
 
 To specify equality conditions in a query filter document, you can use `{ <FieldName> : <Value> }` expressions. This allows you to find documents that match specific field values. Here are some examples:
 
@@ -724,7 +724,7 @@ In the case of deeply nested objects, using field-level equality alone will not 
 
 Syntax: `{ <fieldName>: { <operator>: <specification> } }`
 
-#### 2.1. Comparison Operators
+#### 2.1. Comparison operators
 
 ##### `$eq`
 
@@ -1492,7 +1492,7 @@ The update operators are:
 2. Mathematical operators
 3. Array operators
 
-### 1. Field Update Operators
+### 1. Field update Operators
 
 ##### `$set`
 
@@ -1665,7 +1665,7 @@ db.update(
 
 <!-- tabs:end -->
 
-### 2. Mathematical Update Operators
+### 2. Mathematical update Operators
 
 ##### `$inc`
 
@@ -1871,7 +1871,7 @@ db.update(
 
 <!-- tabs:end -->
 
-### 3. Array Update Operators
+### 3. Array update Operators
 
 ##### `$addToSet`
 
@@ -2594,7 +2594,7 @@ class Store implements remoteStore {
 -   [CouchDB](https://) (TODO)
 -   [CosmosDB](https://) (TODO)
 
-## Live Queries and Frontend Frameworks
+## Live queries and frontend frameworks
 
 Live queries features enable you to query a set of documents as an observable array. Meaning, that the query value will change once the database has been updated and any modification you do on the query result will also be reflected on the database. Think of it like a two-way data-binding but for databases.
 
