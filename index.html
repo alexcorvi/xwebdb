@@ -118,7 +118,15 @@
 		<script>
 			let db, query, result, update;
 			window.addEventListener("load", function () {
-				// Code to be executed when all resources (including images and stylesheets) have finished loading
+				Array.from(document.querySelectorAll('a[target="_blank"]'))
+					.filter((el) => el.getAttribute("href").includes("stackblitz"))
+					.forEach((el) => {
+						const iframeElement = document.createElement("iframe");
+						iframeElement.src = el.getAttribute("href");
+						iframeElement.height = 450;
+						el.parentNode.insertBefore(iframeElement, el.nextSibling);
+					});
+
 				let cover = document.getElementsByClassName("cover")[0];
 				cover.innerHTML = `
           <div class="title">
