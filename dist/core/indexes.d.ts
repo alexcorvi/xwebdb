@@ -14,10 +14,13 @@ export declare class Index<Key extends S[keyof S], S extends Doc> {
         unique?: boolean;
         sparse?: boolean;
     });
+    /**
+     * Resetting an index: i.e. removing all data from it
+     */
     reset(): void;
     /**
      * Insert a new document in the index
-     * If an array is passed, we insert all its elements (if one insertion fails the index is not modified)
+     * If an array is passed, we insert all its elements (if one insertion fails the index is not modified, atomic)
      * O(log(n))
      */
     insert(doc: S | S[]): void;

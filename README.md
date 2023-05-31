@@ -3323,6 +3323,4 @@ todo
         `- [ ] Performance - [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
 -   [ ] Implement more mongodb operators
 -   [ ] Code review of all old code base
-    -   [ ] cursor.ts
     -   [ ] datastore.ts
-    -   [ ] indexes.ts

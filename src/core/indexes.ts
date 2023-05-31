@@ -33,7 +33,7 @@ function projectForUnique<Key>(elt: Key): string | Key {
 function uniqueProjectedKeys<Key>(key: Key[]): (Key | string)[] {
 	return Array.from(new Set(key.map((x) => projectForUnique(x)))).map((key) => {
 		if (typeof key === "string") {
-			return key.substr(3);
+			return key.substring(3);
 		} else return key;
 	});
 }
@@ -55,12 +55,8 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 		sparse?: boolean;
 	}) {
 		this.fieldName = fieldName;
-		if (unique) {
-			this.unique = unique;
-		}
-		if (sparse) {
-			this.sparse = sparse;
-		}
+		this.unique = !!unique;
+		this.sparse = !!sparse;
 
 		this.dict = new Dictionary({
 			unique: this.unique,
@@ -69,6 +65,9 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 		});
 	}
 
+	/**
+	 * Resetting an index: i.e. removing all data from it
+	 */
 	reset() {
 		this.dict = new Dictionary({
 			unique: this.unique,
@@ -79,13 +78,12 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 
 	/**
 	 * Insert a new document in the index
-	 * If an array is passed, we insert all its elements (if one insertion fails the index is not modified)
+	 * If an array is passed, we insert all its elements (if one insertion fails the index is not modified, atomic)
 	 * O(log(n))
 	 */
 	insert(doc: S | S[]) {
 		if (Array.isArray(doc)) {
-			this.insertMultipleDocs(doc);
-			return;
+			return this.insertMultipleDocs(doc);
 		}
 
 		let key = model.fromDotNotation(doc, this.fieldName as string) as Key;
@@ -96,10 +94,11 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 		}
 
 		if (!Array.isArray(key)) {
-			this.dict.insert(key,doc);
+			this.dict.insert(key, doc);
 		} else {
+			// if key is an array we'll consider each item as a key, and the document will be on each of them
 			// If an insert fails due to a unique constraint, roll back all inserts before it
-			let keys = uniqueProjectedKeys(key);
+			let keys = uniqueProjectedKeys(key) as Key[];
 
 			let error;
 			let failingIndex = -1;
@@ -157,10 +156,9 @@ export class Index<Key extends S[keyof S], S extends Doc> {
 	 * The remove operation is safe with regards to the 'unique' constraint
 	 * O(log(n))
 	 */
-	remove(doc: S | S[]) {
+	remove(doc: S | S[]): void {
 		if (Array.isArray(doc)) {
-			doc.forEach((d) => this.remove(d));
-			return;
+			return doc.forEach((d) => this.remove(d));
 		}
 
 		let key = model.fromDotNotation(doc, this.fieldName as string) as Key;
