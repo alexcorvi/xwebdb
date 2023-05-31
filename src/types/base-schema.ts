@@ -73,7 +73,7 @@ class BaseModel {
 
 /**
  * Main document in the database extends this class:
- * A. Gets an ID: using a very efficient UUID function
+ * A. Gets an ID
  * B. Gets timestamp data if the options is used in the database configuration
  * C. gets Model.new() and model._stripDefaults() methods
 */
