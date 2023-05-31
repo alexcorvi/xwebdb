@@ -30,7 +30,7 @@ _pronounced: Cross Web Database_
 		<td align="center">
 				<img src="https://i.postimg.cc/K8nPQ93f/6720d792-94d2-4047-b6ee-1918c92365bf.jpg" width="200">
 				<br>
-	Lightweight, below 50K (minified and gzipped)
+	Lightweight, below 50KB (minified, 14KB gzipped)
 		</td>
 	</tr>
 </table>
@@ -66,8 +66,8 @@ _pronounced: Cross Web Database_
 ### Comparision with other databases
 
 |Feature |LocalForage|PouchDB |Dexie.js |XWebDB |
-|- | | | | |
-|Size |29KB |142KB |80KB |48KB |
+|--- | ---|--- |--- |---- |
+|Minified size |29KB |142KB |80KB |48KB |
 |Performance^ |good |good |good |fastest |
 |Query Language |Key/value |Map/Reduce |Mongo-like |Mongo-like |
 |Sync |no sync |CouchDB sync |Paid/Server|Serverless services (free)|
@@ -115,7 +115,7 @@ Alternatively, you can include the pre-built and minified file in your HTML:
 <script src="https://unpkg.com/xwebdb/dist/xwebdb.min.js"></script>
 ```
 
-### Database Creation and Configuration
+### Database creation and configuration
 
 To create a database, you need to instantiate the Database class with a configuration object. The only required property is ref, which specifies the reference name of the database.
 
@@ -133,7 +133,7 @@ let db = new Database({
 
 For more advanced configurations, please refer to the [Configuration](#Configuration) section below.
 
-### Object Mapping
+### Defining a model
 
 You can define a document model by extending the Doc class and specifying its properties and methods:
 
@@ -157,6 +157,8 @@ let db = new Database<Person>({
 });
 ```
 
+For more advanced object mapping, please refer to the [Object mapping](#object-mapping) section below.
+
 ### Operations
 
 Once you have a database instance, you can perform various operations on it, such as creating, finding, updating, and deleting documents. Here are some examples:
@@ -165,6 +167,10 @@ Once you have a database instance, you can perform various operations on it, suc
 // Creating a document
 db.insert(Person.new({ firstName: "Ali" }));
 // Create a new document with firstName "Ali"
+
+// defining an index
+db.createIndex({ fieldName: "firstName", unique: false, sparse: true });
+// create an index on "firstName" field
 
 // Finding documents
 db.find({ firstName: "Ali" });
@@ -181,20 +187,27 @@ db.update({ firstName: "Ali" }, { $set: { firstName: "Dina" } });
 // Deleting documents
 db.delete({ firstName: { $eq: "Ali" } });
 // Delete documents with firstName "Ali"
+
+// reload database from persistence layer
+db.reload();
+
+// synchronizing database (an RSA must have been configured)
+db.sync();
 ```
+
+Those operations are explained extensively in their respective sections below (check: [Inserting](#inserting), [Indexing](#indexing), [Reading](#reading), [Counting](#counting), [Updating](#updating), [Upserting](#upserting), [Deleting](#deleting), [Reloading](#loading-and-reloading), and [Synchronization](#synchronizing)).
 
 ### Live Queries
 
-You can also perform live queries that automatically update when the underlying data in the database changes, and also changes the database when it updates. Here's an example:
+By leveraging Live Queries, you can perform queries that not only return initial results but also establish a continuous connection to the queried data. This connection ensures that any changes made to the data in the database are automatically reflected in the query results in real-time, without the need for manual refreshing or re-querying. It also means that any changes made to the query resulting object will be persisted to the database.
 
 ```typescript
 // Perform a live query
 let res1 = await db.live({ firstName: "Ali" });
-// Get live results for documents with firstName "Ali"
+// same results as above
 let res2 = await db.live({ firstName: "Ali" });
-// Get live results for documents with firstName "Ali" (second query)
+// Get regular non-live result
 let res3 = await db.find({ firstName: "Ali" });
-// Get regular non-live results for documents with firstName "Ali"
 
 res1[0].firstName = "Mario";
 // Update the firstName property
@@ -206,7 +219,29 @@ res1[0].firstName = "Mario";
 // 'res2' will have the updated value automatically
 // 'res3' will retain the old value
 // since it was obtained using 'find' instead of 'live'
+
+db.insert(Model.new({ firstName: "Ali" }));
+
+// when the operation above adds a new document
+// the res1 & res2 will be updated automatically
+// and will have the new document
+
+// won't get automatic updates from DB
+db.live({ firstName: "Dina" }, { fromDB: false });
+// won't set automatic updates to DB
+db.live({ firstName: "Dina" }, { toDB: false });
+
+// killing:
+// kill live query turning it to regular query
+res1.kill();
+// won't get automatic updates from DB anymore
+res1.kill("fromDB");
+// will not reflect changes to DB anymore
+res1.kill("toDB");
+
 ```
+
+With Live Queries, you can build dynamic applications that respond to data changes in real-time. Live queries enable you to use XWebDB directly as a state manager in your front-end framework (react, angular, vue, svelte, solid ...etc). This is discussed extensively in [Live queries](#live-queries-and-frontend-frameworks) section.
 
 ---
 
@@ -2368,18 +2403,23 @@ let db = new Database<Person>({
 	indexes: ["email"],
 });
 
-// will return empty array even if there were documents previously
-db.read({});
-
-// will return previous documents if there were documents previously
-db.loaded.then(db.read);
+db.loaded.then(() => {
+	// do whatever
+});
 ```
+
+However, all database operations (such as inserting, reading, updating, and deleting) will wait for database initial loading if it hasn't occurred. So you can safely perform such operations without checking the `loaded` property.
 
 If for any reason you want to reload the database from IndexedDB you can use the `reload` method:
 
 ```typescript
 db.reload();
 ```
+
+Reasons that you may want to reload a database:
+
+1. Multiple browser tabs on the same database, doing different operations.
+2. Multiple database instances on the same indexedDB reference.
 
 ## Synchronizing
 
@@ -2550,7 +2590,7 @@ class Store implements remoteStore {
 -   [CouchDB](https://) (TODO)
 -   [CosmosDB](https://) (TODO)
 
-## Live Queries & Frontend Frameworks
+## Live Queries and Frontend Frameworks
 
 Live queries features enable you to query a set of documents as an observable array. Meaning, that the query value will change once the database has been updated and any modification you do on the query result will also be reflected on the database. Think of it like a two-way data-binding but for databases.
 
@@ -2782,83 +2822,74 @@ Live queries can be very useful when you use XWebDB as a state manager for your 
 
 #### React functional components
 
-In the following example, I've used the hook `useXWebDB` to observe the `live` query and used `stateChange` to tell react the state of the application has changed:
+In the following example, I've used the hook `useLiveQuery` to observe the `live` query and used `stateChange` to tell react the state of the application has changed:
+
+Hook:
+
+```typescript
+import * as React from "react";
+import { Doc, ObservableArray } from "xwebdb";
+
+export function useLiveQuery<D extends Doc>(req: Promise<ObservableArray<D[]>>) {
+	const [, stateChange] = React.useState(0);
+	const [v, data] = React.useState([]);
+	const stateChangeCallback = React.useCallback(() => {
+		stateChange((prev) => prev + 1);
+	}, []);
+	const observerFn = React.useCallback(() => {
+		stateChangeCallback();
+	}, [stateChangeCallback]);
+	React.useEffect(() => {
+		req.then((res) => {
+			res.observe(observerFn);
+			data(res.observable);
+		});
+		return () => {
+			req.then((res) => {
+				res.unobserve(observerFn);
+			});
+		};
+	}, [req, observerFn]);
+	return v;
+}
+```
+
+Usage:
 
 ```javascript
-import * as React from 'react';
-import { render } from 'react-dom';
-import { Database, ObservableArray, Doc } from 'xwebdb';
-
-let db = new Database({ ref: 'react-example' });
-let live = db.live();
-function useXWebDB<D extends Doc>(req: Promise<ObservableArray<D[]>>) {
-  const [, stateChange] = React.useState(0);
-  const [v, data] = React.useState([]);
-  const stateChangeCallback = React.useCallback(() => {
-    stateChange((prev) => prev + 1);
-  }, []);
-  const observerFn = React.useCallback(() => {
-    stateChangeCallback();
-  }, [stateChangeCallback]);
-  React.useEffect(() => {
-    req.then((res) => {
-      res.observe(observerFn);
-      data(res.observable);
-    });
-    return () => {
-      req.then((res) => {
-        res.unobserve(observerFn);
-      });
-    };
-  }, [req, observerFn]);
-  return v;
-}
-
 export default function App() {
-  const res = useXWebDB(live);
-  return (
-    <div className="App">
-      {res.map((x) => (
-        <div className="document" key={x._id}>
-          <pre>{JSON.stringify(x, null, '  ')}</pre>
-        </div>
-      ))}
-      <br />
-      <button onClick={() => db.insert({ _id: Math.random().toString() })}>
-        Insert document in DB
-      </button>
-      <p>
-        The button above will insert a document in the DB and this insertion
-        will be reflected automatically to the state of the component since it
-        is using the "live" method.
-      </p>
-    </div>
-  );
+	const res = useLiveQuery(db.live());
+	return (
+		<div className="App">
+			<ol>
+				{res.map((x) => (
+					<li className="document" key={x._id}>
+						{JSON.stringify(x, null, "  ")}
+					</li>
+				))}
+			</ol>
+			<br />
+			<button onClick={() => db.insert({ _id: Math.random().toString() })}>
+				Insert document in DB
+			</button>
+			<p>
+				The button above will insert a document in the DB and this insertion will be
+				reflected automatically to the state of the component since it is using the
+				"live" method.
+			</p>
+		</div>
+	);
 }
-
-render(<App />, document.getElementById('root'));
 ```
 
 [Live example](https://stackblitz.com/edit/typescript-react-starter-amc5sg?embed=1&file=index.tsx)
 
-> [!INFO]
-> The hook that I defined in the example above (`useXWebDB`) is reusable, so you may define it in a separate file and use it on different components.
-
 #### React class components
 
-If you prefer to use react class class components the following example has two methods `observer` as a decorator for your react class components and `livePromise` that enables you ro utilize live query promises directly in your class components:
+If you prefer to use react class class components, in the following example I wrote function that enables you to use live queries directly in the class components:
 
 ```typescript
-import * as React from "react";
-import { createRoot } from "react-dom/client";
-import { Database, Doc, ObservableArray } from "xwebdb";
-import "./style.scss";
-
-let db = new Database({
-	ref: "react-class-example",
-});
-
-function liveQuery<D extends Doc, G extends ObservableArray<D[]>>(
+function useLiveQuery<D extends Doc, G extends ObservableArray<D[]>>(
 	input: Promise<G>,
 	component: React.Component
 ): D[] {
@@ -2884,9 +2915,13 @@ function liveQuery<D extends Doc, G extends ObservableArray<D[]>>(
 	});
 	return placeholder;
 }
+```
 
+Usage:
+
+```javascript
 class App extends React.Component {
-	data = liveQuery(db.live(), this);
+	data = useLiveQuery(db.live(), this);
 	render() {
 		return (
 			<div>
@@ -2905,22 +2940,15 @@ class App extends React.Component {
 		);
 	}
 }
-
-createRoot(document.getElementById("root")).render(<App />);
 ```
 
 [Live example](https://stackblitz.com/edit/react-starter-typescript-cygznc?embed=1&file=index.tsx)
 
-> [!INFO]
-> The function that I defined in the example above (`liveQuery`) is reusable, so you may define it in a separate file and use it on different components.
-
 #### Angular
 
-The following angular component implements XWebDB live queries:
+A similar function can be used in angular, however, it needs to access `ChangeDetectorRef` to tell angular that a change has occurred, it also uses the `changeDetectorRef` to know whether the component has been destroyed or not:
 
 ```typescript
-let db = new Database({ ref: "angular-example" });
-
 async function ngLiveQuery<G>(input: Promise<ObservableArray<G[]>>, cd: ChangeDetectorRef) {
 	let res = await input;
 	const observer = () => {
@@ -2933,7 +2961,11 @@ async function ngLiveQuery<G>(input: Promise<ObservableArray<G[]>>, cd: ChangeDe
 	res.observe(observer);
 	return res.observable;
 }
+```
 
+Usage:
+
+```typescript
 @Component({
 	selector: "my-app",
 	standalone: true,
@@ -2964,31 +2996,24 @@ export class App {
 
 [Live example](https://stackblitz.com/edit/stackblitz-starters-hjrcg3?embed=1&file=src%2Fmain.ts)
 
-> [!INFO]
-> The function that I defined in the example above (`ngLiveQuery`) is reusable, so you may define it in a separate file and reuse it on different components.
-
 #### Vue
 
-You can implement xWebDB live queries in your vue applications as well:
+A similar implementation can be written for vue framework:
 
 ```javascript
-import { Database } from "xwebdb";
-
-let db = new Database({ ref: "vue-example" });
-
-function liveQuery(input, context) {
+export function useLiveQuery(input, instance) {
 	let placeholder = [];
 	let signature = Math.random().toString();
 	placeholder[signature] = true;
 	let unobserver = [];
 	input
 		.then((res) => {
-			Object.keys(context.$.data).forEach((key) => {
-				if (context.$.data[key] && context.$.data[key][signature]) {
-					context.$.data[key] = res.observable;
+			Object.keys(instance.$.data).forEach((key) => {
+				if (instance.$.data[key] && instance.$.data[key][signature]) {
+					instance.$.data[key] = res.observable;
 					const observer = () => {
-						context.$.data[key] = null;
-						context.$.data[key] = res.observable;
+						instance.$.data[key] = null;
+						instance.$.data[key] = res.observable;
 					};
 					res.observe(observer);
 					unobserver.push(() => res.unobserve(observer));
@@ -2996,19 +3021,23 @@ function liveQuery(input, context) {
 			});
 		})
 		.catch((e) => console.log(e.toString()));
-	context.$.um = [
+	instance.$.um = [
 		function () {
 			unobserver.forEach((u) => u());
 		},
 	];
 	return placeholder;
 }
+```
 
+Usage:
+
+```javascript
 export default {
 	data() {
 		return {
 			name: "hello world!",
-			documents: liveQuery(db.live({}), this),
+			documents: useLiveQuery(db.live({}), this),
 		};
 	},
 	methods: {
@@ -3021,19 +3050,16 @@ export default {
 
 [Live example](https://stackblitz.com/edit/vue-bernq9?embed=1&file=src%2FApp.vue)
 
-> [!INFO]
-> The function that I defined in the example above (`liveQuery`) is reusable, so you may define it in a separate file and reuse it on different components.
-
 #### Svelte
 
-A similar function can be written for svelte:
+A similar function can be written for svelte as well:
 
 ```typescript
 import { onMount, onDestroy } from "svelte";
 import { writable } from "svelte/store";
 import { ObservableArray } from "xwebdb";
 
-export function useLiveItems<G>(input: Promise<ObservableArray<G[]>>) {
+export function useLiveQuery<G>(input: Promise<ObservableArray<G[]>>) {
 	const items = writable([]);
 	const unobservers = [];
 	onMount(() => {
@@ -3058,8 +3084,8 @@ And used like this:
 ```html
 <script>
 	import { db } from "../db";
-	import { useLiveItems } from "../useliveitems";
-	const { items } = useLiveItems(db.live());
+	import { useLiveQuery } from "../uselivequery";
+	const { items } = useLiveQuery(db.live());
 </script>
 
 <main>
@@ -3073,10 +3099,10 @@ And used like this:
 
 #### Solid
 
-A similar function can be written for solid:
+A similar hook can also be implemented for solid:
 
 ```typescript
-export function useLiveItems<G>(input: Promise<ObservableArray<G[]>>) {
+export function useLiveQuery<G>(input: Promise<ObservableArray<G[]>>) {
 	const [items, setItems] = createSignal<G[]>([]);
 	const unobservers: (() => void)[] = [];
 	input.then((res) => {
@@ -3101,7 +3127,7 @@ And used in your components:
 
 ```jsx
 const App = () => {
-	const items = useLiveItems(db.live());
+	const items = useLiveQuery(db.live());
 	return (
 		<ol>
 			<For each={items()}>
@@ -3115,10 +3141,7 @@ const App = () => {
 };
 ```
 
-[Live example](https://stackblitz.com/edit/solidjs-templates-haqgbm?embed=1&file=src%2FApp.tsx)
-
-
-
+[Live example](https://stackblitz.com/edit/solidjs-templates-5to2sq?file=src%2FApp.tsx)
 
 #### Other front-end frameworks
 
@@ -3131,15 +3154,126 @@ By now, after you have read the examples above, you should be able to write othe
 
 ## Deeply nested documents
 
+Working with deeply nested documents in XWebDB is different from MongoDB. While MongoDB uses the dot notation like this:
+
+```json
+{
+	"children.0.born": 2021
+}
+```
+
+This would break the strict typing in XWebDB, instead XWebDB uses the `$deep` operator where the sub-document would be referenced like this:
+
+```json
+{
+	"$deep": {
+		"children": {
+			"0": {
+				"born": 2021
+			}
+		}
+	}
+}
+```
+
+In the following examples, let's suppose that we have a database of parents (`Parent`), each parent have multiple children (`Child`) as sub-documents.
+
+```typescript
+import { Database, Doc, SubDoc } from "xwebdb";
+
+class Parent extends Doc {
+	name: string = "";
+	born: number = 0;
+	children: Child[] = xwebdb.mapSubModel(Child, []);
+}
+
+class Child extends SubDoc {
+	name: string = "";
+	born: number = 0;
+}
+
+let db = new Database<Parent>({
+	ref: "parents-database",
+	model: Parent,
+});
+```
+
 ### `$deep` querying
+
+```typescript
+// get parents who's first child was born later than 2021
+db.find({
+	$deep: {
+		children: {
+			0: {
+				born: {
+					$gt: 2021,
+				},
+			},
+		},
+	},
+});
+```
 
 ### `$deep` updating
 
+```typescript
+// update parent's first child name to "Joseph"
+db.update(
+	{ name: "Ali" },
+	{
+		$set: {
+			$deep: {
+				children: {
+					0: {
+						name: "Joseph",
+					},
+				},
+			},
+		},
+	}
+);
+```
+
 ### `$deep` projecting
+
+```typescript
+// get all parents in database but emit first child birth year
+db.find(
+	{},
+	{
+		project: {
+			$deep: {
+				children: {
+					0: {
+						born: -1,
+					},
+				},
+			},
+		},
+	}
+);
+```
 
 ### `$deep` sorting
 
-## Caching
+```typescript
+// get all parents in database sorting them by first child name ascending
+db.find(
+	{},
+	{
+		sort: {
+			$deep: {
+				children: {
+					0: {
+						name: 1,
+					},
+				},
+			},
+		},
+	}
+);
+```
 
 ## Credits
 
@@ -3181,17 +3315,10 @@ todo
     -   [ ] DynamoDB Adapter
     -   [ ] Firestore Adapter
     -   [ ] S3 Adapter (not advised)
--   [ ] Split optional functionalities into modules
-    -   [ ] Extensibility (hooks?)
-    -   [ ] Adapters (each)
-    -   [ ] Syncing
-    -   [ ] e2e data encryption
-    -   [ ] Reactive
--   [ ] Performance
-    -   [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
+-   [ ] Split optional functionalities into modules - [ ] Extensibility (hooks?) - [ ] Adapters (each) - [ ] Syncing - [ ] e2e data encryption
+        `- [ ] Performance - [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
 -   [ ] Implement more mongodb operators
 -   [ ] Code review of all old code base
     -   [ ] cursor.ts
     -   [ ] datastore.ts
     -   [ ] indexes.ts
--   [ ] Implement pure dot notation (other than $deep)
