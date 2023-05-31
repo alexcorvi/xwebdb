@@ -2785,65 +2785,64 @@ Live queries can be very useful when you use XWebDB as a state manager for your 
 In the following example, I've used the hook `useXWebDB` to observe the `live` query and used `stateChange` to tell react the state of the application has changed:
 
 ```javascript
-import { useCallback, useEffect, useState } from "react";
+import * as React from 'react';
+import { render } from 'react-dom';
+import { Database, ObservableArray, Doc } from 'xwebdb';
 
-let db = new xwebdb.Database({ ref: "react-example" });
-let liveData = Promise.resolve(db.loaded).then(() => db.live({}));
-
-function useXWebDB(req) {
-	const [, stateChange] = useState(0);
-	const [v, data] = useState([]);
-
-	const stateChangeCallback = useCallback((a) => {
-		stateChange((prev) => prev + 1);
-	}, []);
-
-	const observerFn = useCallback(() => {
-		stateChangeCallback();
-	}, [stateChangeCallback]);
-
-	useEffect(() => {
-		req.then((res) => {
-			res.observe(observerFn);
-			data(res.observable);
-		});
-		return () => {
-			req.then((res) => {
-				res.unobserve(observerFn);
-			});
-		};
-	}, [req, observerFn]);
-	return v;
+let db = new Database({ ref: 'react-example' });
+let live = db.live();
+function useXWebDB<D extends Doc>(req: Promise<ObservableArray<D[]>>) {
+  const [, stateChange] = React.useState(0);
+  const [v, data] = React.useState([]);
+  const stateChangeCallback = React.useCallback(() => {
+    stateChange((prev) => prev + 1);
+  }, []);
+  const observerFn = React.useCallback(() => {
+    stateChangeCallback();
+  }, [stateChangeCallback]);
+  React.useEffect(() => {
+    req.then((res) => {
+      res.observe(observerFn);
+      data(res.observable);
+    });
+    return () => {
+      req.then((res) => {
+        res.unobserve(observerFn);
+      });
+    };
+  }, [req, observerFn]);
+  return v;
 }
 
 export default function App() {
-	const res = useXWebDB(liveData);
-	return (
-		<div className="App">
-			{res.map((x) => (
-				<div className="document" key={x._id}>
-					<pre>{JSON.stringify(x, null, "  ")}</pre>
-				</div>
-			))}
-			<br />
-			<button onClick={() => insert()}>Insert document in DB</button>
-			<p>
-				The button above will insert a document in the DB and this insertion will be
-				reflected automatically to the state of the component since it is using the
-				"live" method.
-			</p>
-		</div>
-	);
+  const res = useXWebDB(live);
+  return (
+    <div className="App">
+      {res.map((x) => (
+        <div className="document" key={x._id}>
+          <pre>{JSON.stringify(x, null, '  ')}</pre>
+        </div>
+      ))}
+      <br />
+      <button onClick={() => db.insert({ _id: Math.random().toString() })}>
+        Insert document in DB
+      </button>
+      <p>
+        The button above will insert a document in the DB and this insertion
+        will be reflected automatically to the state of the component since it
+        is using the "live" method.
+      </p>
+    </div>
+  );
 }
 
-function insert() {
-	db.insert({
-		randomNumber: Math.floor(Math.random() * 100),
-	});
-}
+render(<App />, document.getElementById('root'));
 ```
 
-[Live example](https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js:0-1411)
+[Live example](https://stackblitz.com/edit/typescript-react-starter-amc5sg?embed=1&file=index.tsx)
+
+> [!INFO]
+> The hook that I defined in the example above (`useXWebDB`) is reusable, so you may define it in a separate file and use it on different components.
 
 #### React class components
 
@@ -2851,59 +2850,49 @@ If you prefer to use react class class components the following example has two 
 
 ```typescript
 import * as React from "react";
+import { createRoot } from "react-dom/client";
 import { Database, Doc, ObservableArray } from "xwebdb";
-
-var observableSymbol = Symbol("observable_metadata");
-
-function livePromise<D extends Doc, G extends ObservableArray<D[]>>(input: Promise<G>): D[] {
-	let placeholder = [];
-	placeholder[observableSymbol] = input;
-	return placeholder;
-}
-
-function observer(target: Function) {
-	const originalConstructor = target as any;
-	const newConstructor: any = function (...args: any[]) {
-		const instance = new originalConstructor(...args);
-		const unobservers: (() => void)[] = [];
-		Object.keys(instance).forEach((key) => {
-			if (instance[key][observableSymbol] instanceof Promise) {
-				instance[key][observableSymbol].then((liveRes) => {
-					instance[key] = liveRes.observable;
-					instance.setState({});
-					const observer = () => {
-						instance.setState({});
-					};
-					liveRes.observe(observer);
-					unobservers.push(() => liveRes.unobserve(observer));
-				});
-			}
-		});
-
-		const oComponentWillUnmount = instance.componentWillUnmount;
-		instance.componentWillUnmount = function () {
-			unobservers.forEach((u) => u());
-			oComponentWillUnmount && oComponentWillUnmount.call(instance);
-		};
-		return instance;
-	};
-	newConstructor.prototype = Object.create(originalConstructor.prototype);
-	newConstructor.prototype.constructor = originalConstructor;
-	return newConstructor;
-}
+import "./style.scss";
 
 let db = new Database({
 	ref: "react-class-example",
 });
 
-@observer // class decorator used
-export class App extends React.Component {
-	// wrap your live queries so they are initially usable
-	data = livePromise(db.live());
+function liveQuery<D extends Doc, G extends ObservableArray<D[]>>(
+	input: Promise<G>,
+	component: React.Component
+): D[] {
+	let placeholder: D[] = [];
+	let signature = Math.random().toString();
+	placeholder[signature] = true;
+	input.then((res) => {
+		let unobservers: (() => void)[] = [];
+		Object.keys(component).forEach((key) => {
+			if (component[key] && component[key][signature]) {
+				component[key] = res.observable;
+				component.setState({});
+				const observer = () => component.setState({});
+				res.observe(observer);
+				unobservers.push(() => res.unobserve(observer));
+			}
+		});
+		const oCWU = component.componentWillUnmount || (() => {});
+		component.componentWillUnmount = () => {
+			unobservers.forEach((u) => u());
+			oCWU.call(component);
+		};
+	});
+	return placeholder;
+}
+
+class App extends React.Component {
+	data = liveQuery(db.live(), this);
 	render() {
 		return (
 			<div>
 				Documents:
+				{this.data.length}
+				<br />
 				{this.data.map((x) => (
 					<div key={x._id}>
 						<pre>{JSON.stringify(x, null, "  ")}</pre>
@@ -2916,97 +2905,229 @@ export class App extends React.Component {
 		);
 	}
 }
+
+createRoot(document.getElementById("root")).render(<App />);
 ```
 
->[!INFO]
->The functions that I defined in the example above, `observer` & `livePromise`, are reusable, so you may define them in a separate file and use them on different components.
+[Live example](https://stackblitz.com/edit/react-starter-typescript-cygznc?embed=1&file=index.tsx)
 
-[Live example](https://stackblitz.com/edit/react-starter-typescript-3tmpgu?file=style.scss,App.tsx)
+> [!INFO]
+> The function that I defined in the example above (`liveQuery`) is reusable, so you may define it in a separate file and use it on different components.
 
 #### Angular
 
-The following angular component implements XWebDB live queries using the `detectChanges` whenever a change occurs in the live query:
+The following angular component implements XWebDB live queries:
 
 ```typescript
-import { Component, ChangeDetectorRef } from "@angular/core";
+let db = new Database({ ref: "angular-example" });
 
-let db = new xwebdb.Database({ ref: "vue-example" });
-let liveData = Promise.resolve(db.loaded).then(() => db.live({}));
+async function ngLiveQuery<G>(input: Promise<ObservableArray<G[]>>, cd: ChangeDetectorRef) {
+	let res = await input;
+	const observer = () => {
+		if ((cd as any).destroyed) {
+			res.unobserve(observer);
+		} else {
+			cd.detectChanges();
+		}
+	};
+	res.observe(observer);
+	return res.observable;
+}
 
 @Component({
-	selector: "app-root",
-	styleUrls: ["./app.component.css"],
-	template: `<div class="document" *ngFor="let item of items$">
+	selector: "my-app",
+	standalone: true,
+	imports: [CommonModule],
+	template: `
+		number: {{ ((items$ | async) || []).length }}
+		<div class="document" *ngFor="let item of items$ | async">
 			<pre>{{ JSON.stringify(item, null, "  ") }}</pre>
 		</div>
 		<br />
-		<button (click)="insert()">Add document in DB</button>
+		<button (click)="insert()">Insert document in DB</button>
 		<p>
 			The button above will insert a document in the DB and this insertion will be
 			reflected automatically to the state of the component since it is using the "live"
 			method.
-		</p>`,
+		</p>
+	`,
 })
-export class AppComponent {
-	items$ = undefined;
-	observer = () => undefined;
+export class App {
 	constructor(private cd: ChangeDetectorRef) {}
-	ngOnInit() {
-		liveData.then((live) => {
-			this.items$ = live.observable;
-			this.observer = () => {
-				// observe the live query result
-				// and whenever it changes
-				// update the UI
-				this.cd.detectChanges();
-			};
-			live.observe(this.observer);
-		});
-	}
-	ngOnDestroy() {
-		this.items$.unobserve(this.observer);
-	}
-	insert() {
-		db.insert({
-			randomNumber: Math.floor(Math.random() * 100),
-		});
-	}
+	items$ = ngLiveQuery(db.live(), this.cd);
 	JSON = JSON;
+	insert() {
+		db.insert({} as any);
+	}
 }
 ```
 
-[Live example](https://codesandbox.io/s/trusting-framework-hqvv17?file=/src/app/app.component.ts)
+[Live example](https://stackblitz.com/edit/stackblitz-starters-hjrcg3?embed=1&file=src%2Fmain.ts)
+
+> [!INFO]
+> The function that I defined in the example above (`ngLiveQuery`) is reusable, so you may define it in a separate file and reuse it on different components.
 
 #### Vue
 
-You can implement xWebDB live queries in your vue applications as well, the following example calls `$forceUpdate` whenever a change occurs in the live query:
+You can implement xWebDB live queries in your vue applications as well:
+
+```javascript
+import { Database } from "xwebdb";
+
+let db = new Database({ ref: "vue-example" });
+
+function liveQuery(input, context) {
+	let placeholder = [];
+	let signature = Math.random().toString();
+	placeholder[signature] = true;
+	let unobserver = [];
+	input
+		.then((res) => {
+			Object.keys(context.$.data).forEach((key) => {
+				if (context.$.data[key] && context.$.data[key][signature]) {
+					context.$.data[key] = res.observable;
+					const observer = () => {
+						context.$.data[key] = null;
+						context.$.data[key] = res.observable;
+					};
+					res.observe(observer);
+					unobserver.push(() => res.unobserve(observer));
+				}
+			});
+		})
+		.catch((e) => console.log(e.toString()));
+	context.$.um = [
+		function () {
+			unobserver.forEach((u) => u());
+		},
+	];
+	return placeholder;
+}
+
+export default {
+	data() {
+		return {
+			name: "hello world!",
+			documents: liveQuery(db.live({}), this),
+		};
+	},
+	methods: {
+		insert() {
+			db.insert({});
+		},
+	},
+};
+```
+
+[Live example](https://stackblitz.com/edit/vue-bernq9?embed=1&file=src%2FApp.vue)
+
+> [!INFO]
+> The function that I defined in the example above (`liveQuery`) is reusable, so you may define it in a separate file and reuse it on different components.
+
+#### Svelte
+
+A similar function can be written for svelte:
+
+```typescript
+import { onMount, onDestroy } from "svelte";
+import { writable } from "svelte/store";
+import { ObservableArray } from "xwebdb";
+
+export function useLiveItems<G>(input: Promise<ObservableArray<G[]>>) {
+	const items = writable([]);
+	const unobservers = [];
+	onMount(() => {
+		input.then((res) => {
+			items.set(res.observable);
+			const observer = () => items.set(res.observable);
+			res.observe(observer);
+			unobservers.push(() => res.unobserve(observer));
+		});
+	});
+
+	onDestroy(() => {
+		unobservers.forEach((u) => u());
+	});
+
+	return { items };
+}
+```
+
+And used like this:
 
 ```html
 <script>
-	let db = new xwebdb.Database({ ref: "ref" });
-	let liveData = Promise.resolve(db.loaded) // load previously written data
-		.then(() => db.live({})); // then get live data
-	export default {
-		data() {
-			return {
-				// a promise will be replace in mount()
-				items: liveData,
-			};
-		},
-		async mounted() {
-			this.items = await liveData;
-			this.items.observe((c) => {
-				// forceful update on query result change
-				this.$forceUpdate();
-			});
-		},
-	};
+	import { db } from "../db";
+	import { useLiveItems } from "../useliveitems";
+	const { items } = useLiveItems(db.live());
 </script>
+
+<main>
+	Documents: {#each $items as item, index (item._id)}
+	<div key="{item._id}">{item._id}</div>
+	{/each}
+</main>
 ```
 
-[More elaborate example](https://codesandbox.io/s/thirsty-ace-w7ggho?file=/src/App.vue)
+[Live example](https://stackblitz.com/edit/vitejs-vite-bahvzb?embed=1&file=src%2Flib%2Fdocuments.svelte)
 
-#### React
+#### Solid
+
+A similar function can be written for solid:
+
+```typescript
+export function useLiveItems<G>(input: Promise<ObservableArray<G[]>>) {
+	const [items, setItems] = createSignal<G[]>([]);
+	const unobservers: (() => void)[] = [];
+	input.then((res) => {
+		setItems(res.observable);
+		const observer = () => {
+			setItems([]);
+			setItems(res.observable);
+		};
+		res.observe(observer);
+		unobservers.push(() => res.unobserve(observer));
+	});
+
+	onCleanup(() => {
+		unobservers.forEach((u) => u());
+	});
+
+	return items;
+}
+```
+
+And used in your components:
+
+```jsx
+const App = () => {
+	const items = useLiveItems(db.live());
+	return (
+		<ol>
+			<For each={items()}>
+				{(item, index) => (
+					<li data-index={index()}>{JSON.stringify(item, null, "  ")}</li>
+				)}
+			</For>
+			<button onClick={() => db.insert({} as any)}>Add Document</button>
+		</ol>
+	);
+};
+```
+
+[Live example](https://stackblitz.com/edit/solidjs-templates-haqgbm?embed=1&file=src%2FApp.tsx)
+
+
+
+
+#### Other front-end frameworks
+
+By now, after you have read the examples above, you should be able to write other implementations to support other frameworks, the basics are the same:
+
+1. The function should return initial value of an empty array
+2. The function should resolve the promise and replace the initial value
+3. It should observe the live query and notify the framework somehow that a changed has occurred
+4. It should unobserve the live query when the component unmounts
 
 ## Deeply nested documents
 
@@ -3022,8 +3143,8 @@ You can implement xWebDB live queries in your vue applications as well, the foll
 
 ## Credits
 
--   [Louis Chatriot](https://github.com/louischatriot) for writing `nedb`, I've used his logic when writing query runner similar to MongoDB.
--   [Yuri Guller](https://github.com/gullerya) for writing `object-observer`, that helped me a lot when writing live queries.
+-   [Louis Chatriot](https://github.com/louischatriot) for writing `nedb`, I've used his logic when writing query runner similar in behavior and API to MongoDB.
+-   [Yuri Guller](https://github.com/gullerya) for writing `object-observer`, that helped me a lot when writing observable live queries.
 -   [Jake Archibald](https://github.com/jakearchibald) for writing `idb`, since I've used much of his code when writing the persistence layer specific to `IndexedDB`.
 -   [Zhihao Chen](https://github.com/chenzhihao) for writing `easy-promise-queue`, a simple promise queue, that has been used as a task-queue for database operations.
 
@@ -3053,37 +3174,13 @@ THE SOFTWARE.
 
 ---
 
-Current progress
+todo
 
--   [x] Split database options into fields
--   [x] indexing as an option on creation
--   [x] AVLTree & Indexing
-    -   [ ] test sorted dictionary
--   [x] Modelling system
--   [x] Query API
--   [x] Persistence
--   [x] Strong-typing
 -   [ ] Sync Adapters
-    -   [x] Memory (for testing)
-    -   [x] Cloudflare KV Adapter
     -   [ ] CosmosDB Adapter
     -   [ ] DynamoDB Adapter
     -   [ ] Firestore Adapter
     -   [ ] S3 Adapter (not advised)
--   [x] Replication/sync system
-    -   [ ] Get all keys might be too expensive?
-    -   [x] Basic functional sync functionality
-    -   [x] Memory adapter (for demo & tests)
-    -   [x] Write tests
-        -   [x] Sync Integration
-        -   [x] Check sync function step (diff) on all tests
-    -   [x] Work with conflicts
-    -   [x] transaction log truncation (deleted? updated again?)
-    -   [x] idb operations in bulk for perf improvements
-    -   [x] invalidate $H ? `Math.floor(new Date() / (1000 * 60 * 20))`
-    -   [x] force sync (regardless of ongoing/hash)
-    -   [x] test devalidation
--   [ ] Setup Sync demo
 -   [ ] Split optional functionalities into modules
     -   [ ] Extensibility (hooks?)
     -   [ ] Adapters (each)
@@ -3092,48 +3189,9 @@ Current progress
     -   [ ] Reactive
 -   [ ] Performance
     -   [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
-    -   [x] q
-    -   [ ] $ deep?
-    -   [x] Defer all IndexedDB interactions and do them in bulk (especially writes & deletes)
-        -   [x] test
-    -   [ ] Compare with other DBs
-    -   [x] AVL Tree
--   [x] Reactive
-    -   [x] Make observable nested arrays possible
-        -   [x] TESTING REQUIRED: write unit core tests for "observable"
-    -   [x] use live() to return an observable result that will be consumed by the application
-        -   [x] TESTING REQUIRED: write integration tests for "live"
-    -   [x] UI frameworks state should update automatically once the database updates (if the update)
-    -   [x] observe this result for changes from the UI framework side and reflect those changes onto the DB
-        -   [x] since updates are in batch, merge multiple operations on the same document
-        -   [x] TESTING REQUIRED: write integration tests for "live"
-    -   [x] observe changes in the database and reflect them onto the live query and hence the application
-        -   [x] TESTING REQUIRED: write integration tests for "live"
-    -   [x] Ability to kill live query
--   [x] Improve `Class Database` API
--   [x] Strip defaults before persisting
-    -   [x] Test (include date objects in the test)
--   [x] Test modelling (and submodelling) integration
 -   [ ] Implement more mongodb operators
--   [x] Strong-typing of $deep and deeply nested
 -   [ ] Code review of all old code base
     -   [ ] cursor.ts
     -   [ ] datastore.ts
     -   [ ] indexes.ts
 -   [ ] Implement pure dot notation (other than $deep)
--   [ ] Examples
--   [ ] Benchmark
--   [ ] Docs
--   [ ] Landing page
-
-Reactive queries with UI frameworks:
-TODO: react classes
-// ========================
-// Angular: https://codesandbox.io/s/billowing-dream-872me1?file=/src/app/app.component.ts
-// ========================
-// REACT: https://codesandbox.io/s/busy-liskov-rbxlhm?file=/src/App.js
-// ========================
-
-```
-
-```
