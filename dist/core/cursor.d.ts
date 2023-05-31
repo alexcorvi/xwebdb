@@ -31,7 +31,11 @@ export declare class Cursor<G extends Doc, C extends typeof Doc> {
     /**
      * Apply the projection
      */
-    private _project;
+    private _doProject;
+    /**
+     * Apply sorting
+     */
+    private _doSort;
     /**
      * Executes the query
      * Will return pointers to matched elements (shallow copies)
@@ -40,6 +44,6 @@ export declare class Cursor<G extends Doc, C extends typeof Doc> {
     __exec_unsafe(): G[];
     /**
      * Executes the query safely (i.e. cloning documents)
-    */
+     */
     exec(): G[];
 }

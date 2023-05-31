@@ -927,10 +927,12 @@ class Cursor {
     /**
      * Apply the projection
      */
-    _project(candidates) {
+    _doProject(documents) {
+        // no projection criteria defined: return same
         if (this._projection === undefined || Object.keys(this._projection).length === 0)
-            return candidates;
+            return documents;
         let res = [];
+        // exclude _id from consistency checking
         let keepId = this._projection._id !== 0;
         delete this._projection._id;
         let keys = Object.keys(this._projection);
@@ -940,39 +942,58 @@ class Cursor {
         if (actions[0] !== actions[actions.length - 1]) {
             throw new Error("XWebDB: Can't both keep and omit fields except for _id");
         }
-        let pick = actions[0] === 1;
         // Do the actual projection
-        for (let index = 0; index < candidates.length; index++) {
-            const candidate = candidates[index];
+        for (let index = 0; index < documents.length; index++) {
+            const doc = documents[index];
             let toPush = {};
-            if (pick) {
+            if (actions[0] === 1) {
                 // pick-type projection
                 toPush = { $set: {} };
-                keys.forEach((k) => {
-                    toPush.$set[k] = fromDotNotation(candidate, k);
-                    if (toPush.$set[k] === undefined) {
-                        delete toPush.$set[k];
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index];
+                    toPush.$set[key] = fromDotNotation(doc, key);
+                    if (toPush.$set[key] === undefined) {
+                        delete toPush.$set[key];
                     }
-                });
+                }
                 toPush = modify({}, toPush, this.db.model);
             }
             else {
                 // omit-type projection
                 toPush = { $unset: {} };
-                keys.forEach((k) => {
-                    toPush.$unset[k] = true;
-                });
-                toPush = modify(candidate, toPush, this.db.model);
+                keys.forEach((k) => (toPush.$unset[k] = true));
+                toPush = modify(doc, toPush, this.db.model);
             }
             if (keepId) {
-                toPush._id = candidate._id;
+                // by default will keep _id
+                toPush._id = doc._id;
             }
             else {
+                // unless defined otherwise
                 delete toPush._id;
             }
             res.push(toPush);
         }
         return res;
+    }
+    /**
+     * Apply sorting
+     */
+    _doSort(documents) {
+        return documents.sort((a, b) => {
+            // for each sorting criteria
+            // if it's either -1 or 1 return it
+            // if it's neither try the next one
+            for (const [key, direction] of Object.entries(this._sort || {})) {
+                let compare$1 = direction *
+                    compare(fromDotNotation(a, key), fromDotNotation(b, key));
+                if (compare$1 !== 0) {
+                    return compare$1;
+                }
+            }
+            // no difference found in any criteria
+            return 0;
+        });
     }
     /**
      * Executes the query
@@ -981,30 +1002,25 @@ class Cursor {
      */
     __exec_unsafe() {
         let res = [];
+        // try cached
         let cached = this.db.cache.get(this._query);
         if (!cached) {
+            // no cached: match candidates
             const candidates = this.db.getCandidates(this._query);
             for (let i = 0; i < candidates.length; i++) {
                 if (match(candidates[i], this._query)) {
                     res.push(candidates[i]);
                 }
             }
+            // store in cache
             this.db.cache.storeOrProspect(this._query, res);
         }
+        // cached found: use it
         else
             res = cached;
         // Apply all sorts
         if (this._sort) {
-            res.sort((a, b) => {
-                for (const [key, direction] of Object.entries(this._sort || {})) {
-                    let compare$1 = direction *
-                        compare(fromDotNotation(a, key), fromDotNotation(b, key));
-                    if (compare$1 !== 0) {
-                        return compare$1;
-                    }
-                }
-                return 0;
-            });
+            res = this._doSort(res);
         }
         // Applying limit and skip
         if (this._limit || this._skip) {
@@ -1014,13 +1030,13 @@ class Cursor {
         }
         // Apply projection
         if (this._projection) {
-            res = this._project(res);
+            res = this._doProject(res);
         }
         return res;
     }
     /**
      * Executes the query safely (i.e. cloning documents)
-    */
+     */
     exec() {
         const originalsArr = this.__exec_unsafe();
         const res = [];
@@ -1036,11 +1052,15 @@ class Cursor {
  * Except for minor differences.
  * 		1.	It can hold multiple values per key
  * 		2.	Binary search for insertion & deletion
+ * 		3.	Doesn't use red-black tree
  *
  * Complexity Notations:
  * 		# Get: O(1)
  * 		# Insert: O(log n)
  * 		# Delete: O(log n)
+ *
+ *
+ * It supports duplicate keys, range queries, and custom comparator function.
  */
 // handles conversion of keys into strings if they aren't of a comparable type
 function unify(key) {
@@ -1507,7 +1527,7 @@ class BaseModel {
 }
 /**
  * Main document in the database extends this class:
- * A. Gets an ID: using a very efficient UUID function
+ * A. Gets an ID
  * B. Gets timestamp data if the options is used in the database configuration
  * C. gets Model.new() and model._stripDefaults() methods
 */

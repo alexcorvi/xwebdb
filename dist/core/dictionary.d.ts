@@ -3,11 +3,15 @@
  * Except for minor differences.
  * 		1.	It can hold multiple values per key
  * 		2.	Binary search for insertion & deletion
+ * 		3.	Doesn't use red-black tree
  *
  * Complexity Notations:
  * 		# Get: O(1)
  * 		# Insert: O(log n)
  * 		# Delete: O(log n)
+ *
+ *
+ * It supports duplicate keys, range queries, and custom comparator function.
  */
 type CompareFunction<K> = (a: K, b: K) => number;
 export declare class Dictionary<D extends object> {
