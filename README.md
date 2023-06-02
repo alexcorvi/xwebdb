@@ -70,8 +70,9 @@ _pronounced: Cross Web Database_
 | Minified Size  | 29KB        | 142KB        | 80KB        | 48KB                       |
 | Performance^   | good        | good         | good        | fastest                    |
 | Query Language | Key/value   | Map/Reduce   | Mongo-like  | Mongo-like                 |
-| Sync           | no sync     | CouchDB sync | Paid/Server | Serverless services (free) |
-| Live Queries   | unsupported | unsupported  | Supported   | supported                  |
+| Sync           | no sync     | CouchDB sync | paid/server | serverless services (free) |
+| Live Queries   | unsupported | unsupported  | supported   | supported                  |
+| Aggregation    | unsupported | unsupported  | unsupported | supported                  |
 
 ### A Word on Performance
 
@@ -185,6 +186,13 @@ db.find({ firstName: "Ali" });
 db.find({ firstName: { $eq: "Ali" } });
 // Find documents with firstName equal to "Ali"
 
+// Use aggregation method chaining
+(await db.aggregate({ firstName: $eq }))
+	.$skip(1)
+	.$limit(5)
+	.$sort({ lastName: -1 })
+	.$addFields((doc) => ({ firstLetter: doc.firstName.charAt(0) }));
+
 // Updating documents
 db.update({ firstName: "Ali" }, { $set: { firstName: "Dina" } });
 // Update firstName from "Ali" to "Dina"
@@ -200,7 +208,7 @@ db.reload();
 db.sync();
 ```
 
-Those operations are explained extensively in their respective sections below (check: [Inserting](#inserting), [Indexing](#indexing), [Reading](#reading), [Counting](#counting), [Updating](#updating), [Upserting](#upserting), [Deleting](#deleting), [Reloading](#loading-and-reloading), and [Synchronization](#synchronizing)).
+Those operations are explained extensively in their respective sections below (check: [Inserting](#inserting), [Indexing](#indexing), [Reading](#reading), [Counting](#counting), [Aggregation](#aggregation), [Updating](#updating), [Upserting](#upserting), [Deleting](#deleting), [Reloading](#loading-and-reloading), and [Synchronization](#synchronizing)).
 
 ### Live queries
 
@@ -1431,6 +1439,63 @@ db.count({ age: { $gt: 20 } });
 ```
 
 The query API in the `count` method is the same as the query API in `read` method, which in turn very similar to MongoDB query language.
+
+## Aggregation
+
+Aggregation is process of combining multiple rows of data into a single value or summary. It involves performing mathematical or statistical operations on a set of data to generate meaningful insights or summaries. Aggregation is commonly used to calculate various metrics, such as sums, averages, counts, maximums, minimums, or other statistical calculations, over a group of rows.
+
+Aggregation In XWebDB uses the method chaining syntax, and the following aggregation methods are supported: `$sort`, `$limit`, `$skip`, `$project`, `$match`, `$addFields`, `$group`, `$unwind`
+
+```typescript
+let aggregate = await db.aggregate(
+	//optional starting query
+	{
+		name: "ali",
+	}
+);
+
+aggregate
+	.$sort({
+		age: -1, // sorting descending
+		city: 1, // sorting ascending
+	})
+	.$skip(1)
+	.$limit(50)
+	.$project({ children: 1 })
+	.$addFields((doc) => ({
+		// adds fields to each document
+		// based on calculation done on it
+		numberOfChildren: doc.children.length,
+	}))
+	// filter the aggregate based on a specific query
+	// this can take the same syntax of `db.find`
+	.$match({ numberOfChildren: { $gt: 1 } })
+	// deconstruct an array field within a document
+	// creating a new document for each element in the array
+	.$unwind("children")
+	// adds a field
+	.$addFields((doc) => ({ numberOfBrothers: doc.numberOfChildren - 1 }))
+	// group documents together based on a specified key
+	// and perform various transformations on the grouped data
+	// using a reducer function
+	.$group({
+		_id: "children",
+		reducer: (group) => ({
+			kidsNamed: group[0].children
+			count: group.length
+		}),
+	});
+```
+
+You can use the aggregation methods in any order and as much as you want, until you get the target meaningful data.
+
+The current implementation of aggregation in XWebDB is a starting point, especially the `$group` method.
+
+Planned updates on next versions:
+
+1. Live aggregations
+2. $lookup method (for joining two databases)
+3. $group operators (such as `$sum`, `$avg`, `$max`, and `$min`)
 
 ## Updating
 
@@ -3321,6 +3386,5 @@ todo
     -   [ ] S3 Adapter (not advised)
 -   [ ] Split optional functionalities into modules - [ ] Extensibility (hooks?) - [ ] Adapters (each) - [ ] Syncing - [ ] e2e data encryption
         `- [ ] Performance - [ ] loops <<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>
--   [ ] Implement more mongodb operators
 -   [ ] Code review of all old code base
     -   [ ] datastore.ts
