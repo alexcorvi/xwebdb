@@ -3,7 +3,7 @@
  * exposing only strongly typed methods and relevant configurations
  */
 
-import { Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
+import { Aggregate, Datastore, EnsureIndexOptions, observable as o, observable } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { modifiersKeys, toDotNotation } from "./core/model/";
 import {
@@ -182,8 +182,10 @@ export class Database<S extends Doc> {
 		};
 	}
 
-	public async aggregate(){
-		// not yet implemented
+	public async aggregate(filter: Filter<S> = {}){
+		await this.loaded;
+		const res = await this.read(...arguments);
+		return new Aggregate(res);
 	}
 
 	/**

@@ -9,3 +9,4 @@ export { kvAdapter, remoteStore } from "./adapters";
 export * as observable from "./observable";
 export { Dictionary } from "./dictionary";
 export { Cache } from "./cache";
+export { Aggregate } from "./agg";

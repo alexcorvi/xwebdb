@@ -11,9 +11,10 @@ import {
 	Cache,
 	remoteStore,
 	kvAdapter,
+	Aggregate,
 } from "./core";
 import { Database } from "./database";
-import { ObservableArray } from './core/observable';
+import { ObservableArray } from "./core/observable";
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
 
 const _internal = {
@@ -27,6 +28,16 @@ const _internal = {
 	Persistence,
 	Dictionary,
 	Cache,
+	Aggregate,
 };
 
-export { Database, Doc, SubDoc, mapSubModel, kvAdapter, _internal, remoteStore, ObservableArray };
+export {
+	Database,
+	Doc,
+	SubDoc,
+	mapSubModel,
+	kvAdapter,
+	_internal,
+	remoteStore,
+	ObservableArray,
+};
