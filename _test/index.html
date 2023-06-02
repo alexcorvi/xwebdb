@@ -1,34 +1,36 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>Test Suite</title>
-<link rel="stylesheet" href="../node_modules/mocha/mocha.css">
+<link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
 <body>
-  <div id="mocha"></div>  
-  <script src="../node_modules/mocha/mocha.js"></script>
-  <script src="../node_modules/chai/chai.js"></script>
-  
-  <script>mocha.setup('bdd')</script>
+	<div id="mocha"></div>
+	<script src="../node_modules/mocha/mocha.js"></script>
+	<script src="../node_modules/chai/chai.js"></script>
 
+	<script>
+		mocha.setup("bdd");
+	</script>
 
-  <script type="module">
-    chai.should();
-    import {loadModule} from 'https://klesun.github.io/ts-browser/src/ts-browser.js';
-    // loading tests
-    await loadModule("./core/customutils.test.ts");
-    await loadModule("./core/observable.test.ts");
-    await loadModule("./core/q.test.ts");
-    await loadModule("./core/dictionary.test.ts");
-    await loadModule("./core/cache.test.ts");
-    await loadModule("./core/cursor.test.ts");
-    await loadModule("./core/indexes.test.ts");
-    await loadModule("./core/model.test.ts");
-    await loadModule("./core/persistence.test.ts");
-    await loadModule("./core/db.test.ts");
-    await loadModule("./core/fromdict.test.ts");
-    await loadModule("./integration/actions.test.ts");
-    await loadModule("./integration/operators.test.ts");
-    await loadModule("./integration/sync.test.ts");
-    await loadModule("./integration/live.test.ts");
-    mocha.run();
-  </script>
+	<script type="module">
+		chai.should();
+		import { loadModule } from "https://klesun.github.io/ts-browser/src/ts-browser.js";
+		// loading tests
+		await loadModule("./core/customutils.test.ts");
+		await loadModule("./core/observable.test.ts");
+		await loadModule("./core/q.test.ts");
+		await loadModule("./core/dictionary.test.ts");
+		await loadModule("./core/cache.test.ts");
+		await loadModule("./core/cursor.test.ts");
+		await loadModule("./core/indexes.test.ts");
+		await loadModule("./core/model.test.ts");
+		await loadModule("./core/agg.test.ts");
+		await loadModule("./core/persistence.test.ts");
+		await loadModule("./core/db.test.ts");
+		await loadModule("./core/fromdict.test.ts");
+		await loadModule("./integration/actions.test.ts");
+		await loadModule("./integration/operators.test.ts");
+		await loadModule("./integration/sync.test.ts");
+		await loadModule("./integration/live.test.ts");
+		mocha.run();
+	</script>
 </body>
