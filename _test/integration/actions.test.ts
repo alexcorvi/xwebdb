@@ -406,6 +406,24 @@ describe("Actions", async () => {
 				expect(res2[0].d?.a.x).to.be.equal(20);
 				expect(res2[1].d?.a.x).to.be.equal(10);
 			});
+			it("aggregation", async () => {
+				const agg = await db.aggregate();
+				expect(
+					agg
+						.$group({
+							_id: "female",
+							reducer: (g) => ({
+								gender: g[0].female ? "female" : "male",
+								count: g.length,
+							}),
+						})
+						.$sort({ count: 1 })
+						.toArray()
+				).to.deep.eq([
+					{ gender: "female", count: 2 },
+					{ gender: "male", count: 3 },
+				]);
+			});
 			describe("Modeling", () => {
 				it("Is in fact an instance of the model", async () => {
 					const res = await db.find({});
