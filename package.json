@@ -1,6 +1,6 @@
 {
 	"name": "xwebdb",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"description": "Strongly-typed, NoSQL, fast, light-weight, synching, Mongo-like database with built-in ODM.",
 	"main": "./dist/xwebdb.js",
 	"types": "./dist/xwebdb.d.ts",
