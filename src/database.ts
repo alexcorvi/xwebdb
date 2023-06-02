@@ -182,6 +182,10 @@ export class Database<S extends Doc> {
 		};
 	}
 
+	public async aggregate(){
+		// not yet implemented
+	}
+
 	/**
 	 * Find document(s) that meets a specified criteria
 	 */
@@ -215,7 +219,7 @@ export class Database<S extends Doc> {
 			cursor.limit(limit);
 		}
 		if (project) {
-			cursor.projection(project as any);
+			cursor.project(project as any);
 		}
 		return await cursor.exec();
 	}

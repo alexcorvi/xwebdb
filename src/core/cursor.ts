@@ -12,7 +12,7 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	private _limit: number | undefined;
 	private _skip: number | undefined;
 	private _sort: undefined | SchemaKeySort<G>;
-	private _projection: undefined | SchemaKeyProjection<G>;
+	private _proj: undefined | SchemaKeyProjection<G>;
 
 	constructor(db: Datastore<G, C>, query?: any) {
 		this.db = db;
@@ -46,8 +46,8 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	/**
 	 * Add the use of a projection
 	 */
-	projection(projection: SchemaKeyProjection<G>) {
-		this._projection = projection;
+	project(projection: SchemaKeyProjection<G>) {
+		this._proj = projection;
 		return this;
 	}
 
@@ -55,78 +55,16 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 	 * Apply the projection
 	 */
 	private _doProject(documents: G[]): G[] {
-		// no projection criteria defined: return same
-		if (this._projection === undefined || Object.keys(this._projection).length === 0)
-			return documents;
-
-		let res: G[] = [];
-		// exclude _id from consistency checking
-		let keepId = this._projection._id !== 0;
-		delete this._projection._id;
-
-		let keys = Object.keys(this._projection);
-
-		// Check for consistency
-		// either all are 0, or all are -1
-		let actions: number[] = keys.map((k) => (this._projection as any)[k]).sort();
-		if (actions[0] !== actions[actions.length - 1]) {
-			throw new Error("XWebDB: Can't both keep and omit fields except for _id");
-		}
-
-		// Do the actual projection
-		for (let index = 0; index < documents.length; index++) {
-			const doc = documents[index];
-			let toPush: Record<string, any> = {};
-			if (actions[0] === 1) {
-				// pick-type projection
-				toPush = { $set: {} };
-				for (let index = 0; index < keys.length; index++) {
-					const key = keys[index];
-					toPush.$set[key] = model.fromDotNotation(doc, key);
-					if (toPush.$set[key] === undefined) {
-						delete toPush.$set[key];
-					}
-				}
-				toPush = model.modify({} as any, toPush, this.db.model);
-			} else {
-				// omit-type projection
-				toPush = { $unset: {} };
-				keys.forEach((k) => (toPush.$unset[k] = true));
-				toPush = model.modify(doc, toPush, this.db.model);
-			}
-
-			if (keepId) {
-				// by default will keep _id
-				toPush._id = doc._id;
-			} else {
-				// unless defined otherwise
-				delete toPush._id;
-			}
-			res.push(toPush as any);
-		}
-
-		return res;
+		if (this._proj === undefined || Object.keys(this._proj).length === 0) return documents;
+		return model.project(documents, this._proj, this.db.model);
 	}
 
 	/**
 	 * Apply sorting
 	 */
 	private _doSort(documents: G[]) {
-		return documents.sort((a, b) => {
-			// for each sorting criteria
-			// if it's either -1 or 1 return it
-			// if it's neither try the next one
-			for (const [key, direction] of Object.entries(this._sort || {})) {
-				let compare =
-					direction *
-					model.compare(model.fromDotNotation(a, key), model.fromDotNotation(b, key));
-				if (compare !== 0) {
-					return compare;
-				}
-			}
-			// no difference found in any criteria
-			return 0;
-		});
+		if (this._sort === undefined || Object.keys(this._sort).length === 0) return documents;
+		return model.sort(documents, this._sort);
 	}
 
 	/**
@@ -165,7 +103,7 @@ export class Cursor<G extends Doc, C extends typeof Doc> {
 		}
 
 		// Apply projection
-		if (this._projection) {
+		if (this._proj) {
 			res = this._doProject(res);
 		}
 
