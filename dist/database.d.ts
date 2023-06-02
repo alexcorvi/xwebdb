@@ -2,7 +2,7 @@
  * Main user API to the database
  * exposing only strongly typed methods and relevant configurations
  */
-import { Datastore, EnsureIndexOptions, observable as o } from "./core";
+import { Aggregate, Datastore, EnsureIndexOptions, observable as o } from "./core";
 import { remoteStore } from "./core/adapters/type";
 import { NOP, Doc, Filter, SchemaKeyProjection, SchemaKeySort, UpdateOperators, UpsertOperators, NFP } from "./types";
 export interface DatabaseConfigurations<C extends typeof Doc, D extends Doc> {
@@ -57,6 +57,7 @@ export declare class Database<S extends Doc> {
     }): Promise<o.ObservableArray<S[]> & {
         kill: (w?: "toDB" | "fromDB") => Promise<void>;
     }>;
+    aggregate(filter?: Filter<S>): Promise<Aggregate<S>>;
     /**
      * Find document(s) that meets a specified criteria
      */

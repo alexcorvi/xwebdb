@@ -10,7 +10,7 @@ export declare class Cursor<G extends Doc, C extends typeof Doc> {
     private _limit;
     private _skip;
     private _sort;
-    private _projection;
+    private _proj;
     constructor(db: Datastore<G, C>, query?: any);
     /**
      * Set a limit to the number of results
@@ -27,7 +27,7 @@ export declare class Cursor<G extends Doc, C extends typeof Doc> {
     /**
      * Add the use of a projection
      */
-    projection(projection: SchemaKeyProjection<G>): this;
+    project(projection: SchemaKeyProjection<G>): this;
     /**
      * Apply the projection
      */

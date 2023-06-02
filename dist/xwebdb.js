@@ -877,6 +877,170 @@
         return newDoc;
     }
 
+    function sort(documents, criteria) {
+        return documents.sort((a, b) => {
+            // for each sorting criteria
+            // if it's either -1 or 1 return it
+            // if it's neither try the next one
+            for (const [key, direction] of Object.entries(criteria || {})) {
+                let compareRes = direction * compare(fromDotNotation(a, key), fromDotNotation(b, key));
+                if (compareRes !== 0) {
+                    return compareRes;
+                }
+            }
+            // no difference found in any criteria
+            return 0;
+        });
+    }
+
+    /**
+     * Base model: of which all documents extend (Main documents & Sub-documents)
+    */
+    class BaseModel {
+        /**
+         * Use this method to create a new document before insertion/update into the database
+         * This is where the actual mapping of pure JS object values get mapped into the model
+         * It models the document and all of its sub-documents even if they are in an array
+        */
+        static new(data) {
+            const instance = new this();
+            if (typeof data !== "object" || data === null) {
+                return instance;
+            }
+            const keys = Object.keys({ ...instance, ...data });
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                let insVal = instance[key];
+                let dataVal = data[key];
+                if (insVal && insVal["_$SHOULD_MAP$_"]) {
+                    if (dataVal === undefined) {
+                        instance[key] = insVal["def"];
+                    }
+                    else if (Array.isArray(dataVal)) {
+                        instance[key] = dataVal.map((x) => insVal.ctr.new(x));
+                    }
+                    else {
+                        instance[key] = insVal.ctr.new(dataVal);
+                    }
+                }
+                else {
+                    instance[key] = dataVal === undefined ? insVal : dataVal;
+                }
+            }
+            return instance;
+        }
+        /**
+         * Strips default values from the model,
+         * so it can be written to the persistence layer with the least amount of space
+         * and it can be sent over the network with the least amount of size
+        */
+        _stripDefaults() {
+            // maintain a cache of defaults
+            if (!this.constructor._$def) {
+                this.constructor._$def = this.constructor.new({});
+            }
+            let def = this.constructor._$def;
+            const newData = {};
+            for (const [key, oldV] of Object.entries(this)) {
+                const defV = def[key];
+                // handling arrays of sub-documents
+                if (Array.isArray(oldV) && oldV[0] && oldV[0]._stripDefaults) {
+                    newData[key] = oldV.map((sub) => sub._stripDefaults());
+                    if (newData[key].length === 0)
+                        delete newData[key]; // disregard empty arrays
+                }
+                // handling direct child sub-document
+                else if (typeof oldV === "object" &&
+                    oldV !== null &&
+                    oldV._stripDefaults) {
+                    newData[key] = oldV._stripDefaults();
+                    if (Object.keys(newData[key]).length === 0)
+                        delete newData[key]; // disregard empty objects
+                }
+                // handling non-sub-document values
+                // we're converting to a string to eliminate non-primitive
+                else if (JSON.stringify(defV) !== JSON.stringify(oldV))
+                    newData[key] = oldV;
+            }
+            return newData;
+        }
+    }
+    /**
+     * Main document in the database extends this class:
+     * A. Gets an ID
+     * B. Gets timestamp data if the options is used in the database configuration
+     * C. gets Model.new() and model._stripDefaults() methods
+    */
+    class Doc extends BaseModel {
+        constructor() {
+            super(...arguments);
+            this._id = uid();
+        }
+    }
+    /**
+     * Sub-documents extends this class:
+     * gets Model.new() and model._stripDefaults() methods
+    */
+    class SubDoc extends BaseModel {
+    }
+    function mapSubModel(ctr, def) {
+        return {
+            _$SHOULD_MAP$_: true,
+            def,
+            ctr,
+        };
+    }
+
+    function project(documents, criteria, model = Doc) {
+        // no projection criteria defined: return same
+        if (criteria === undefined || Object.keys(criteria).length === 0)
+            return documents;
+        let res = [];
+        // exclude _id from consistency checking
+        let keepId = criteria._id !== 0;
+        delete criteria._id;
+        let keys = Object.keys(criteria);
+        // Check for consistency
+        // either all are 0, or all are -1
+        let actions = keys.map((k) => criteria[k]).sort();
+        if (actions[0] !== actions[actions.length - 1]) {
+            throw new Error("XWebDB: Can't both keep and omit fields except for _id");
+        }
+        // Do the actual projection
+        for (let index = 0; index < documents.length; index++) {
+            const doc = documents[index];
+            let toPush = {};
+            if (actions[0] === 1) {
+                // pick-type projection
+                toPush = { $set: {} };
+                for (let index = 0; index < keys.length; index++) {
+                    const key = keys[index];
+                    toPush.$set[key] = fromDotNotation(doc, key);
+                    if (toPush.$set[key] === undefined) {
+                        delete toPush.$set[key];
+                    }
+                }
+                toPush = modify({}, toPush, model);
+            }
+            else {
+                // omit-type projection
+                toPush = { $unset: {} };
+                keys.forEach((k) => (toPush.$unset[k] = true));
+                toPush = modify(doc, toPush, model);
+            }
+            if (keepId) {
+                // by default will keep _id
+                toPush._id = doc._id;
+            }
+            else {
+                // unless defined otherwise
+                delete toPush._id;
+            }
+            res.push(toPush);
+        }
+        return res;
+    }
+
     var modelling = /*#__PURE__*/Object.freeze({
         __proto__: null,
         toDotNotation: toDotNotation,
@@ -890,7 +1054,9 @@
         match: match,
         compare: compare,
         modifiersKeys: modifiersKeys,
-        equal: equal
+        equal: equal,
+        sort: sort,
+        project: project
     });
 
     /**
@@ -926,80 +1092,25 @@
         /**
          * Add the use of a projection
          */
-        projection(projection) {
-            this._projection = projection;
+        project(projection) {
+            this._proj = projection;
             return this;
         }
         /**
          * Apply the projection
          */
         _doProject(documents) {
-            // no projection criteria defined: return same
-            if (this._projection === undefined || Object.keys(this._projection).length === 0)
+            if (this._proj === undefined || Object.keys(this._proj).length === 0)
                 return documents;
-            let res = [];
-            // exclude _id from consistency checking
-            let keepId = this._projection._id !== 0;
-            delete this._projection._id;
-            let keys = Object.keys(this._projection);
-            // Check for consistency
-            // either all are 0, or all are -1
-            let actions = keys.map((k) => this._projection[k]).sort();
-            if (actions[0] !== actions[actions.length - 1]) {
-                throw new Error("XWebDB: Can't both keep and omit fields except for _id");
-            }
-            // Do the actual projection
-            for (let index = 0; index < documents.length; index++) {
-                const doc = documents[index];
-                let toPush = {};
-                if (actions[0] === 1) {
-                    // pick-type projection
-                    toPush = { $set: {} };
-                    for (let index = 0; index < keys.length; index++) {
-                        const key = keys[index];
-                        toPush.$set[key] = fromDotNotation(doc, key);
-                        if (toPush.$set[key] === undefined) {
-                            delete toPush.$set[key];
-                        }
-                    }
-                    toPush = modify({}, toPush, this.db.model);
-                }
-                else {
-                    // omit-type projection
-                    toPush = { $unset: {} };
-                    keys.forEach((k) => (toPush.$unset[k] = true));
-                    toPush = modify(doc, toPush, this.db.model);
-                }
-                if (keepId) {
-                    // by default will keep _id
-                    toPush._id = doc._id;
-                }
-                else {
-                    // unless defined otherwise
-                    delete toPush._id;
-                }
-                res.push(toPush);
-            }
-            return res;
+            return project(documents, this._proj, this.db.model);
         }
         /**
          * Apply sorting
          */
         _doSort(documents) {
-            return documents.sort((a, b) => {
-                // for each sorting criteria
-                // if it's either -1 or 1 return it
-                // if it's neither try the next one
-                for (const [key, direction] of Object.entries(this._sort || {})) {
-                    let compare$1 = direction *
-                        compare(fromDotNotation(a, key), fromDotNotation(b, key));
-                    if (compare$1 !== 0) {
-                        return compare$1;
-                    }
-                }
-                // no difference found in any criteria
-                return 0;
-            });
+            if (this._sort === undefined || Object.keys(this._sort).length === 0)
+                return documents;
+            return sort(documents, this._sort);
         }
         /**
          * Executes the query
@@ -1035,7 +1146,7 @@
                 res = res.slice(skip, skip + limit);
             }
             // Apply projection
-            if (this._projection) {
+            if (this._proj) {
                 res = this._doProject(res);
             }
             return res;
@@ -1455,104 +1566,6 @@
                 this.update(revert);
             }
         }
-    }
-
-    /**
-     * Base model: of which all documents extend (Main documents & Sub-documents)
-    */
-    class BaseModel {
-        /**
-         * Use this method to create a new document before insertion/update into the database
-         * This is where the actual mapping of pure JS object values get mapped into the model
-         * It models the document and all of its sub-documents even if they are in an array
-        */
-        static new(data) {
-            const instance = new this();
-            if (typeof data !== "object" || data === null) {
-                return instance;
-            }
-            const keys = Object.keys({ ...instance, ...data });
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                let insVal = instance[key];
-                let dataVal = data[key];
-                if (insVal && insVal["_$SHOULD_MAP$_"]) {
-                    if (dataVal === undefined) {
-                        instance[key] = insVal["def"];
-                    }
-                    else if (Array.isArray(dataVal)) {
-                        instance[key] = dataVal.map((x) => insVal.ctr.new(x));
-                    }
-                    else {
-                        instance[key] = insVal.ctr.new(dataVal);
-                    }
-                }
-                else {
-                    instance[key] = dataVal === undefined ? insVal : dataVal;
-                }
-            }
-            return instance;
-        }
-        /**
-         * Strips default values from the model,
-         * so it can be written to the persistence layer with the least amount of space
-         * and it can be sent over the network with the least amount of size
-        */
-        _stripDefaults() {
-            // maintain a cache of defaults
-            if (!this.constructor._$def) {
-                this.constructor._$def = this.constructor.new({});
-            }
-            let def = this.constructor._$def;
-            const newData = {};
-            for (const [key, oldV] of Object.entries(this)) {
-                const defV = def[key];
-                // handling arrays of sub-documents
-                if (Array.isArray(oldV) && oldV[0] && oldV[0]._stripDefaults) {
-                    newData[key] = oldV.map((sub) => sub._stripDefaults());
-                    if (newData[key].length === 0)
-                        delete newData[key]; // disregard empty arrays
-                }
-                // handling direct child sub-document
-                else if (typeof oldV === "object" &&
-                    oldV !== null &&
-                    oldV._stripDefaults) {
-                    newData[key] = oldV._stripDefaults();
-                    if (Object.keys(newData[key]).length === 0)
-                        delete newData[key]; // disregard empty objects
-                }
-                // handling non-sub-document values
-                // we're converting to a string to eliminate non-primitive
-                else if (JSON.stringify(defV) !== JSON.stringify(oldV))
-                    newData[key] = oldV;
-            }
-            return newData;
-        }
-    }
-    /**
-     * Main document in the database extends this class:
-     * A. Gets an ID
-     * B. Gets timestamp data if the options is used in the database configuration
-     * C. gets Model.new() and model._stripDefaults() methods
-    */
-    class Doc extends BaseModel {
-        constructor() {
-            super(...arguments);
-            this._id = uid();
-        }
-    }
-    /**
-     * Sub-documents extends this class:
-     * gets Model.new() and model._stripDefaults() methods
-    */
-    class SubDoc extends BaseModel {
-    }
-    function mapSubModel(ctr, def) {
-        return {
-            _$SHOULD_MAP$_: true,
-            def,
-            ctr,
-        };
     }
 
     /**
@@ -3644,6 +3657,71 @@
         Change: Change
     });
 
+    class Aggregate {
+        constructor(subjects) {
+            this.subjects = [];
+            this.subjects = subjects;
+        }
+        removeUnusedID(arr) {
+            return arr.map((item) => {
+                if (item._id === undefined)
+                    delete item._id;
+                return item;
+            });
+        }
+        $match(filter) {
+            return new Aggregate(this.subjects.filter((subject) => match(subject, filter)));
+        }
+        $group({ _id, reducer }) {
+            const groupsObj = {};
+            this.subjects.forEach((subject) => {
+                const propertyValue = JSON.stringify({ tmp: subject[_id] });
+                if (!groupsObj[propertyValue])
+                    groupsObj[propertyValue] = [];
+                groupsObj[propertyValue].push(subject);
+            });
+            return new Aggregate(Object.values(groupsObj).map(reducer));
+        }
+        $limit(limit) {
+            return new Aggregate(this.subjects.slice(0, limit));
+        }
+        $skip(skip) {
+            return new Aggregate(this.subjects.slice(skip));
+        }
+        $addFields(adder) {
+            return new Aggregate(this.subjects.map((subject) => ({
+                ...subject,
+                ...adder(subject),
+            })));
+        }
+        $sort(sortCriteria) {
+            return new Aggregate(sort(this.subjects.slice(0), sortCriteria));
+        }
+        $project(project$1) {
+            return new Aggregate(this.removeUnusedID(project(this.subjects, project$1)));
+        }
+        $unwind(fieldName) {
+            const unwoundSubjects = [];
+            for (let index = 0; index < this.subjects.length; index++) {
+                const subject = this.subjects[index];
+                const fieldArray = subject[fieldName];
+                if (Array.isArray(fieldArray)) {
+                    for (const element of fieldArray) {
+                        const unwoundSubject = { ...subject, [fieldName]: element };
+                        unwoundSubjects.push(unwoundSubject);
+                    }
+                }
+                else {
+                    unwoundSubjects.push(subject);
+                }
+            }
+            return new Aggregate(unwoundSubjects);
+        }
+        toArray() {
+            return this.subjects;
+        }
+    }
+
     /**
      * Main user API to the database
      * exposing only strongly typed methods and relevant configurations
@@ -3774,6 +3852,11 @@
                 },
             };
         }
+        async aggregate(filter = {}) {
+            await this.loaded;
+            const res = await this.read(...arguments);
+            return new Aggregate(res);
+        }
         /**
          * Find document(s) that meets a specified criteria
          */
@@ -3793,7 +3876,7 @@
                 cursor.limit(limit);
             }
             if (project) {
-                cursor.projection(project);
+                cursor.project(project);
             }
             return await cursor.exec();
         }
@@ -3919,6 +4002,7 @@
         Persistence,
         Dictionary,
         Cache,
+        Aggregate,
     };
 
     exports.Database = Database;

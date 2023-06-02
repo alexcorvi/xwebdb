@@ -4,4 +4,6 @@ import { deserialize } from "./serialize";
 import { serialize } from "./serialize";
 import { match } from "./match";
 import { modifiersKeys, modify } from "./modify";
-export { toDotNotation, serialize, deserialize, clone, validateObject, isPrimitiveType, modify, fromDotNotation, match, compare, modifiersKeys, equal, };
+import { sort } from "./sort";
+import { project } from "./project";
+export { toDotNotation, serialize, deserialize, clone, validateObject, isPrimitiveType, modify, fromDotNotation, match, compare, modifiersKeys, equal, sort, project };
