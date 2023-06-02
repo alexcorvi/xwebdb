@@ -576,7 +576,7 @@ describe("Cursor", () => {
 				})
 			).docs[0];
 		});
-		it("Takes all results if no projection or empty object given", (done) => {
+		it("Takes all results if no project or empty object given", (done) => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
@@ -588,7 +588,7 @@ describe("Cursor", () => {
 					assert.deepEqual(docs[2], doc2);
 					assert.deepEqual(docs[3], doc1);
 					assert.deepEqual(docs[4], doc4);
-					cursor.projection({});
+					cursor.project({});
 					return cursor.exec();
 				})
 				.then((docs) => {
@@ -605,7 +605,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor.projection({
+			cursor.project({
 				age: 1,
 				name: 1,
 			});
@@ -638,7 +638,7 @@ describe("Cursor", () => {
 						_id: doc4._id,
 					});
 					// No problems if one field to take doesn't exist
-					cursor.projection({
+					cursor.project({
 						age: 1,
 						name: 1,
 						_id: 0,
@@ -672,7 +672,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor.projection({
+			cursor.project({
 				age: 0,
 				name: 0,
 			});
@@ -709,7 +709,7 @@ describe("Cursor", () => {
 						planet: "Earth",
 						_id: doc4._id,
 					});
-					cursor.projection({
+					cursor.project({
 						age: 0,
 						name: 0,
 						_id: 0,
@@ -745,7 +745,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor.projection({
+			cursor.project({
 				age: 1,
 				name: 0,
 			});
@@ -761,7 +761,7 @@ describe("Cursor", () => {
 
 			{
 				const docs = await cursor
-					.projection({
+					.project({
 						age: 1,
 						_id: 0,
 					})
@@ -774,7 +774,7 @@ describe("Cursor", () => {
 				assert.deepEqual(docs[4] as any, { age: 89 });
 			}
 			{
-				cursor.projection({
+				cursor.project({
 					age: 0,
 					toys: 0,
 					planet: 0,
@@ -804,7 +804,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor.projection({
+			cursor.project({
 				name: 0,
 				planet: 0,
 				"toys.bebe": 0,
@@ -832,7 +832,7 @@ describe("Cursor", () => {
 			const cursor = new Cursor(d, {});
 			cursor.sort({ age: 1 });
 			// For easier finding
-			cursor.projection({
+			cursor.project({
 				name: 1,
 				"toys.ballon": 1,
 				_id: 0,
