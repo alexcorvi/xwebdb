@@ -1,0 +1,26 @@
+{
+	"name": "xwebdb-kvadapter",
+	"version": "0.0.4",
+	"description": "Cloudflare KVAdapter remote sync adapter for XWebDB",
+	"main": "./kv.js",
+	"types": "./kv.ts",
+	"module": "./kv.module.js",
+	"keywords": [
+		"mongodb",
+        "cloudflare",
+        "KV",
+        "mongo",
+		"typescript",
+		"ts",
+		"database",
+		"web",
+		"serverless"
+	],
+	"homepage": "https://alex-corvi.gitbook.io/xwebdb/",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/alexcorvi/xwebdb.git"
+	},
+	"author": "Ali Saleem",
+	"license": "MIT"
+}

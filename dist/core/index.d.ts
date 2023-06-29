@@ -5,7 +5,7 @@ export { Cursor } from "./cursor";
 export { Index } from "./indexes";
 export { Persistence } from "./persistence";
 export { Q } from "./q";
-export { kvAdapter, remoteStore } from "./adapters";
+export { remoteStore, remoteAdapter } from "./adapters";
 export * as observable from "./observable";
 export { Dictionary } from "./dictionary";
 export { Cache } from "./cache";

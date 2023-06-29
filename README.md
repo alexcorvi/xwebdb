@@ -2507,26 +2507,23 @@ Conflict resolution in XWebDB follows the "latest-win" principle, prioritizing t
 To synchronize data, the database must be instantiated with a sync adapter:
 
 ```typescript
-import { Database, Doc } from "xwebdb";
-import { kvAdapter } from "xwebdb-cloudflarekv";
+import { Database } from "xwebdb";
+import { kvAdapter } from "xwebdb-kvadapter";
 
-class Person extends Doc {
-	name: string = "";
-	email: string = "";
-	age: number = 0;
-}
-
-let db = new Database<Person>({
-	ref: "myDB",
-	model: Person,
-	// sync related configurations
+const db = new Database({
 	sync: {
 		// define remote sync adapter
-		syncToRemote: kvAdapter("endpoint", "token"),
+		syncToRemote: kvAdapter("YOUR_ENDPOINT", "YOUR_TOKEN"),
 		// define an interval at which the database will
 		// automatically sync with the remote database
+        // defaults to "0" (will not sync on interval) only manually
 		syncInterval: 500,
 	},
+	
+	/// rest of database configuration
+	/// 	ref: ...
+	/// 	model:  ...
+	/// 	...etc: ...
 });
 ```
 
@@ -2653,7 +2650,7 @@ class Store implements remoteStore {
 
 ### Currently implemented adapters
 
--   [CloudflareKV](https://) (TODO)
+-   [CloudflareKV](https://www.npmjs.com/package/xwebdb-kvadapter)
 -   [S3-Compatible storage](https://) (TODO)
 -   [DynamoDB](https://) (TODO)
 -   [CouchDB](https://) (TODO)

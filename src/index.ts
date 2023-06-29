@@ -10,7 +10,7 @@ import {
 	Dictionary,
 	Cache,
 	remoteStore,
-	kvAdapter,
+	remoteAdapter,
 	Aggregate,
 } from "./core";
 import { Database } from "./database";
@@ -36,8 +36,8 @@ export {
 	Doc,
 	SubDoc,
 	mapSubModel,
-	kvAdapter,
 	_internal,
 	remoteStore,
+	remoteAdapter,
 	ObservableArray,
 };

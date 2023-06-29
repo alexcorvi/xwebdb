@@ -1,6 +1,6 @@
 {
 	"name": "xwebdb",
-	"version": "0.0.5",
+	"version": "0.0.7",
 	"description": "Strongly-typed, NoSQL, fast, light-weight, synching, Mongo-like database with built-in ODM.",
 	"main": "./dist/xwebdb.js",
 	"types": "./dist/xwebdb.d.ts",
@@ -9,7 +9,7 @@
 		"test": "test"
 	},
 	"scripts": {
-		"build": "node rollup.js"
+		"build": "node rollup.js",
 	},
 	"keywords": [
 		"mongodb",
@@ -20,12 +20,12 @@
 		"web",
 		"serverless"
 	],
-	"homepage": "https://alex-corvi.gitbook.io/xwebdb/",
+	"homepage": "https://alexcorvi.github.io/xwebdb",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/alexcorvi/xwebdb.git"
 	},
-	"author": "Alex Corvi",
+	"author": "Ali Saleem",
 	"license": "MIT",
 	"devDependencies": {
 		"@rollup/plugin-node-resolve": "^7.1.3",

@@ -1,5 +1,5 @@
-import { Q } from "../q";
-import { remoteAdapter, remoteStore } from "./type";
+import { Q } from "../../core/q";
+import { remoteAdapter, remoteStore, } from "../../core/adapters/type"
 
 const savedNS: { [endpoint: string]: { [title: string]: string } } = {};
 

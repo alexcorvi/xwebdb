@@ -1,4 +1,4 @@
-import { Persistence, Cursor, Q, customUtils, Datastore, Index, modelling, observable, Dictionary, Cache, remoteStore, kvAdapter, Aggregate } from "./core";
+import { Persistence, Cursor, Q, customUtils, Datastore, Index, modelling, observable, Dictionary, Cache, remoteStore, remoteAdapter, Aggregate } from "./core";
 import { Database } from "./database";
 import { ObservableArray } from "./core/observable";
 import { Doc, SubDoc, mapSubModel } from "./types/base-schema";
@@ -15,4 +15,4 @@ declare const _internal: {
     Cache: typeof Cache;
     Aggregate: typeof Aggregate;
 };
-export { Database, Doc, SubDoc, mapSubModel, kvAdapter, _internal, remoteStore, ObservableArray, };
+export { Database, Doc, SubDoc, mapSubModel, _internal, remoteStore, remoteAdapter, ObservableArray, };
