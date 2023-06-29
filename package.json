@@ -9,7 +9,7 @@
 		"test": "test"
 	},
 	"scripts": {
-		"build": "node rollup.js",
+		"build": "node rollup.js"
 	},
 	"keywords": [
 		"mongodb",
